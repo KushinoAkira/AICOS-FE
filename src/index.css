@@ -1,0 +1,176 @@
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,400&display=swap'); /* impeccable-disable-line overused-font */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap'); /* impeccable-disable-line overused-font */
+
+@import 'tailwindcss';
+
+@theme {
+  --color-bg-base: #FAF6F0;
+  --color-bg-warm: #F5EFE6;
+  --color-surface: #FFFFFF;
+  --color-text-primary: #3A2E22;
+  --color-text-secondary: #8A7A6C;
+  --color-espresso: #6F4E37;
+  --color-terracotta: #C97B4A;
+  --color-clay: #8B5E3C;
+  --color-olive: #7A8450;
+  --color-olive-bg: #EAEDE0;
+  --color-border: #E6DCCB;
+  --color-state-success: #5C7A52;
+  --color-state-warning: #B98A3D;
+  --color-state-danger: #A6534B;
+  --color-pending-bg: #FDEFE4;
+  --color-danger-bg: #FAE8E6;
+  --color-success-bg: #EAEDE0;
+  --color-sand: #F5E8D8;
+  --radius-card: 16px;
+  --radius-control: 10px;
+
+  --font-serif: 'Fraunces', Georgia, serif;
+  --font-sans: 'Inter', system-ui, sans-serif;
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html {
+  font-family: 'Inter', system-ui, sans-serif;
+  background-color: #FAF6F0;
+  color: #3A2E22;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+}
+
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #E6DCCB; border-radius: 999px; }
+::-webkit-scrollbar-thumb:hover { background: #C97B4A; }
+
+.font-serif { font-family: 'Fraunces', Georgia, serif; }
+.font-sans  { font-family: 'Inter', system-ui, sans-serif; }
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(0.85); }
+}
+@keyframes steam {
+  0%   { transform: translateY(0) scaleX(1); opacity: 0.7; }
+  50%  { transform: translateY(-6px) scaleX(1.15); opacity: 0.4; }
+  100% { transform: translateY(-12px) scaleX(0.9); opacity: 0; }
+}
+@keyframes fade-in {
+  /* Opacity only: a lingering transform would become the containing block of every
+     position:fixed descendant (chat button, modals) and make them scroll with the page. */
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.animate-pulse-dot { animation: pulse-dot 1.4s ease-in-out infinite; }
+.animate-steam     { animation: steam 2s ease-in-out infinite; }
+.animate-steam-delay { animation: steam 2s ease-in-out 0.6s infinite; }
+.animate-fade-in   { animation: fade-in 0.25s ease-out backwards; }
+
+/* ── Motion System A ── */
+
+/* A2.7 — staggered list row reveal: fade + 8px slide up */
+@keyframes stagger-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.stagger-item {
+  animation: stagger-up 220ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* A2.9 — skeleton shimmer */
+@keyframes shimmer {
+  0%   { background-position: -400px 0; }
+  100% { background-position: 400px 0; }
+}
+.skeleton {
+  background: linear-gradient(90deg, #EDE6DC 25%, #F5EFE6 50%, #EDE6DC 75%);
+  background-size: 800px 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+  border-radius: 8px;
+}
+
+/* A2.11 — toast slide in from top-right */
+@keyframes toast-in {
+  from { opacity: 0; transform: translateX(24px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes toast-out {
+  from { opacity: 1; transform: translateX(0); }
+  to   { opacity: 0; transform: translateX(24px); }
+}
+.toast-enter { animation: toast-in 250ms cubic-bezier(0.16, 1, 0.3, 1) both; }
+.toast-exit  { animation: toast-out 220ms cubic-bezier(0.65, 0, 0.35, 1) both; }
+
+/* A2.10 — toast progress bar shrink */
+@keyframes toast-progress {
+  from { width: 100%; }
+  to   { width: 0%; }
+}
+
+/* A2.3 — cart icon bounce */
+@keyframes cart-bounce {
+  0%   { transform: scale(1); }
+  35%  { transform: scale(1.14); }
+  65%  { transform: scale(0.97); }
+  100% { transform: scale(1); }
+}
+.cart-bounce { animation: cart-bounce 300ms cubic-bezier(0.16, 1, 0.3, 1); }
+
+/* A2.5/6 — badge count-up pop */
+@keyframes badge-pop {
+  0%   { transform: scale(1); }
+  40%  { transform: scale(1.25); }
+  100% { transform: scale(1); }
+}
+.badge-pop { animation: badge-pop 250ms cubic-bezier(0.16, 1, 0.3, 1); }
+
+/* A2.2 — modal card scale in */
+@keyframes modal-in {
+  from { opacity: 0; transform: scale(0.96); }
+  to   { opacity: 1; transform: scale(1); }
+}
+@keyframes modal-out {
+  from { opacity: 1; transform: scale(1); }
+  to   { opacity: 0; transform: scale(0.96); }
+}
+.modal-enter { animation: modal-in 250ms cubic-bezier(0.16, 1, 0.3, 1) both; }
+.modal-exit  { animation: modal-out 180ms cubic-bezier(0.65, 0, 0.35, 1) both; }
+
+/* A2.10 — button active press */
+button:active { transform: scale(0.98); }
+
+/* Accessibility: disable non-essential motion */
+@media (prefers-reduced-motion: reduce) {
+  .stagger-item, .skeleton, .toast-enter, .toast-exit,
+  .cart-bounce, .badge-pop, .modal-enter, .modal-exit {
+    animation: none !important;
+    transition: none !important;
+  }
+  .stagger-item { opacity: 1; transform: none; }
+}
+
+/* ── Public site motion ── */
+.reveal { opacity: 0; transform: translateY(18px); transition: opacity 600ms cubic-bezier(0.16, 1, 0.3, 1), transform 600ms cubic-bezier(0.16, 1, 0.3, 1); transition-delay: var(--reveal-delay, 0ms); }
+.reveal.is-visible { opacity: 1; transform: none; }
+@keyframes kenburns { from { transform: scale(1); } to { transform: scale(1.08); } }
+.kenburns { animation: kenburns 18s ease-in-out infinite alternate; }
+@keyframes float-y { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+.animate-float { animation: float-y 5s ease-in-out infinite; }
+@keyframes rise-in { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+.rise-in { animation: rise-in 700ms cubic-bezier(0.16, 1, 0.3, 1) both; animation-delay: var(--reveal-delay, 0ms); }
+.hover-lift { transition: transform 200ms ease, box-shadow 200ms ease, border-color 200ms ease; }
+.hover-lift:hover { transform: translateY(-4px); box-shadow: 0 12px 28px -14px rgb(60 40 25 / 0.35); }
+@media (prefers-reduced-motion: reduce) {
+  .reveal { opacity: 1; transform: none; transition: none; }
+  .kenburns, .animate-float, .rise-in { animation: none !important; }
+  .hover-lift, .hover-lift:hover { transition: none; transform: none; }
+}

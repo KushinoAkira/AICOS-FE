@@ -1,0 +1,12 @@
+{
+  "title": "AICOS - AI-Integrated Smart Coffee Shop Platform",
+  "description": "AICOS: nền tảng quản lý và tối ưu vận hành chuỗi quán coffee thông minh tích hợp AI - đặt món, kho, nhân sự và báo cáo cho khách hàng, nhân viên và quản lý.",
+  "language": "vi",
+  "robots": {
+    "index": false
+  },
+  "accessibility": {
+    "addBypassLinks": false,
+    "ignoreReducedMotion": false
+  }
+}

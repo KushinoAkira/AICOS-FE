@@ -1,0 +1,16 @@
+﻿{
+  "common": { "retry": "Thử lại", "loading": "Đang tải", "save": "Lưu", "cancel": "Hủy", "logout": "Đăng xuất" },
+  "auth": {
+    "title": "Chào mừng trở lại",
+    "subtitle": "Đăng nhập để bắt đầu ngày làm việc của bạn.",
+    "email": "Email hoặc tên đăng nhập",
+    "password": "Mật khẩu",
+    "submit": "Đăng nhập",
+    "forgot": "Quên mật khẩu?",
+    "wrongCredentials": "Email hoặc mật khẩu không đúng.",
+    "locked": "Tài khoản bị khóa tạm do đăng nhập sai nhiều lần. Thử lại sau {{time}}.",
+    "network": "Không thể kết nối máy chủ. Kiểm tra mạng rồi thử lại.",
+    "demo": "Đăng nhập nhanh tài khoản demo"
+  },
+  "errors": { "forbiddenTitle": "Bạn không có quyền truy cập", "forbiddenBody": "Trang này dành cho vai trò khác.", "notFoundTitle": "Không tìm thấy trang", "notFoundBody": "Đường dẫn không tồn tại hoặc đã bị di chuyển.", "home": "Về trang chủ" }
+}

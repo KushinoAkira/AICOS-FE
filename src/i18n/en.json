@@ -1,0 +1,16 @@
+﻿{
+  "common": { "retry": "Retry", "loading": "Loading", "save": "Save", "cancel": "Cancel", "logout": "Sign out" },
+  "auth": {
+    "title": "Welcome back",
+    "subtitle": "Sign in to start your working day.",
+    "email": "Email or username",
+    "password": "Password",
+    "submit": "Sign in",
+    "forgot": "Forgot password?",
+    "wrongCredentials": "Wrong email or password.",
+    "locked": "Account temporarily locked after too many attempts. Try again in {{time}}.",
+    "network": "Cannot reach the server. Check your connection and retry.",
+    "demo": "Quick sign-in (demo accounts)"
+  },
+  "errors": { "forbiddenTitle": "You do not have access", "forbiddenBody": "This page is for another role.", "notFoundTitle": "Page not found", "notFoundBody": "The link does not exist or was moved.", "home": "Back to home" }
+}

@@ -1,0 +1,54 @@
+{
+  "name": "aicos-web",
+  "description": "AICOS - AI-Integrated Smart Coffee Shop Platform (React web: customer, cashier, warehouse, manager, admin)",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "design:lint": "npm exec --yes --package=@google/design.md -- designmd lint DESIGN.md",
+    "design:export": "node -e \"require('fs').mkdirSync('exports',{recursive:true})\" && npm exec --yes --package=@google/design.md -- designmd export --format css-tailwind DESIGN.md > exports/theme.css && npm exec --yes --package=@google/design.md -- designmd export --format dtcg DESIGN.md > exports/tokens.json",
+    "design:sync": "node -e \"const fs=require('fs');fs.mkdirSync('.agents/context',{recursive:true});fs.copyFileSync('DESIGN.md','.agents/context/DESIGN.md');console.log('Synced DESIGN.md -> .agents/context/')\"",
+    "impeccable:detect": "node .cursor/skills/impeccable/scripts/detect.mjs src",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "format": "oxfmt",
+    "test": "vitest run",
+    "lint": "eslint src",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@microsoft/signalr": "^10.0.11",
+    "@tanstack/react-query": "^5.104.5",
+    "i18next": "^26.5.5",
+    "msw": "^3.0.3",
+    "qrcode.react": "^4.2.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "react-i18next": "^17.1.1",
+    "react-router": "^8.4.0",
+    "recharts": "^3.10.1",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.64.1",
+    "@tailwindcss/vite": "^4.0.0",
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^6.0.0",
+    "eslint": "^10.13.0",
+    "oxfmt": "^0.2.0",
+    "tailwindcss": "^4.0.0",
+    "typescript": "^5.7.0",
+    "typescript-eslint": "^8.72.0",
+    "vite": "^8.0.5",
+    "vitest": "^5.0.5"
+  },
+  "msw": {
+    "workerDirectory": [
+      "public"
+    ]
+  }
+}

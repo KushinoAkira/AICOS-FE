@@ -1,0 +1,84 @@
+import { http } from "./http"
+import type { Product } from "./brand"
+import type { OrderStatus, PaymentStatus } from "../orderStateMachine"
+
+export interface OrderLine {
+  productId: string
+  name: string
+  size: string
+  sugar: string
+  ice: string
+  qty: number
+  unitPrice: number
+  note: string
+}
+export interface LineInput { productId: string; size: string; sugar: string; ice: string; qty: number; note: string }
+
+export interface Order {
+  id: string
+  code: string
+  tableId: string
+  tableCode: string
+  channel: "dine-in" | "takeaway"
+  status: OrderStatus
+  paymentStatus: PaymentStatus
+  lines: OrderLine[]
+  total: number
+  createdAtUtc: string
+  reason?: string
+  source: "qr" | "pos" | "web"
+  paidAmount: number
+  refundedAmount: number
+  paymentMethod?: "cash" | "online"
+  pickupSlot?: string
+  customerId?: string
+  /** Set when the cashier completes the table: only then does a dine-in order enter the customer's history. */
+  completedAtUtc?: string
+}
+
+export interface PickupInfo { open: string; close: string; slotMinutes: number; cutoffMinutes: number; capacityPerSlot: number }
+export interface PickupCheck { ok: boolean; remaining: number; message: string | null }
+export type ProviderStatus = "Success" | "Failed" | "Pending"
+export type PayOutcome = "success" | "failed" | "lost"
+
+export interface TableRow {
+  id: string
+  code: string
+  seats: number
+  qrToken: string
+  billRequested: boolean
+  /** Unpaid orders of the open table session; empty means the table is empty (derived, never stored). */
+  orders: Order[]
+}
+
+export interface GuestMenu {
+  branchName: string
+  tableCode: string
+  products: (Product & { soldOut: boolean; price: number })[]
+}
+
+const B = "/api/v1/ordering"
+export const ordersApi = {
+  tables: () => http.get<TableRow[]>(`${B}/tables`),
+  addTable: (b: { code: string; seats: number }) => http.post<TableRow>(`${B}/tables`, b),
+  orders: () => http.get<Order[]>(`${B}/orders`),
+  transition: (id: string, b: { status: OrderStatus; reason?: string }) => http.post<Order>(`${B}/orders/${id}/status`, b),
+  place: (tableId: string, lines: LineInput[]) => http.post<Order>(`${B}/orders`, { tableId, lines }),
+  completeTable: (tableId: string) => http.post<{ completed: number }>(`${B}/tables/${tableId}/complete`),
+  payTable: (tableId: string, b: { method: "cash"; received: number }) => http.post<{ change: number }>(`${B}/tables/${tableId}/pay`, b),
+  guest: (token: string) => http.get<GuestMenu>(`${B}/guest/${token}`),
+  guestPlace: (token: string, lines: LineInput[]) => http.post<Order>(`${B}/guest/${token}/orders`, { lines }),
+  guestOrders: (token: string) => http.get<Order[]>(`${B}/guest/${token}/orders`),
+  takeawayMenu: (branchId: string) => http.get<GuestMenu>(`${B}/takeaway/menu?branchId=${branchId}`),
+  pickupInfo: (branchId: string) => http.get<PickupInfo>(`${B}/takeaway/info?branchId=${branchId}`),
+  pickupCheck: (branchId: string, at: string) => http.get<PickupCheck>(`${B}/takeaway/check?branchId=${branchId}&at=${encodeURIComponent(at)}`),
+  placeTakeaway: (b: { branchId: string; slot: string; lines: LineInput[] }) => http.post<Order>(`${B}/takeaway`, b),
+  /** Real mode: backend returns a provider redirect URL instead; this call simulates the provider callback. */
+  payOnline: (id: string, outcome: PayOutcome) => http.post<Order>(`${B}/orders/${id}/pay-online`, { outcome }),
+  mine: () => http.get<Order[]>(`${B}/mine`),
+  cancelMine: (id: string) => http.post<Order>(`${B}/orders/${id}/cancel`, {}),
+  payments: () => http.get<Order[]>(`${B}/payments`),
+  lookup: (id: string) => http.post<{ providerStatus: ProviderStatus; order: Order }>(`${B}/orders/${id}/payment-lookup`, {}),
+  refund: (id: string, b: { amount: number; reason: string }) => http.post<Order>(`${B}/orders/${id}/refund`, b),
+  requestBill: (token: string) => http.post<{ ok: true }>(`${B}/guest/${token}/bill`, {}),
+}

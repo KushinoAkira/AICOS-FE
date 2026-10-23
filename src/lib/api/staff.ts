@@ -1,0 +1,38 @@
+import { http } from "./http"
+
+export type Period = "morning" | "afternoon"
+export const PERIOD_LABEL: Record<Period, string> = { morning: "Ca sáng (07:00-14:30)", afternoon: "Ca chiều (14:30-22:00)" }
+
+export interface Shift { id: string; date: string; period: Period; userId: string; userName: string; branchId: string; checkInAtUtc: string | null; checkOutAtUtc: string | null }
+export interface Applicant { userId: string; name: string; branchName: string }
+export interface Replacement { id: string; shift: Shift; reason: string; status: "open" | "filled"; applicants: Applicant[]; filledBy?: string; applied: boolean }
+export interface CashClosing { id: string; date: string; userName: string; expected: number; counted: number; variance: number; reason: string }
+
+export interface LoyaltyVoucher { id: string; code: string; title: string; value: number; expiresAtUtc: string }
+export interface LoyaltyMe { points: number; tier: string; nextTier: string | null; pointsToNext: number; redeemPoints: number; vouchers: LoyaltyVoucher[]; history: { id: string; delta: number; reason: string; atUtc: string }[] }
+export interface Notice { id: string; title: string; body: string; atUtc: string; read: boolean }
+
+const S = "/api/v1/staff"
+export const staffApi = {
+  shifts: (from: string) => http.get<Shift[]>(`${S}/shifts?from=${from}`),
+  assign: (b: { date: string; period: Period; userId: string }) => http.post<Shift>(`${S}/shifts`, b),
+  unassign: (id: string) => http.delete<{ ok: true }>(`${S}/shifts/${id}`),
+  myShifts: () => http.get<Shift[]>(`${S}/my-shifts`),
+  checkIn: (id: string) => http.post<Shift>(`${S}/shifts/${id}/check-in`, {}),
+  checkOut: (id: string) => http.post<Shift>(`${S}/shifts/${id}/check-out`, {}),
+  replacements: () => http.get<Replacement[]>(`${S}/replacements`),
+  openReplacement: (b: { shiftId: string; reason: string }) => http.post<Replacement>(`${S}/replacements`, b),
+  apply: (id: string) => http.post<Replacement>(`${S}/replacements/${id}/apply`, {}),
+  approve: (id: string, userId: string) => http.post<Replacement>(`${S}/replacements/${id}/approve`, { userId }),
+  cashExpected: () => http.get<{ expected: number; closed: boolean }>(`${S}/cash/expected`),
+  cashClosings: () => http.get<CashClosing[]>(`${S}/cash/closings`),
+  closeCash: (b: { counted: number; reason: string }) => http.post<CashClosing>(`${S}/cash/close`, b),
+}
+export const loyaltyApi = {
+  me: () => http.get<LoyaltyMe>("/api/v1/loyalty/me"),
+  redeem: () => http.post<LoyaltyMe>("/api/v1/loyalty/redeem", {}),
+}
+export const noticeApi = {
+  mine: () => http.get<Notice[]>("/api/v1/notifications/mine"),
+  readAll: () => http.post<{ ok: true }>("/api/v1/notifications/read-all", {}),
+}

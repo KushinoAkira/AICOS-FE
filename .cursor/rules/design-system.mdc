@@ -1,0 +1,33 @@
+---
+description: Tuân thủ design system AICOS (Warm Roast) và Impeccable khi tạo/sửa UI
+globs: "src/**/*.{css,tsx,ts}"
+alwaysApply: false
+---
+
+# Design System AICOS
+
+## Nguồn sự thật
+
+| File | Vai trò |
+|------|---------|
+| `PRODUCT.md` | Người dùng (5 vai trò), mục đích, brand, anti-reference |
+| `DESIGN.md` | Design tokens (Google DESIGN.md format) - bản canonical |
+| `.agents/context/DESIGN.md` | Bản sao cho Impeccable - tạo bằng `pnpm design:sync` |
+| `src/index.css` (`@theme`) | Tokens dưới dạng Tailwind v4; phải khớp `DESIGN.md` |
+
+## Quy tắc
+
+1. Đọc `PRODUCT.md` + `DESIGN.md` trước khi viết UI.
+2. Không hardcode màu/font ngoài tokens (espresso, terracotta, cream, Fraunces + Inter). Cần màu mới thì thêm vào `DESIGN.md` và `@theme` trước.
+3. Sau khi sửa tokens: `pnpm design:lint` rồi `pnpm design:sync`.
+4. Tránh "AI slop": không gradient tím/xanh, không card lồng card, không bounce easing, không màu thuần đen, không báo trạng thái chỉ bằng màu.
+5. Nội dung giao diện bằng tiếng Việt, ngắn gọn; output của AI luôn có nhãn và cho phép bỏ qua.
+6. Tôn trọng `prefers-reduced-motion`; vùng chạm tối thiểu 44px ở màn hình khách hàng và POS.
+
+## Impeccable (trong Cursor)
+
+- `/impeccable audit` - a11y, hiệu năng, responsive
+- `/impeccable polish` - rà soát cuối trước khi ship
+- `/impeccable critique` - đánh giá UX
+
+CLI: `pnpm impeccable:detect`. Hook `.cursor/hooks.json` chặn các thay đổi UI vi phạm trước khi ghi; tắt bằng `/impeccable hooks off`.

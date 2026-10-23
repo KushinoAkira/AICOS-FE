@@ -1,0 +1,45 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [
+      "ExtentionProject(donotpush)/**",
+      ".cursor/skills/impeccable/**",
+      "src/imports/**",
+      "dist/**"
+    ],
+    "ignoreValues": [
+      {
+        "rule": "overused-font",
+        "value": "inter",
+        "reason": "Intentional body/data font per DESIGN.md (dense dashboards, Vietnamese support)"
+      },
+      {
+        "rule": "overused-font",
+        "value": "fraunces",
+        "reason": "Intentional headline serif per DESIGN.md"
+      },
+      {
+        "rule": "overused-font",
+        "value": "google fonts: inter",
+        "reason": "Intentional body font per DESIGN.md",
+        "createdAt": "2026-10-13T03:07:00.253Z"
+      },
+      {
+        "rule": "overused-font",
+        "value": "google fonts: fraunces",
+        "reason": "Intentional headline font per DESIGN.md",
+        "createdAt": "2026-10-13T03:07:00.332Z"
+      }
+    ],
+    "designSystem": {
+      "enabled": true
+    }
+  },
+  "hook": {
+    "enabled": true,
+    "limits": {
+      "maxFindings": 5,
+      "maxChars": 8000
+    }
+  }
+}

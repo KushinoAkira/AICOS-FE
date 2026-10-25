@@ -28,23 +28,15 @@ Backend today still issues legacy roles (`SystemAdmin`, `Manager`, `WarehouseSta
 
 Types live in `src/lib/api/platform.ts`.
 
-## Đăng ký thương hiệu công khai (UC-05, self-service)
+## Cấp thương hiệu (UC-05) và bảng giá công khai
 
-Frontend: `/` (landing), `/register-brand`. Hiện chạy bằng mock (MSW); backend cần bổ sung. Tất cả endpoint dưới đây là **anonymous**.
+Theo proposal v2, thương hiệu do **Super Admin** tạo (/platform/tenants, kèm Brand Admin đầu tiên); FE **không** có luồng chủ quán tự đăng ký. Trang chủ (/) chỉ giới thiệu, dẫn tới /contact để liên hệ tư vấn.
 
 | Method | Path | Body | Trả về | Ghi chú |
 |---|---|---|---|---|
-| GET | `/api/v1/public/plans` | - | `Plan[]` | Bảng giá hiển thị ở landing và bước chọn gói |
-| POST | `/api/v1/public/brand-registrations` | `{ name, slug, planId, ownerName, ownerEmail, ownerPhone }` | `{ registrationId }` | 409 `slug_taken` / `email_taken`; 422 thiếu thông tin. Gửi mã 6 số tới `ownerEmail` |
-| POST | `/api/v1/public/brand-registrations/{id}/verify` | `{ code }` | `{ status: "Pending" }` | Đúng mã mới tạo tenant `Pending`; 422 sai mã; 429 sai quá 5 lần |
-| POST | `/api/v1/public/brand-registrations/{id}/resend` | `{}` | `{ sent: true }` | Gửi lại mã (nên giới hạn tần suất) |
+| GET | `/api/v1/public/plans` | - | `Plan[]` | Bảng giá hiển thị ở landing |
 
-Super Admin duyệt qua endpoint sẵn có `PATCH /api/v1/platform/tenants/{id}/status`:
-- `Tenant.status` mở rộng: `Pending | Active | Suspended | Closed | Rejected`.
-- `Pending -> Active` (duyệt): tạo subscription dùng thử 14 ngày, gửi email mời đặt mật khẩu cho Brand Admin đầu tiên.
-- `Pending -> Rejected` bắt buộc `reason`; lý do gửi qua email cho chủ quán.
-- `Tenant` có thêm `applicantName`, `applicantEmail`, `applicantPhone`, `rejectReason` (chỉ có với thương hiệu tự đăng ký).
-- Mock: mã xác nhận demo cố định `123456`.
+Tạo thương hiệu: `POST /api/v1/platform/tenants` (SuperAdmin) kèm `firstAdmin`; BE gửi email mời đặt mật khẩu.
 
 ## Trang đăng nhập theo thương hiệu (subdomain)
 
@@ -67,3 +59,12 @@ Yêu cầu backend:
 | Method | Path | Ghi chú |
 |---|---|---|
 | POST | `/api/v1/public/contact` | Anonymous. Body `{ name, email, phone?, topic: demo\|pricing\|support\|other, message }`. 200 `{ received: true }`, 422 nếu thiếu dữ liệu. Backend cần gửi mail cho đội hỗ trợ và chống spam (rate limit, captcha) |
+
+## AI service (Backend/ai-models, base `VITE_AI_BASE_URL`, default `http://localhost:8090/api/v1/ai`)
+| Method | Path | Body | Response |
+|---|---|---|---|
+| POST | `/chat` | `{message, history: productId[]}` | `{reply, suggestions[{productId,name,price,reason,score}], route{intent,confidence,llm,retrieval,latency_ms}, handoff}` |
+| POST | `/chat/stream` | same | SSE |
+| POST | `/recommendations` | `{history: productId[], k}` | `{items[{productId,name,price,reason,score}]}` |
+| POST | `/feedback/analyze` | `{texts: string[]}` | `{available, items[{sentiment,confidence,aspects,aspectLabels}], model}` |
+Note: the service currently uses its demo menu ids (`p01`..); align with real menu ids when the BE menu is final.

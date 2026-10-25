@@ -1,4 +1,4 @@
-import type { ReactNode } from "react"
+﻿import type { ReactNode } from "react"
 import { Logo } from "./AuthShell"
 import CustomerUserMenu from "./CustomerUserMenu"
 import { AiChat } from "./AiChat"
@@ -7,6 +7,7 @@ import type { Page } from "../router/pages"
 const LINKS: { page: Page; label: string }[] = [
   { page: "customer-menu", label: "Đặt mang đi" },
   { page: "customer-tracking", label: "Đơn của tôi" },
+  { page: "customer-for-you", label: "Gợi ý" },
   { page: "customer-feedback", label: "Đánh giá" },
   { page: "customer-loyalty", label: "Tích điểm" },
   { page: "customer-notifications", label: "Thông báo" },

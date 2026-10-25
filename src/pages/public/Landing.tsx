@@ -5,24 +5,16 @@ import { useLocation } from "react-router"
 import { PublicPage } from "../../components/PublicChrome"
 import { Reveal } from "../../components/Reveal"
 import { FaqSection, FinalCta, RolesSection } from "./LandingSections"
+import { FEATURES } from "./landingContent"
 import { Button } from "../../components/ui"
 import { formatVND } from "../../lib/format"
 import { publicApi } from "../../lib/api/platform"
 
 const HERO_IMG = "https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?w=1800&q=70&auto=format&fit=crop"
 
-const FEATURES = [
-  { title: "Gọi món bằng QR tại bàn", body: "Khách quét mã trên bàn, chọn món và gửi thẳng tới quầy pha chế. Không cần tải ứng dụng hay tạo tài khoản." },
-  { title: "Đặt mang đi hẹn giờ", body: "Khách chọn giờ nhận trong giờ mở cửa, thanh toán online và nhận món đúng hẹn." },
-  { title: "Quầy pha chế theo thời gian thực", body: "Đơn mới hiện ngay cho barista, cập nhật trạng thái từng bước tới khi món sẵn sàng." },
-  { title: "Thu ngân và đối soát", body: "Tính tiền theo bàn, tra cứu giao dịch, hoàn tiền và chốt tiền mặt cuối ca có lý do khi lệch." },
-  { title: "Nhiều chi nhánh, nhiều nhân sự", body: "Phân quyền theo vai trò, xếp ca, chấm công và tìm người thay ca giữa các chi nhánh." },
-  { title: "Tích điểm và khuyến mãi", body: "Khách thân thiết tích điểm, đổi voucher. Chủ quán tự cấu hình mức tích và chương trình ưu đãi." },
-]
-
 const STEPS = [
-  { n: "1", title: "Đăng ký thương hiệu", body: "Điền thông tin quán, chọn gói và xác nhận email. Mất chưa đến 3 phút." },
-  { n: "2", title: "Chờ chúng tôi duyệt", body: "Đội ngũ AICOS xem xét đăng ký và gửi email mời đặt mật khẩu cho chủ quán." },
+  { n: "1", title: "Liên hệ tư vấn", body: "Cho AICOS biết quy mô và nhu cầu của quán để chọn gói phù hợp." },
+  { n: "2", title: "AICOS tạo thương hiệu", body: "Đội ngũ AICOS tạo thương hiệu và gửi email mời đặt mật khẩu cho chủ quán." },
   { n: "3", title: "Thiết lập và bán hàng", body: "Tạo chi nhánh, sơ đồ bàn và mã QR, nhập thực đơn, mời nhân viên rồi mở bán." },
 ]
 
@@ -42,10 +34,10 @@ export default function Landing({ navigate }: { navigate: (p: Page) => void }) {
             <h1 className="rise-in max-w-3xl font-serif text-4xl leading-tight sm:text-6xl" style={{ "--reveal-delay": "100ms" } as CSSProperties}>Bán hàng, pha chế và quản lý chuỗi cà phê trên một nền tảng</h1>
             <p className="rise-in mt-5 max-w-2xl text-lg text-white/80" style={{ "--reveal-delay": "200ms" } as CSSProperties}>Khách gọi món bằng điện thoại, quầy pha chế nhận đơn tức thì, thu ngân đối soát gọn gàng và chủ quán nắm số liệu của mọi chi nhánh.</p>
             <div className="rise-in mt-8 flex flex-wrap gap-3" style={{ "--reveal-delay": "300ms" } as CSSProperties}>
-              <Button className="min-h-12 px-6" onClick={() => navigate("brand-register")}>Đăng ký quán của bạn</Button>
+              <Button className="min-h-12 px-6" onClick={() => navigate("contact")}>Liên hệ để dùng thử</Button>
               <Button variant="secondary" className="min-h-12 px-6" onClick={() => navigate("login")}>Tôi đã có tài khoản</Button>
             </div>
-            <p className="rise-in mt-4 text-sm text-white/70" style={{ "--reveal-delay": "400ms" } as CSSProperties}>Dùng thử 14 ngày sau khi được duyệt. Không cần thẻ thanh toán.</p>
+            <p className="rise-in mt-4 text-sm text-white/70" style={{ "--reveal-delay": "400ms" } as CSSProperties}>AICOS tạo tài khoản quản trị cho thương hiệu của bạn sau khi tư vấn. Dùng thử 14 ngày, không cần thẻ thanh toán.</p>
           </div>
         </section>
         <section id="tinh-nang" className="border-y border-border bg-surface py-14">
@@ -96,7 +88,7 @@ export default function Landing({ navigate }: { navigate: (p: Page) => void }) {
                       <li>Tối đa {p.maxUsers} tài khoản nhân viên</li>
                       <li>QR gọi món, đặt mang đi, tích điểm</li>
                     </ul>
-                    <Button variant={i === 1 ? "primary" : "secondary"} className="mt-6 min-h-11 w-full" onClick={() => navigate("brand-register")}>Chọn gói {p.name}</Button>
+                    <Button variant={i === 1 ? "primary" : "secondary"} className="mt-6 min-h-11 w-full" onClick={() => navigate("contact")}>Liên hệ về gói {p.name}</Button>
                   </Reveal>
                 ))}
               </ul>
@@ -104,8 +96,8 @@ export default function Landing({ navigate }: { navigate: (p: Page) => void }) {
           </div>
         </section>
 
-        <FaqSection />
-        <FinalCta onRegister={() => navigate("brand-register")} onContact={() => navigate("contact")} />
+        <FaqSection plans={plans.data ?? []} />
+        <FinalCta onContact={() => navigate("contact")} />
 
         <section className="mx-auto max-w-6xl px-4 pb-14 sm:px-8">
           <div className="rounded-[20px] bg-sand p-6 sm:flex sm:items-center sm:justify-between sm:p-8">

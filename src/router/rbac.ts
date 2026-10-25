@@ -20,7 +20,6 @@ const BRAND_AND_BRANCH: Role[] = ["brandAdmin", "branchManager"]
 
 export const PAGE_ACCESS: Record<Page, Access> = {
   landing: "public",
-  "brand-register": "public",
   terms: "public",
   privacy: "public",
   contact: "public",
@@ -39,6 +38,7 @@ export const PAGE_ACCESS: Record<Page, Access> = {
   "customer-tracking": CUSTOMER,
   "customer-loyalty": CUSTOMER,
   "customer-feedback": CUSTOMER,
+  "customer-for-you": CUSTOMER,
   "customer-notifications": CUSTOMER,
   "customer-profile": CUSTOMER,
 
@@ -61,6 +61,7 @@ export const PAGE_ACCESS: Record<Page, Access> = {
 
   "manager-menu": BRAND_AND_BRANCH,
   "manager-reports": BRAND_AND_BRANCH,
+  "manager-feedback": BRAND_AND_BRANCH,
 
   "brand-dashboard": BA,
   "brand-profile": BA,
@@ -104,4 +105,4 @@ export function canAccess(page: Page, role: Role | null): boolean {
 export const isPublicPage = (page: Page) => PAGE_ACCESS[page] === "public"
 
 /** Public pages a signed-in user should not see again (they are bounced to their home page). */
-export const GUEST_ONLY_PAGES: Page[] = ["landing", "brand-register", "login", "auth-customer-login", "auth-customer-register"]
+export const GUEST_ONLY_PAGES: Page[] = ["landing", "login", "auth-customer-login", "auth-customer-register"]

@@ -1,4 +1,4 @@
-import { HttpResponse, delay, http } from "msw"
+﻿import { HttpResponse, delay, http } from "msw"
 import type { AiReply, Feedback } from "../../lib/api/engage"
 import * as bdb from "./brandDb"
 import * as odb from "./orderDb"
@@ -7,7 +7,15 @@ const problem = (status: number, title: string, headers?: Record<string, string>
 const ok = <T,>(b: T) => HttpResponse.json(b as never)
 const customerOf = (req: Request) => req.headers.get("authorization")?.replace("Bearer mock-", "") ?? "anon"
 
-const feedback: (Feedback & { customerId: string })[] = []
+const seed = (id: string, rating: number, comment: string, ago: number): Feedback & { customerId: string } => ({
+  id, orderId: `seed-${id}`, orderCode: `AI-${id.toUpperCase()}`, rating, comment, createdAtUtc: new Date(Date.now() - ago * 3_600_000).toISOString(), customerId: "seed",
+})
+const feedback: (Feedback & { customerId: string })[] = [
+  seed("s1", 5, "Latte béo thơm, bạn pha chế dễ thương lắm", 3),
+  seed("s2", 5, "Nước ngon nhưng chờ 25 phút mới có, chắc không quay lại", 20),
+  seed("s3", 2, "Nhân viên thái độ khó chịu, ly nước thì nhạt", 30),
+  seed("s4", 4, "Quán sạch, nhạc êm, ngồi làm việc rất ổn", 48),
+]
 const hits: number[] = []
 const LIMIT = 8
 
@@ -26,7 +34,23 @@ function reply(message: string): AiReply {
 }
 
 export const engageHandlers = [
-  http.post("*/api/v1/ai/chat", async ({ request }) => {
+  http.post("*/api/v1/ai/recommendations", async ({ request }) => {
+    await delay(300)
+    const { k = 5 } = (await request.json()) as { history?: string[]; k?: number }
+    const live = bdb.products.filter((p) => p.published && !p.soldOutAt.includes(odb.BRANCH_ID))
+    return ok({ items: live.slice(0, k).map((p, i) => ({ productId: p.id, name: p.name, price: p.branchPrices[odb.BRANCH_ID] ?? p.basePrice, reason: "Hợp với những món bạn hay gọi", score: 0.95 - i * 0.1 })) })
+  }),
+  http.post("*/api/v1/ai/feedback/analyze", async ({ request }) => {
+    const { texts } = (await request.json()) as { texts: string[] }
+    const topics: [RegExp, string][] = [[/nước|latte|cà phê|trà|ngon|nhạt/i, "Đồ uống"], [/nhân viên|bạn pha|thái độ/i, "Phục vụ"], [/chờ|lâu|nhanh|chậm/i, "Tốc độ"], [/quán|nhạc|sạch|ngồi/i, "Không gian"], [/giá|voucher/i, "Giá cả"]]
+    return ok({
+      available: true, model: "mock",
+      items: texts.map((t) => {
+        const aspectLabels = topics.filter(([re]) => re.test(t)).map(([, label]) => label)
+        return { sentiment: /tệ|chậm|dở|lâu|nhạt|khó chịu|không quay lại/i.test(t) ? "NEGATIVE" : "POSITIVE", confidence: 0.9, aspects: aspectLabels, aspectLabels }
+      }),
+    })
+  }),  http.post("*/api/v1/ai/chat", async ({ request }) => {
     await delay(700)
     const now = Date.now()
     while (hits.length && now - hits[0] > 60_000) hits.shift()
@@ -41,6 +65,7 @@ export const engageHandlers = [
     const me = customerOf(request)
     return ok(odb.orders.filter((o) => o.customerId === me && o.status === "PickedUp" && !feedback.some((f) => f.orderId === o.id)).reverse())
   }),
+  http.get("*/api/v1/feedback/branch", () => ok([...feedback].reverse().map(({ customerId: _c, ...f }) => f))),
   http.get("*/api/v1/feedback/mine", ({ request }) => ok(feedback.filter((f) => f.customerId === customerOf(request)).reverse())),
   http.post("*/api/v1/feedback", async ({ request }) => {
     const b = (await request.json()) as { orderId: string; rating: number; comment: string }

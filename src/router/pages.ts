@@ -4,7 +4,6 @@
  */
 export const PAGE_PATHS = {
   landing: "/",
-  "brand-register": "/register-brand",
   terms: "/terms",
   privacy: "/privacy",
   contact: "/contact",
@@ -27,6 +26,7 @@ export const PAGE_PATHS = {
   "customer-tracking": "/orders",
   "customer-loyalty": "/loyalty",
   "customer-feedback": "/feedback",
+  "customer-for-you": "/for-you",
   "customer-notifications": "/notifications",
   "customer-profile": "/profile",
 
@@ -53,6 +53,7 @@ export const PAGE_PATHS = {
   // Shared Brand Admin + Branch Manager (scope follows the role)
   "manager-menu": "/menu-management",
   "manager-reports": "/reports",
+  "manager-feedback": "/branch/feedback",
 
   // Brand Admin
   "brand-dashboard": "/brand/dashboard",

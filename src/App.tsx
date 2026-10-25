@@ -18,7 +18,6 @@ export type { Page } from "./router/pages"
 
 // Every screen is its own chunk: a cashier never downloads the admin screens.
 const Landing = lazy(() => import("./pages/public/Landing"))
-const BrandRegister = lazy(() => import("./pages/public/BrandRegister"))
 const Contact = lazy(() => import("./pages/public/Contact"))
 const Terms = lazy(() => import("./pages/public/Legal").then((m) => ({ default: m.Terms })))
 const Privacy = lazy(() => import("./pages/public/Legal").then((m) => ({ default: m.Privacy })))
@@ -32,6 +31,7 @@ const AccountSettings = lazy(() => import("./pages/shared/AccountSettings"))
 
 const CustomerMenu = lazy(() => import("./pages/customer/Takeaway"))
 const CustomerFeedback = lazy(() => import("./pages/customer/Feedback"))
+const CustomerForYou = lazy(() => import("./pages/customer/ForYou"))
 const CustomerLoyalty = lazy(() => import("./pages/customer/Loyalty"))
 const CustomerNotifications = lazy(() => import("./pages/customer/Notifications"))
 const BranchSchedule = lazy(() => import("./pages/brand/Schedule"))
@@ -64,6 +64,7 @@ const CashierShifts = lazy(() => import("./pages/cashier/Shifts"))
 
 const ManagerDashboard = lazy(() => import("./pages/manager/Dashboard"))
 const ManagerReports = lazy(() => import("./pages/manager/Reports"))
+const ManagerFeedback = lazy(() => import("./pages/manager/Feedback"))
 const ManagerEmployees = lazy(() => import("./pages/manager/Employees"))
 const ManagerPayroll = lazy(() => import("./pages/manager/Payroll"))
 const ManagerPayrollDetail = lazy(() => import("./pages/manager/PayrollDetail"))
@@ -118,7 +119,6 @@ export default function App() {
 
   const screens: Record<Page, ReactElement> = {
     landing: <Landing navigate={navigate} />,
-    "brand-register": <BrandRegister navigate={navigate} />,
     terms: <Terms navigate={navigate} />,
     privacy: <Privacy navigate={navigate} />,
     contact: <Contact navigate={navigate} />,
@@ -137,6 +137,7 @@ export default function App() {
     "customer-tracking": <CustomerOrderTracking navigate={navigate} />,
     "customer-loyalty": <CustomerLoyalty navigate={navigate} />,
     "customer-feedback": <CustomerFeedback navigate={navigate} />,
+    "customer-for-you": <CustomerForYou navigate={navigate} />,
     "customer-notifications": <CustomerNotifications navigate={navigate} />,
     "customer-profile": <CustomerProfile navigate={navigate} />,
 
@@ -159,6 +160,7 @@ export default function App() {
 
     "manager-menu": <ManagerMenuManagement navigate={navigate} />,
     "manager-reports": <ManagerReports navigate={navigate} />,
+    "manager-feedback": <ManagerFeedback navigate={navigate} />,
 
     "brand-dashboard": <ManagerDashboard navigate={navigate} scope="brand" />,
     "brand-profile": <BrandProfile navigate={navigate} />,

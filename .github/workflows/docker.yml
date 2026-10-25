@@ -1,0 +1,85 @@
+name: Docker image
+
+on:
+  push:
+    branches: [main]
+    paths: ["src/**", "docker/**", "docker-compose.yml", "package.json", "pnpm-lock.yaml", "index.html", ".github/workflows/docker.yml"]
+  pull_request:
+    paths: ["src/**", "docker/**", "docker-compose.yml", "package.json", "pnpm-lock.yaml", "index.html"]
+
+concurrency:
+  group: docker-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  image:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      packages: write
+      security-events: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/aicos-web
+          tags: |
+            type=sha,format=short
+            type=ref,event=branch
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/Dockerfile
+          build-args: |
+            VITE_USE_MOCK=true
+          load: true
+          tags: aicos/web:scan
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: aicos/web:scan
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+          format: sarif
+          output: trivy-web.sarif
+      - uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: trivy-web.sarif
+          category: trivy-web
+      - name: Smoke test
+        run: |
+          docker run -d --name web -p 8088:8080 aicos/web:scan
+          for i in $(seq 1 20); do
+            curl -fsS http://127.0.0.1:8088/healthz && exit 0
+            sleep 2
+          done
+          docker logs web
+          exit 1
+      - uses: docker/login-action@v3
+        if: github.event_name == 'push'
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        if: github.event_name == 'push'
+        with:
+          context: .
+          file: docker/Dockerfile
+          build-args: |
+            VITE_USE_MOCK=true
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          sbom: true
+          provenance: mode=max
+          cache-from: type=gha

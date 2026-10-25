@@ -4,6 +4,7 @@
   "private": true,
   "version": "1.0.0",
   "type": "module",
+  "packageManager": "pnpm@10.15.0",
   "scripts": {
     "dev": "vite",
     "design:lint": "npm exec --yes --package=@google/design.md -- designmd lint DESIGN.md",

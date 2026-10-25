@@ -1,0 +1,12 @@
+title = "AICOS-FE"
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Local demo placeholders that are not live credentials"
+paths = [
+  '''(?i)docs/''',
+]
+regexes = [
+  '''VITE_DEV_ROLE_OVERRIDES''',
+]

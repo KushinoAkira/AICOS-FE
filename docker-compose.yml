@@ -1,0 +1,37 @@
+# AICOS web, served by unprivileged nginx.
+#   docker compose up --build          # http://127.0.0.1:8088  (talks to a local gateway on :8080)
+#   VITE_USE_MOCK=true docker compose up --build   # demo without the backend
+#
+# This file does not start the .NET stack. From Backend/:
+#   docker compose -f docker-compose.yml -f ai-models/compose.yml up -d
+
+services:
+  web:
+    image: aicos/web:${WEB_TAG:-dev}
+    container_name: aicos-web
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      args:
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8080/api/v1}
+        VITE_USE_MOCK: ${VITE_USE_MOCK:-false}
+        VITE_AI_BASE_URL: ${VITE_AI_BASE_URL:-http://localhost:8090/api/v1/ai}
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8088:8080"
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+      - /var/cache/nginx:size=16m,mode=1777
+      - /var/run:size=8m,mode=1777
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 64
+    mem_limit: 128m
+    cpus: 0.5
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

@@ -1,3 +1,5 @@
+import { env } from "../../config/env"
+import { beLoyaltyApi, beNoticeApi, beStaffApi } from "./be/staff"
 import { http } from "./http"
 
 export type Period = "morning" | "afternoon"
@@ -13,7 +15,7 @@ export interface LoyaltyMe { points: number; tier: string; nextTier: string | nu
 export interface Notice { id: string; title: string; body: string; atUtc: string; read: boolean }
 
 const S = "/api/v1/staff"
-export const staffApi = {
+const mockStaffApi = {
   shifts: (from: string) => http.get<Shift[]>(`${S}/shifts?from=${from}`),
   assign: (b: { date: string; period: Period; userId: string }) => http.post<Shift>(`${S}/shifts`, b),
   unassign: (id: string) => http.delete<{ ok: true }>(`${S}/shifts/${id}`),
@@ -28,11 +30,16 @@ export const staffApi = {
   cashClosings: () => http.get<CashClosing[]>(`${S}/cash/closings`),
   closeCash: (b: { counted: number; reason: string }) => http.post<CashClosing>(`${S}/cash/close`, b),
 }
-export const loyaltyApi = {
+const mockLoyaltyApi = {
   me: () => http.get<LoyaltyMe>("/api/v1/loyalty/me"),
   redeem: () => http.post<LoyaltyMe>("/api/v1/loyalty/redeem", {}),
 }
-export const noticeApi = {
+const mockNoticeApi = {
   mine: () => http.get<Notice[]>("/api/v1/notifications/mine"),
   readAll: () => http.post<{ ok: true }>("/api/v1/notifications/read-all", {}),
 }
+
+/** Mock data in demo mode, the real gateway otherwise. */
+export const staffApi: typeof mockStaffApi = env.useMock ? mockStaffApi : beStaffApi
+export const loyaltyApi: typeof mockLoyaltyApi = env.useMock ? mockLoyaltyApi : beLoyaltyApi
+export const noticeApi: typeof mockNoticeApi = env.useMock ? mockNoticeApi : beNoticeApi

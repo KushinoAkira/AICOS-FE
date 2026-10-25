@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { z } from "zod"
 import type { Page } from "../../App"
 import { Banner, Button, ConfirmDialog, DataTable, Field, Modal, QueryBoundary, StatusPill, type Column, type Tone } from "../../components/ui"
+import { env } from "../../config/env"
 import { useToast } from "../../context/ToastContext"
 import { formatDate, formatVND } from "../../lib/format"
 import { ApiError } from "../../lib/api/http"
@@ -17,8 +18,13 @@ const infoSchema = z.object({
   slug: z.string().regex(/^[a-z0-9-]{3,30}$/, "3-30 ký tự: chữ thường, số, dấu gạch ngang"),
 })
 const adminSchema = z.object({ adminName: z.string().trim().min(2, "Nhập họ tên"), adminEmail: z.string().email("Email không hợp lệ") })
+/** Real backend: the first Brand Admin is created with a phone and an initial password (no invite email yet). */
+const realAdminSchema = adminSchema.extend({
+  adminPhone: z.string().regex(/^0\d{9}$/, "SĐT 10 số, bắt đầu bằng 0"),
+  adminPassword: z.string().min(8, "Tối thiểu 8 ký tự").regex(/[A-Z]/, "Cần 1 chữ hoa").regex(/\d/, "Cần 1 chữ số"),
+})
 
-const EMPTY: TenantInput = { name: "", slug: "", planId: "", adminName: "", adminEmail: "" }
+const EMPTY: TenantInput = { name: "", slug: "", planId: "", adminName: "", adminEmail: "", adminPhone: "", adminPassword: "" }
 const STEPS = ["Thương hiệu", "Gói dịch vụ", "Brand Admin", "Xác nhận"]
 
 export default function PlatformTenants({ navigate }: { navigate: (p: Page) => void }) {
@@ -111,7 +117,7 @@ function TenantWizard({ open, plans, onClose, onCreated }: { open: boolean; plan
     }
     if (step === 1 && !form.planId) return setErrors({ planId: "Chọn một gói" })
     if (step === 2) {
-      const r = adminSchema.safeParse(form)
+      const r = (env.useMock ? adminSchema : realAdminSchema).safeParse(form)
       if (!r.success) return setErrors(Object.fromEntries(r.error.issues.map((i) => [String(i.path[0]), i.message])))
     }
     setErrors({})
@@ -158,9 +164,13 @@ function TenantWizard({ open, plans, onClose, onCreated }: { open: boolean; plan
       )}
       {step === 2 && (
         <div className="space-y-4">
-          <p className="text-sm text-text-secondary">Tài khoản Brand Admin đầu tiên sẽ nhận email mời đặt mật khẩu.</p>
+          <p className="text-sm text-text-secondary">{env.useMock ? "Tài khoản Brand Admin đầu tiên sẽ nhận email mời đặt mật khẩu." : "Gửi mật khẩu ban đầu này cho chủ quán; họ nên đổi sau lần đăng nhập đầu."}</p>
           <Field label="Họ tên" value={form.adminName} onChange={(e) => set("adminName", e.target.value)} error={errors.adminName} />
           <Field label="Email" type="email" value={form.adminEmail} onChange={(e) => set("adminEmail", e.target.value)} error={errors.adminEmail} />
+          {!env.useMock && <>
+            <Field label="Số điện thoại" type="tel" value={form.adminPhone ?? ""} onChange={(e) => set("adminPhone", e.target.value)} error={errors.adminPhone} />
+            <Field label="Mật khẩu ban đầu" type="text" autoComplete="off" value={form.adminPassword ?? ""} onChange={(e) => set("adminPassword", e.target.value)} error={errors.adminPassword} />
+          </>}
         </div>
       )}
       {step === 3 && (

@@ -1,3 +1,5 @@
+import { env } from "../../config/env"
+import { beOrdersApi } from "./be/orders"
 import { http } from "./http"
 import type { Product } from "./brand"
 import type { OrderStatus, PaymentStatus } from "../orderStateMachine"
@@ -58,7 +60,7 @@ export interface GuestMenu {
 }
 
 const B = "/api/v1/ordering"
-export const ordersApi = {
+const mockOrdersApi = {
   tables: () => http.get<TableRow[]>(`${B}/tables`),
   addTable: (b: { code: string; seats: number }) => http.post<TableRow>(`${B}/tables`, b),
   orders: () => http.get<Order[]>(`${B}/orders`),
@@ -82,3 +84,6 @@ export const ordersApi = {
   refund: (id: string, b: { amount: number; reason: string }) => http.post<Order>(`${B}/orders/${id}/refund`, b),
   requestBill: (token: string) => http.post<{ ok: true }>(`${B}/guest/${token}/bill`, {}),
 }
+
+/** Mock data in demo mode, the real gateway otherwise. */
+export const ordersApi: typeof mockOrdersApi = env.useMock ? mockOrdersApi : beOrdersApi

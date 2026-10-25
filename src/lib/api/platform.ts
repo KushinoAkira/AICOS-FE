@@ -1,3 +1,5 @@
+import { env } from "../../config/env"
+import { bePlatformApi, bePublicApi } from "./be/platform"
 import { http } from "./http"
 
 export type TenantStatus = "Pending" | "Active" | "Suspended" | "Closed" | "Rejected"
@@ -30,31 +32,22 @@ export interface BrandPublic {
   brandColor?: string
 }
 
-export interface BrandRegistrationInput {
-  name: string
-  slug: string
-  planId: string
-  ownerName: string
-  ownerEmail: string
-  ownerPhone: string
-  /** Optional logo as a data URL (png/jpeg/webp/svg, up to 512 KB). Real mode: multipart upload instead. */
-  logoDataUrl?: string
-  brandColor?: string
-}
-
 export interface TenantInput {
   name: string
   slug: string
   planId: string
   adminName: string
   adminEmail: string
+  /** Real backend only: the first Brand Admin needs a phone and an initial password. */
+  adminPhone?: string
+  adminPassword?: string
 }
 
 export interface Plan {
   id: string
   name: string
   monthlyFee: number
-  billingCycle: "Monthly" | "Yearly"
+  billingCycle: "Monthly" | "Quarterly" | "Yearly"
   maxBranches: number
   maxUsers: number
   graceDays: number
@@ -113,16 +106,13 @@ export interface ContactInput {
   message: string
 }
 
-export const publicApi = {
+const mockPublicApi = {
   plans: () => http.get<Plan[]>(`${PUB}/plans`, { anonymous: true }),
   brand: (slug: string) => http.get<BrandPublic>(`${PUB}/brands/${slug}`, { anonymous: true }),
-  registerBrand: (body: BrandRegistrationInput) => http.post<{ registrationId: string }>(`${PUB}/brand-registrations`, body, { anonymous: true }),
-  verifyBrand: (registrationId: string, code: string) => http.post<{ status: "Pending" }>(`${PUB}/brand-registrations/${registrationId}/verify`, { code }, { anonymous: true }),
   contact: (body: ContactInput) => http.post<{ received: true }>(`${PUB}/contact`, body, { anonymous: true }),
-  resendCode: (registrationId: string) => http.post<{ sent: true }>(`${PUB}/brand-registrations/${registrationId}/resend`, {}, { anonymous: true }),
 }
 
-export const platformApi = {
+const mockPlatformApi = {
   tenants: () => http.get<Tenant[]>(`${BASE}/tenants`),
   createTenant: (body: TenantInput) => http.post<Tenant>(`${BASE}/tenants`, body),
   setTenantStatus: (id: string, status: TenantStatus, reason?: string) => http.patch<Tenant>(`${BASE}/tenants/${id}/status`, { status, reason }),
@@ -136,3 +126,7 @@ export const platformApi = {
   revenue: () => http.get<RevenuePoint[]>(`${BASE}/revenue`),
   audit: () => http.get<PlatformAuditEntry[]>(`${BASE}/audit`),
 }
+
+/** Mock data in demo mode, the real gateway otherwise. */
+export const publicApi: typeof mockPublicApi = env.useMock ? mockPublicApi : bePublicApi
+export const platformApi: typeof mockPlatformApi = env.useMock ? mockPlatformApi : bePlatformApi

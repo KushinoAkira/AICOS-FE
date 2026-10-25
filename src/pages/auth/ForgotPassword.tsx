@@ -43,6 +43,9 @@ export default function ForgotPassword({ navigate }: Props) {
       {sent ? (
         <div className="space-y-4">
           <Banner tone="success">Nếu email tồn tại, liên kết đặt lại mật khẩu đã được gửi. Hãy kiểm tra hộp thư.</Banner>
+          {!env.useMock && (
+            <Button className="w-full" onClick={() => routerNavigate(`/reset-password/${encodeURIComponent(email.trim())}`)}>Nhập mã xác nhận</Button>
+          )}
           {env.demo && sent.devToken && (
             <Button variant="secondary" className="w-full" onClick={() => routerNavigate(`/reset-password/${sent.devToken}`)}>
               Mở liên kết (chỉ hiện ở chế độ demo)

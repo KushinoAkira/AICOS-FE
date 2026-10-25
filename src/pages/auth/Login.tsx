@@ -27,7 +27,7 @@ const DEMO_ACCOUNTS = [
 function classify(err: unknown): Failure {
   if (!(err instanceof ApiError)) return { kind: "unknown", message: "Đã có lỗi xảy ra" }
   if (err.isNetwork) return { kind: "network" }
-  if (err.code === "account_locked" || err.status === 423) return { kind: "locked", seconds: err.retryAfterSeconds ?? 900 }
+  if (err.code === "account_locked" || err.code === "account.temporarily_locked" || err.status === 423) return { kind: "locked", seconds: err.retryAfterSeconds ?? 900 }
   if (err.code === "account_disabled") return { kind: "disabled" }
   if (err.status === 401) return { kind: "invalid" }
   return { kind: "unknown", message: err.message }
@@ -95,7 +95,7 @@ function LoginForm({ navigate }: Props) {
         {brand.kind === "platform" && (
           <p className="mt-3 text-sm text-text-secondary">
             Chưa có quán trên AICOS?{" "}
-            <button type="button" onClick={() => navigate("brand-register")} className="font-medium text-clay hover:underline">Đăng ký thương hiệu</button>
+            <button type="button" onClick={() => navigate("contact")} className="font-medium text-clay hover:underline">Liên hệ AICOS</button>
           </p>
         )}
       </div>

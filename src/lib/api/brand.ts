@@ -1,3 +1,5 @@
+import { env } from "../../config/env"
+import { beLoyaltySettingsApi, beMenuApi, bePickupApi, bePolicyApi, beProfileApi, beSubscriptionApi, beVoucherApi } from "./be/brand"
 import { http } from "./http"
 
 // ---------- menu (UC-14, UC-15, UC-24) ----------
@@ -63,7 +65,7 @@ const B = "/brand"
 
 export interface BrandProfile { name: string; slug: string; logoUrl?: string; brandColor?: string }
 
-export const brandApi = {
+const mockBrandApi = {
   profile: () => http.get<BrandProfile>(`${B}/profile`),
   saveProfile: (v: { logoUrl?: string; brandColor?: string }) => http.put<BrandProfile>(`${B}/profile`, v),
   products: () => http.get<Product[]>(`${B}/menu/products`),
@@ -92,3 +94,7 @@ export const brandApi = {
   subscription: () => http.get<BrandSubscription>(`${B}/subscription`),
   renew: () => http.post<BrandSubscription>(`${B}/subscription/renew`),
 }
+
+const beBrandApi = { ...beProfileApi, ...beMenuApi, ...bePickupApi, ...beLoyaltySettingsApi, ...bePolicyApi, ...beVoucherApi, ...beSubscriptionApi }
+/** Mock data in demo mode, the real gateway otherwise. */
+export const brandApi: typeof mockBrandApi = env.useMock ? mockBrandApi : beBrandApi

@@ -24,3 +24,5 @@ logs/
 ExtentionProject(donotpush)/
 .impeccable/config.local.json
 exports/
+
+.firebase/

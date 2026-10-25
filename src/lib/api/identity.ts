@@ -1,4 +1,6 @@
 import { http, type PagedResponse } from "./http"
+import { env } from "../../config/env"
+import { beAuthApi, beBranchesApi, beUsersApi } from "./be/identity"
 import { tokenStore, type StoredSession } from "./tokenStore"
 
 /** Role names issued by the backend (AicosRoles). */
@@ -71,7 +73,7 @@ export interface UserInput {
 
 const BASE = "/identity"
 
-export const authApi = {
+const mockAuthApi = {
   async login(login: string, password: string): Promise<StoredSession> {
     const session = await http.post<StoredSession>(`${BASE}/auth/login`, { login, password }, { anonymous: true })
     tokenStore.set(session)
@@ -89,11 +91,11 @@ export const authApi = {
     http.post<void>(`${BASE}/auth/change-password`, body),
   forgotPassword: (email: string) => http.post<{ message: string; devToken?: string }>(`${BASE}/auth/forgot-password`, { email }, { anonymous: true }),
   /** Link flow (featureFlags.resetMethod = "link"). For the OTP flow send `code` instead of `token`. */
-  resetPassword: (body: { token: string; newPassword: string; confirmNewPassword: string }) =>
+  resetPassword: (body: { token: string; code?: string; newPassword: string; confirmNewPassword: string }) =>
     http.post<{ message: string }>(`${BASE}/auth/reset-password`, body, { anonymous: true }),
 }
 
-export const branchesApi = {
+const mockBranchesApi = {
   list: (q: { search?: string; status?: BranchStatus; page?: number; pageSize?: number } = {}) =>
     http.get<PagedResponse<BranchDto>>(`${BASE}/branches`, { query: q }),
   listActive: () => http.get<BranchDto[]>(`${BASE}/branches/active`, { anonymous: true }),
@@ -103,7 +105,7 @@ export const branchesApi = {
   changeStatus: (id: string, status: BranchStatus) => http.patch<BranchDto>(`${BASE}/branches/${id}/status`, { status }),
 }
 
-export const usersApi = {
+const mockUsersApi = {
   list: (q: { search?: string; role?: string; status?: UserStatus; branchId?: string; page?: number; pageSize?: number } = {}) =>
     http.get<PagedResponse<UserDto>>(`${BASE}/users`, { query: q }),
   get: (id: string) => http.get<UserDto>(`${BASE}/users/${id}`),
@@ -112,3 +114,8 @@ export const usersApi = {
   changeStatus: (id: string, status: UserStatus) => http.patch<UserDto>(`${BASE}/users/${id}/status`, { status }),
   remove: (id: string) => http.delete<void>(`${BASE}/users/${id}`),
 }
+
+/** Mock data in demo mode (VITE_USE_MOCK=true), the real gateway otherwise. */
+export const authApi: typeof mockAuthApi = env.useMock ? mockAuthApi : beAuthApi
+export const branchesApi: typeof mockBranchesApi = env.useMock ? mockBranchesApi : beBranchesApi
+export const usersApi: typeof mockUsersApi = env.useMock ? mockUsersApi : beUsersApi

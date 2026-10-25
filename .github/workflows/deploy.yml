@@ -34,10 +34,12 @@ jobs:
         run: pnpm exec vite build
       - name: Deploy
         env:
-          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/firebase-sa.json
+          FIREBASE_SA: ${{ secrets.FIREBASE }}
         run: |
-          if [ -z "$FIREBASE_TOKEN" ]; then
-            echo "::error::Add repository secret FIREBASE_TOKEN (npx firebase-tools login:ci). See docs/ops.md."
+          if [ -z "$FIREBASE_SA" ]; then
+            echo "::error::Add repository secret FIREBASE (Firebase service-account JSON for project aicos-3028a)."
             exit 1
           fi
+          printf '%s' "$FIREBASE_SA" > "$GOOGLE_APPLICATION_CREDENTIALS"
           npx --yes firebase-tools@13 deploy --only hosting --non-interactive --project aicos-3028a

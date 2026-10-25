@@ -23,4 +23,4 @@ This is a **frontend**. It never holds payment keys, JWT signing keys, or databa
 
 - Copy `.env.example` to `.env.local`. Never commit `.env*`.
 - `VITE_USE_MOCK=true` is for demos. Production against the real API must set it to `false` and point `VITE_API_BASE_URL` at the gateway over HTTPS.
-- Do not put a Groq / DeepSeek / Firebase CI token in source. CI tokens live in GitHub Actions secrets.
+- Do not put a Groq / DeepSeek / Firebase service-account JSON in source. Those live in GitHub Actions secrets (`FIREBASE`).

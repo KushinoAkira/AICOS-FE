@@ -6,7 +6,7 @@ Required on the `AICOS-FE` repository (Settings → Secrets and variables → Ac
 
 | Secret | How to create |
 |---|---|
-| `FIREBASE` | Firebase Console → Project settings → Service accounts → Generate new private key. Paste the whole JSON. You already have this. |
+| `FIREBASE` | **Actions secret** (not a Variable). Firebase Console → Project settings → Service accounts → Generate new private key. Paste the whole JSON. |
 
 Create a GitHub Environment named `production` (Settings → Environments). Turn on required reviewers if more than one person can deploy.
 

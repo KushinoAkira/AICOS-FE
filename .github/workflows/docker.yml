@@ -1,11 +1,12 @@
 name: Docker image
 
 on:
+  workflow_dispatch:
   push:
     branches: [main]
-    paths: ["src/**", "docker/**", "docker-compose.yml", "package.json", "pnpm-lock.yaml", "index.html", ".github/workflows/docker.yml"]
+    paths: ["src/**", "docker/**", ".dockerignore", "docker-compose.yml", "package.json", "pnpm-lock.yaml", "index.html", ".github/workflows/docker.yml"]
   pull_request:
-    paths: ["src/**", "docker/**", "docker-compose.yml", "package.json", "pnpm-lock.yaml", "index.html"]
+    paths: ["src/**", "docker/**", ".dockerignore", "docker-compose.yml", "package.json", "pnpm-lock.yaml", "index.html"]
 
 concurrency:
   group: docker-${{ github.ref }}

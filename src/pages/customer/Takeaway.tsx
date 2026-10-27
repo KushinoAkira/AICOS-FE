@@ -59,12 +59,24 @@ export default function CustomerTakeaway({ navigate }: { navigate: (p: Page) => 
               <div role="radiogroup" aria-label="Ngày nhận" className="flex gap-2">
                 {(["today", "tomorrow"] as const).map((d) => <button key={d} role="radio" aria-checked={day === d} onClick={() => setDay(d)} className={`rounded-full px-4 py-2 text-sm ${day === d ? "bg-espresso text-white" : "bg-sand text-text-secondary"}`}>{d === "today" ? "Hôm nay" : "Ngày mai"}</button>)}
               </div>
-              <TimePicker24 value={time} openHour={Number(info.data.open.slice(0, 2))} closeHour={Number(info.data.close.slice(0, 2))} onChange={setTime} />
+              <TimePicker24 value={time} openHour={Number(String(info.data.open ?? "07").slice(0, 2)) || 7} closeHour={Number(String(info.data.close ?? "22").slice(0, 2)) || 22} onChange={setTime} />
               <button type="button" onClick={() => earliest(info.data)} className="rounded-full border border-border px-3 py-2 text-sm text-clay hover:bg-sand">Sớm nhất có thể</button>
-              <span className="text-sm text-text-secondary">Quán mở {info.data.open} - {info.data.close}, đặt trước tối thiểu {info.data.cutoffMinutes} phút</span>
+              <span className="text-sm text-text-secondary">Quán mở {info.data.open ?? "—"} - {info.data.close ?? "—"}, đặt trước tối thiểu {info.data.cutoffMinutes ?? "—"} phút</span>
             </div>
             {slot && check.data && <p role="status" className={`mt-2 text-sm ${check.data.ok ? "text-state-success" : "text-state-danger"}`}>{check.data.ok ? `Còn nhận được ${check.data.remaining} đơn quanh giờ này` : check.data.message}</p>}
-          </fieldset>          <OrderComposer products={menu.data.products} submitLabel="Đặt và thanh toán" submitting={place.isPending} error={!slot ? "Chọn giờ nhận hàng trước khi đặt" : check.data && !check.data.ok ? check.data.message : error} onSubmit={(l) => { if (!slot) return setError("Chọn giờ nhận hàng"); if (check.data && !check.data.ok) return; setError(null); place.mutate(l) }} />
+          </fieldset>
+          <OrderComposer
+            products={menu.data.products}
+            submitLabel="Đặt và thanh toán"
+            submitting={place.isPending}
+            error={!slot ? "Chọn giờ nhận hàng trước khi đặt" : check.data && !check.data.ok ? check.data.message : error}
+            onSubmit={(l) => {
+              if (!slot) return setError("Chọn giờ nhận hàng")
+              if (check.data && !check.data.ok) return
+              setError(null)
+              place.mutate(l)
+            }}
+          />
         </>
       )}
       <PayGateway open={!!paying} amount={paying?.total ?? 0} code={paying?.code ?? ""} busy={pay.isPending} onOutcome={(o) => pay.mutate(o)} onClose={() => { setPaying(null); navigate("customer-tracking") }} />

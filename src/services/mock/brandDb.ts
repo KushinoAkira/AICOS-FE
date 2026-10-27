@@ -15,7 +15,8 @@ const toppings = [
   { id: "pearl", label: "Trân châu", priceDelta: 8000, requiresChoiceId: "cold" },
 ]
 
-const IMG = (id: string) => `https://images.unsplash.com/${id}?w=240&h=240&fit=crop&auto=format`
+/** Hosted under Firebase `public/media` so mock Hosting does not depend on Unsplash/CSP passthrough. */
+const IMG = (id: string) => `/media/${id}.jpg`
 const CATEGORY_IMAGES: Record<string, string[]> = {
   "Cà phê": ["photo-1510591509098-f4fdc6d0ff04", "photo-1495474472287-4d71bcdd2085", "photo-1461023058943-07fcbe16d735"],
   "Trà trái cây": ["photo-1556679343-c7306c1976bc", "photo-1673090431108-014275c62265"],

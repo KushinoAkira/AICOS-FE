@@ -55,7 +55,7 @@ export const PAGE_ACCESS: Record<Page, Access> = {
   "branch-shift-requests": BM,
   "manager-payroll": BM,
   "manager-payroll-detail": BM,
-  "branch-tables": BM,
+  "branch-tables": BRAND_AND_BRANCH,
   "branch-pickup": BM,
   "branch-orders": BM,
 
@@ -104,5 +104,20 @@ export function canAccess(page: Page, role: Role | null): boolean {
 
 export const isPublicPage = (page: Page) => PAGE_ACCESS[page] === "public"
 
-/** Public pages a signed-in user should not see again (they are bounced to their home page). */
-export const GUEST_ONLY_PAGES: Page[] = ["landing", "login", "auth-customer-login", "auth-customer-register"]
+/**
+ * Which login portal an anonymous visitor should use when they hit a protected URL.
+ * Staff and customer portals stay separate — never send a customer deep-link to `/login`.
+ */
+export function loginPageFor(page: Page): Page {
+  if (page.startsWith("customer-")) return "auth-customer-login"
+  return "login"
+}
+
+/**
+ * Auth entry pages a signed-in user should not see again (bounced to their home).
+ * Landing stays reachable so `/` always opens the marketing home, even when a customer session exists.
+ *
+ * Note: readable URLs (`/cashier/pos`, `/menu`, …) are intentional. Authorization is enforced by
+ * `canAccess` + the App guard (and by the API). Obfuscating paths is not access control.
+ */
+export const GUEST_ONLY_PAGES: Page[] = ["login", "auth-customer-login", "auth-customer-register"]

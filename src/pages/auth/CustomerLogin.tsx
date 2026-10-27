@@ -7,6 +7,7 @@ import type { Page } from "../../App"
 import { homePageOf, useAuth } from "../../context/AuthContext"
 import { useToast } from "../../context/ToastContext"
 import { ApiError } from "../../lib/api/http"
+import { normalizeRole } from "../../router/roles"
 
 interface Props {
   navigate: (p: Page) => void
@@ -20,7 +21,7 @@ function CustomerLoginForm({ navigate }: Props) {
   const [email, setEmail] = useState("")
   const [submitting, setSubmitting] = useState(false)
   const routerNavigate = useNavigate()
-  const { login } = useAuth()
+  const { login, logout } = useAuth()
   const { showToast } = useToast()
   const [password, setPassword] = useState("")
   const [showPass, setShowPass] = useState(false)
@@ -30,11 +31,17 @@ function CustomerLoginForm({ navigate }: Props) {
     setSubmitting(true)
     try {
       const user = await login(email, password)
+      // Customer portal only — staff must use /login (SaaS ops surface).
+      if (normalizeRole(user) !== "customer") {
+        await logout()
+        showToast("Tài khoản quản lý / nhân viên vui lòng dùng trang Đăng nhập quán.", "error")
+        return
+      }
       const back = sessionStorage.getItem("aicos.returnTo")
       sessionStorage.removeItem("aicos.returnTo")
       if (back) routerNavigate(back, { replace: true }); else navigate(homePageOf(user))
     } catch (err) {
-      showToast(err instanceof ApiError ? err.message : "Không thể kết nối máy chủ", "error")
+      showToast(err instanceof ApiError ? err.message : "Không đăng nhập được. Thử tải lại trang (F5).", "error")
     } finally {
       setSubmitting(false)
     }
@@ -46,7 +53,7 @@ function CustomerLoginForm({ navigate }: Props) {
       <div className="flex-1 flex items-center justify-center px-6 sm:px-8 py-12">
       <div className="w-full max-w-[420px]">
         {/* Logo */}
-        <div className="mb-8"><Logo /></div>
+        <div className="mb-8"><Logo linked /></div>
 
         <h1
           className="font-serif text-2xl font-medium mb-2"

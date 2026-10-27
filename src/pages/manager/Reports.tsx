@@ -11,22 +11,22 @@ interface Props {
 
 const MENU_DATA: Record<string, { name: string; qty: number; revenue: number; img: string }[]> = {
   "7 ngày": [
-    { name: "Cà phê sữa đá", qty: 312, revenue: 14040000, img: "https://images.unsplash.com/photo-1517701604599-bb29b565090c?w=60&h=60&fit=crop&auto=format" },
-    { name: "Cappuccino",     qty: 218, revenue: 11990000, img: "https://images.unsplash.com/photo-1570968915860-54d5c301fa9f?w=60&h=60&fit=crop&auto=format" },
-    { name: "Đá xay matcha", qty: 185, revenue: 10175000, img: "https://images.unsplash.com/photo-1541167760496-1628856ab772?w=60&h=60&fit=crop&auto=format" },
-    { name: "Trà đào cam sả",qty: 162, revenue: 7776000,  img: "https://images.unsplash.com/photo-1556679343-c7306c1976bc?w=60&h=60&fit=crop&auto=format" },
-    { name: "Bánh croissant", qty: 143, revenue: 5434000,  img: "https://images.unsplash.com/photo-1555507036-ab1f4038808a?w=60&h=60&fit=crop&auto=format" },
-    { name: "Espresso đơn",   qty: 128, revenue: 4480000,  img: "https://images.unsplash.com/photo-1510591509098-f4fdc6d0ff04?w=60&h=60&fit=crop&auto=format" },
-    { name: "Latte nghệ",     qty: 98,  revenue: 4900000,  img: "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=60&h=60&fit=crop&auto=format" },
+    { name: "Cà phê sữa đá", qty: 312, revenue: 14040000, img: "/media/photo-1517701604599-bb29b565090c.jpg" },
+    { name: "Cappuccino",     qty: 218, revenue: 11990000, img: "/media/photo-1570968915860-54d5c301fa9f.jpg" },
+    { name: "Đá xay matcha", qty: 185, revenue: 10175000, img: "/media/photo-1541167760496-1628856ab772.jpg" },
+    { name: "Trà đào cam sả",qty: 162, revenue: 7776000,  img: "/media/photo-1556679343-c7306c1976bc.jpg" },
+    { name: "Bánh croissant", qty: 143, revenue: 5434000,  img: "/media/photo-1555507036-ab1f4038808a.jpg" },
+    { name: "Espresso đơn",   qty: 128, revenue: 4480000,  img: "/media/photo-1510591509098-f4fdc6d0ff04.jpg" },
+    { name: "Latte nghệ",     qty: 98,  revenue: 4900000,  img: "/media/photo-1558618666-fcd25c85cd64.jpg" },
   ],
   "30 ngày": [
-    { name: "Cà phê sữa đá", qty: 1240, revenue: 55800000, img: "https://images.unsplash.com/photo-1517701604599-bb29b565090c?w=60&h=60&fit=crop&auto=format" },
-    { name: "Cappuccino",     qty: 892,  revenue: 49060000, img: "https://images.unsplash.com/photo-1570968915860-54d5c301fa9f?w=60&h=60&fit=crop&auto=format" },
-    { name: "Đá xay matcha", qty: 745,  revenue: 40975000, img: "https://images.unsplash.com/photo-1541167760496-1628856ab772?w=60&h=60&fit=crop&auto=format" },
-    { name: "Trà đào cam sả",qty: 638,  revenue: 30624000, img: "https://images.unsplash.com/photo-1556679343-c7306c1976bc?w=60&h=60&fit=crop&auto=format" },
-    { name: "Bánh croissant", qty: 521,  revenue: 19798000, img: "https://images.unsplash.com/photo-1555507036-ab1f4038808a?w=60&h=60&fit=crop&auto=format" },
-    { name: "Espresso đơn",   qty: 489,  revenue: 17115000, img: "https://images.unsplash.com/photo-1510591509098-f4fdc6d0ff04?w=60&h=60&fit=crop&auto=format" },
-    { name: "Latte nghệ",     qty: 412,  revenue: 20600000, img: "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=60&h=60&fit=crop&auto=format" },
+    { name: "Cà phê sữa đá", qty: 1240, revenue: 55800000, img: "/media/photo-1517701604599-bb29b565090c.jpg" },
+    { name: "Cappuccino",     qty: 892,  revenue: 49060000, img: "/media/photo-1570968915860-54d5c301fa9f.jpg" },
+    { name: "Đá xay matcha", qty: 745,  revenue: 40975000, img: "/media/photo-1541167760496-1628856ab772.jpg" },
+    { name: "Trà đào cam sả",qty: 638,  revenue: 30624000, img: "/media/photo-1556679343-c7306c1976bc.jpg" },
+    { name: "Bánh croissant", qty: 521,  revenue: 19798000, img: "/media/photo-1555507036-ab1f4038808a.jpg" },
+    { name: "Espresso đơn",   qty: 489,  revenue: 17115000, img: "/media/photo-1510591509098-f4fdc6d0ff04.jpg" },
+    { name: "Latte nghệ",     qty: 412,  revenue: 20600000, img: "/media/photo-1558618666-fcd25c85cd64.jpg" },
   ],
 }
 

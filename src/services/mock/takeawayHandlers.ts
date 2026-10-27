@@ -1,6 +1,7 @@
 import { HttpResponse, http } from "msw"
 import type { LineInput, Order, PayOutcome, ProviderStatus } from "../../lib/api/orders"
 import { maxRefundable } from "../../lib/orderStateMachine"
+import { CUSTOMER_ONLY, FLOOR_STAFF, denyUnless, userIdFromRequest } from "./auth"
 import * as bdb from "./brandDb"
 import * as odb from "./orderDb"
 import * as db from "./db"
@@ -32,7 +33,7 @@ const REFUND_CONFIRM_MS = 4000
 /** What the payment provider would report for an order, independent of whether our callback arrived. */
 const provider = new Map<string, ProviderStatus>()
 
-const customerOf = (req: Request) => req.headers.get("authorization")?.replace("Bearer mock-", "") ?? "anon"
+const customerOf = userIdFromRequest
 const priceOf = (p: (typeof bdb.products)[number]) => p.branchPrices[odb.BRANCH_ID] ?? p.basePrice
 
 function markPaid(o: Order) {
@@ -49,16 +50,26 @@ function startRefund(o: Order, amount: number) {
 }
 
 export const takeawayHandlers = [
-  http.get("*/api/v1/ordering/takeaway/menu", () => {
+  http.get("*/api/v1/ordering/takeaway/menu", ({ request }) => {
+    const denied = denyUnless(request, CUSTOMER_ONLY)
+    if (denied) return denied
     const products = bdb.products.filter((p) => p.published).map((p) => ({ ...p, price: priceOf(p), soldOut: p.soldOutAt.includes(odb.BRANCH_ID) }))
     return ok({ branchName: "Chi nhánh Quận 1", tableCode: "Mang đi", products })
   }),
-  http.get("*/api/v1/ordering/takeaway/info", () => {
+  http.get("*/api/v1/ordering/takeaway/info", ({ request }) => {
+    const denied = denyUnless(request, CUSTOMER_ONLY)
+    if (denied) return denied
     const br = db.branches.find((b) => b.id === odb.BRANCH_ID)
     return ok({ open: (br?.openingTime ?? "07:00").slice(0, 5), close: (br?.closingTime ?? "22:00").slice(0, 5), ...bdb.settings.pickup })
   }),
-  http.get("*/api/v1/ordering/takeaway/check", ({ request }) => { try { return ok(checkSlot(new URL(request.url).searchParams.get("at") ?? "")) } catch (e) { return problem(500, `check: ${String(e)}`) } }),
+  http.get("*/api/v1/ordering/takeaway/check", ({ request }) => {
+    const denied = denyUnless(request, CUSTOMER_ONLY)
+    if (denied) return denied
+    try { return ok(checkSlot(new URL(request.url).searchParams.get("at") ?? "")) } catch (e) { return problem(500, `check: ${String(e)}`) }
+  }),
   http.post("*/api/v1/ordering/takeaway", async ({ request }) => {
+    const denied = denyUnless(request, CUSTOMER_ONLY)
+    if (denied) return denied
     const b = (await request.json()) as { slot: string; lines: LineInput[] }
     const chk = checkSlot(b.slot)
     if (!chk.ok) return problem(409, chk.message ?? "Giờ nhận không hợp lệ")
@@ -79,8 +90,11 @@ export const takeawayHandlers = [
     return ok(o)
   }),
   http.post("*/api/v1/ordering/orders/:id/pay-online", async ({ params, request }) => {
+    const denied = denyUnless(request, CUSTOMER_ONLY)
+    if (denied) return denied
     const o = odb.orders.find((x) => x.id === params.id)
     if (!o) return problem(404, "Không tìm thấy đơn")
+    if (o.customerId && o.customerId !== customerOf(request)) return problem(403, "Bạn không có quyền thực hiện thao tác này")
     if (o.paymentStatus === "Paid") return ok(o)
     const outcome = ((await request.json()) as { outcome: PayOutcome }).outcome
     if (outcome === "success") { provider.set(o.id, "Success"); markPaid(o) }
@@ -88,18 +102,31 @@ export const takeawayHandlers = [
     else provider.set(o.id, "Success") // paid at provider but our callback never arrived
     return ok(o)
   }),
-  http.get("*/api/v1/ordering/mine", ({ request }) => ok(odb.orders.filter((o) => o.customerId === customerOf(request)).reverse())),
-  http.post("*/api/v1/ordering/orders/:id/cancel", ({ params }) => {
+  http.get("*/api/v1/ordering/mine", ({ request }) => {
+    const denied = denyUnless(request, CUSTOMER_ONLY)
+    if (denied) return denied
+    return ok(odb.orders.filter((o) => o.customerId === customerOf(request)).reverse())
+  }),
+  http.post("*/api/v1/ordering/orders/:id/cancel", ({ params, request }) => {
+    const denied = denyUnless(request, CUSTOMER_ONLY)
+    if (denied) return denied
     const o = odb.orders.find((x) => x.id === params.id)
     if (!o) return problem(404, "Không tìm thấy đơn")
+    if (o.customerId !== customerOf(request)) return problem(403, "Bạn không có quyền thực hiện thao tác này")
     if (o.status !== "PendingPayment" && o.status !== "Pending") return problem(409, "Đơn đã được pha chế, không thể hủy")
     o.status = "Cancelled"
     o.reason = "Khách hủy"
     if (o.paymentStatus === "Paid") startRefund(o, maxRefundable(o.paidAmount, o.refundedAmount))
     return ok(o)
   }),
-  http.get("*/api/v1/ordering/payments", () => ok(odb.orders.filter((o) => o.channel === "takeaway" && (o.paymentStatus === "Failed" || (o.status === "PendingPayment" && o.paymentStatus === "Unpaid"))).reverse())),
-  http.post("*/api/v1/ordering/orders/:id/payment-lookup", ({ params }) => {
+  http.get("*/api/v1/ordering/payments", ({ request }) => {
+    const denied = denyUnless(request, FLOOR_STAFF)
+    if (denied) return denied
+    return ok(odb.orders.filter((o) => o.channel === "takeaway" && (o.paymentStatus === "Failed" || (o.status === "PendingPayment" && o.paymentStatus === "Unpaid"))).reverse())
+  }),
+  http.post("*/api/v1/ordering/orders/:id/payment-lookup", ({ params, request }) => {
+    const denied = denyUnless(request, FLOOR_STAFF)
+    if (denied) return denied
     const o = odb.orders.find((x) => x.id === params.id)
     if (!o) return problem(404, "Không tìm thấy đơn")
     const st = provider.get(o.id) ?? "Pending"
@@ -107,6 +134,8 @@ export const takeawayHandlers = [
     return ok({ providerStatus: st, order: o })
   }),
   http.post("*/api/v1/ordering/orders/:id/refund", async ({ params, request }) => {
+    const denied = denyUnless(request, FLOOR_STAFF)
+    if (denied) return denied
     const o = odb.orders.find((x) => x.id === params.id)
     if (!o) return problem(404, "Không tìm thấy đơn")
     const b = (await request.json()) as { amount: number; reason: string }

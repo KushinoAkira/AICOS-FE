@@ -131,7 +131,7 @@ export const beOrdersApi = {
     const t = rec(await http.get<Raw>(`/tables/public/qr/${token}`, { anonymous: true }))
     return { ...(await publicMenu(str(t.branchId), str(t.branchName))), tableCode: str(t.tableCode) }
   },
-  guestPlace: (): Promise<Order> => unsupported("khách đặt món qua QR (backend chưa có API, đang chạy trong bộ nhớ)"),
+  guestPlace: (_token?: string, _lines?: LineInput[], _asCustomer?: boolean): Promise<Order> => unsupported("khách đặt món qua QR (backend chưa có API, đang chạy trong bộ nhớ)"),
   guestOrders: (): Promise<Order[]> => unsupported("xem đơn của khách QR"),
   requestBill: (): Promise<{ ok: true }> => unsupported("khách QR gọi thanh toán"),
   takeawayMenu: (branchId: string) => publicMenu(branchId, ""),

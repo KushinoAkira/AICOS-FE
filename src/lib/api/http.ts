@@ -1,14 +1,17 @@
 /**
  * Thin fetch client for the AICOS API gateway.
- * - Base URL from VITE_API_BASE_URL (default: local gateway).
+ * - Real mode: VITE_API_BASE_URL (default: local gateway).
+ * - Mock mode: same-origin `/api/v1/...` so HTTPS hosting (Firebase) is not mixed-content
+ *   blocked when talking to localhost, and the MSW worker can intercept the request.
  * - Sends the Bearer token, refreshes once on 401, normalises ProblemDetails errors.
  */
 import { env } from "../../config/env"
 import { currentBrandSlug } from "../brand"
 import { tokenStore, type StoredSession } from "./tokenStore"
 
-export const API_BASE_URL: string =
-  (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/+$/, "") ?? "http://localhost:5000/api/v1"
+export const API_BASE_URL: string = env.useMock
+  ? ""
+  : ((import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/+$/, "") ?? "http://localhost:8080/api/v1")
 
 export class ApiError extends Error {
   readonly status: number
@@ -41,8 +44,13 @@ export interface RequestOptions {
   signal?: AbortSignal
 }
 
+function mockHref(path: string): string {
+  const normalized = path.startsWith("/api/") ? path : `/api/v1${path.startsWith("/") ? path : `/${path}`}`
+  return `${window.location.origin}${normalized}`
+}
+
 function buildUrl(path: string, query?: Query): string {
-  const url = new URL(`${API_BASE_URL}${path}`)
+  const url = new URL(env.useMock ? mockHref(path) : `${API_BASE_URL}${path}`)
   for (const [key, value] of Object.entries(query ?? {})) {
     if (value !== undefined && value !== null && value !== "") url.searchParams.set(key, String(value))
   }
@@ -110,7 +118,11 @@ function recoverMockWorker() {
 async function restartMockWorker(): Promise<void> {
   const { worker } = await import("../../services/mock/browser")
   worker.stop()
-  await worker.start({ quiet: true })
+  await worker.start({
+    quiet: true,
+    onUnhandledFrame: "bypass",
+    serviceWorker: { url: "/mockServiceWorker.js", options: { scope: "/" } },
+  })
 }
 
 async function send(method: string, path: string, opts: RequestOptions, token: string | null, retried = false): Promise<Response> {
@@ -139,7 +151,13 @@ async function send(method: string, path: string, opts: RequestOptions, token: s
   }
 }
 
-export async function request<T>(method: string, path: string, opts: RequestOptions = {}): Promise<T> {
+const mockNetMsg = () => env.useMock ? "Không thể kết nối dữ liệu giả lập. Hãy tải lại trang (F5)." : "Không thể kết nối máy chủ"
+
+function isJsonResponse(res: Response) {
+  return (res.headers.get("content-type") ?? "").includes("application/json")
+}
+
+export async function request<T>(method: string, path: string, opts: RequestOptions = {}, htmlRetried = false): Promise<T> {
   let res = await send(method, path, opts, tokenStore.get()?.accessToken ?? null)
 
   if (res.status === 401 && !opts.anonymous && tokenStore.get()) {
@@ -150,7 +168,23 @@ export async function request<T>(method: string, path: string, opts: RequestOpti
 
   if (!res.ok) throw await toApiError(res)
   if (res.status === 204) return undefined as T
-  return (await res.json()) as T
+
+  // Hosting SPA rewrite serves index.html when MSW missed the call — restart worker once and retry.
+  if (!isJsonResponse(res)) {
+    if (env.useMock && !htmlRetried) {
+      try {
+        await restartMockWorker()
+        return await request<T>(method, path, opts, true)
+      } catch { /* fall through */ }
+      recoverMockWorker()
+    }
+    throw new ApiError(0, mockNetMsg(), "network")
+  }
+  try {
+    return (await res.json()) as T
+  } catch {
+    throw new ApiError(0, mockNetMsg(), "network")
+  }
 }
 
 export const http = {

@@ -1,0 +1,23 @@
+---
+description: Use installed Firebase rules auditor + Better Auth security skills when reviewing auth, Hosting, or data access
+globs:
+  - "**/firebase.json"
+  - "**/firestore.rules"
+  - "**/storage.rules"
+  - "**/services/mock/auth.ts"
+  - "**/lib/api/tokenStore.ts"
+  - "**/pages/auth/**"
+  - "**/SECURITY.md"
+alwaysApply: false
+---
+
+# Security skills for AICOS FE
+
+When the task touches auth, sessions, Firebase Hosting/rules, or unauthorized access:
+
+1. Read and follow `.cursor/skills/firebase-security-rules-auditor/SKILL.md` if Firestore/Storage rules exist or are being added.
+2. Read and follow `.cursor/skills/better-auth-security-best-practices/SKILL.md` and map its checklist to AICOS (mock MSW today; real gateway / Better Auth later).
+3. Prefer API role checks + httpOnly sessions over obscuring URLs.
+4. Keep `SECURITY.md` findings in sync when you close a security gap.
+
+Demo constraints: Firebase is Hosting-only; auth is MSW + localStorage. Do not invent Firestore rules for products that are not provisioned.

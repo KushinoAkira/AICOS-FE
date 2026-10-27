@@ -2,6 +2,7 @@ import { HttpResponse, delay, http } from "msw"
 import type { LineInput, Order, TableRow } from "../../lib/api/orders"
 import type { OrderStatus } from "../../lib/orderStateMachine"
 import { canTransition } from "../../lib/orderStateMachine"
+import { BRAND_STAFF, FLOOR_STAFF, denyUnless, userIdFromRequest } from "./auth"
 import * as bdb from "./brandDb"
 import * as odb from "./orderDb"
 import { takeawayHandlers } from "./takeawayHandlers"
@@ -35,8 +36,14 @@ function build(tableId: string, lines: LineInput[], source: Order["source"]): Or
 const byToken = (token: unknown) => odb.tables.find((t) => t.qrToken === token)
 
 export const orderHandlers = [
-  http.get("*/api/v1/ordering/tables", () => ok(odb.tables.map(rowOf))),
+  http.get("*/api/v1/ordering/tables", ({ request }) => {
+    const denied = denyUnless(request, [...FLOOR_STAFF, ...BRAND_STAFF])
+    if (denied) return denied
+    return ok(odb.tables.map(rowOf))
+  }),
   http.post("*/api/v1/ordering/tables", async ({ request }) => {
+    const denied = denyUnless(request, BRAND_STAFF)
+    if (denied) return denied
     const b = (await request.json()) as { code: string; seats: number }
     if (!b.code.trim()) return problem(422, "Nhập mã bàn")
     if (odb.tables.some((t) => t.code.toLowerCase() === b.code.trim().toLowerCase())) return problem(409, "Mã bàn đã tồn tại")
@@ -44,8 +51,14 @@ export const orderHandlers = [
     odb.tables.push(t)
     return ok(rowOf(t))
   }),
-  http.get("*/api/v1/ordering/orders", () => ok([...odb.orders].reverse())),
+  http.get("*/api/v1/ordering/orders", ({ request }) => {
+    const denied = denyUnless(request, FLOOR_STAFF)
+    if (denied) return denied
+    return ok([...odb.orders].reverse())
+  }),
   http.post("*/api/v1/ordering/orders", async ({ request }) => {
+    const denied = denyUnless(request, FLOOR_STAFF)
+    if (denied) return denied
     const b = (await request.json()) as { tableId: string; lines: LineInput[] }
     const o = build(b.tableId, b.lines, "pos")
     if (typeof o === "string") return problem(422, o)
@@ -53,6 +66,8 @@ export const orderHandlers = [
     return ok(o)
   }),
   http.post("*/api/v1/ordering/orders/:id/status", async ({ params, request }) => {
+    const denied = denyUnless(request, FLOOR_STAFF)
+    if (denied) return denied
     const o = odb.orders.find((x) => x.id === params.id)
     if (!o) return problem(404, "Không tìm thấy đơn")
     const b = (await request.json()) as { status: OrderStatus; reason?: string }
@@ -63,6 +78,8 @@ export const orderHandlers = [
     return ok(o)
   }),
   http.post("*/api/v1/ordering/tables/:id/pay", async ({ params, request }) => {
+    const denied = denyUnless(request, FLOOR_STAFF)
+    if (denied) return denied
     const b = (await request.json()) as { received: number }
     const unpaid = openOrders(String(params.id)).filter((o) => o.paymentStatus === "Unpaid")
     const open = unpaid.filter((o) => o.status !== "Unfulfillable")
@@ -74,7 +91,9 @@ export const orderHandlers = [
     return ok({ change: b.received - total })
   }),
   /** Cashier closes the table after payment: the orders leave the table and enter the customer's history. */
-  http.post("*/api/v1/ordering/tables/:id/complete", ({ params }) => {
+  http.post("*/api/v1/ordering/tables/:id/complete", ({ params, request }) => {
+    const denied = denyUnless(request, FLOOR_STAFF)
+    if (denied) return denied
     const open = openOrders(String(params.id))
     if (open.length === 0) return problem(409, "Bàn không có đơn để hoàn thành")
     if (open.some((o) => o.paymentStatus === "Unpaid" && o.status !== "Unfulfillable")) return problem(409, "Bàn chưa thanh toán xong")
@@ -98,8 +117,8 @@ export const orderHandlers = [
     if (!t) return problem(404, "Mã QR không hợp lệ")
     const o = build(t.id, ((await request.json()) as { lines: LineInput[] }).lines, "qr")
     if (typeof o === "string") return problem(422, o)
-    const who = request.headers.get("authorization")?.replace("Bearer mock-", "")
-    if (who) o.customerId = who
+    const who = userIdFromRequest(request)
+    if (who !== "anon") o.customerId = who
     odb.orders.push(o)
     return ok(o)
   }),

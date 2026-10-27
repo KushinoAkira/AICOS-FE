@@ -1,6 +1,7 @@
 import type { ReactNode } from "react"
 import { Link } from "react-router"
 import type { Page } from "../App"
+import { homePageOf, useAuth } from "../context/AuthContext"
 import { Logo } from "./AuthShell"
 import { Button } from "./ui"
 import { CONTACT } from "../lib/siteInfo"
@@ -9,6 +10,12 @@ const linkCls = "rounded-full px-3 py-2 text-text-secondary hover:bg-sand"
 
 /** Top bar shared by the public site (landing, legal, contact). */
 export function PublicHeader({ navigate }: { navigate: (p: Page) => void }) {
+  const { user, role } = useAuth()
+  function goStaffLogin() {
+    if (role === "customer") return
+    if (user) navigate(homePageOf(user))
+    else navigate("login")
+  }
   return (
     <header className="sticky top-0 z-30 border-b border-border bg-bg-base/95 backdrop-blur">
       <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3 sm:px-8">
@@ -17,7 +24,10 @@ export function PublicHeader({ navigate }: { navigate: (p: Page) => void }) {
           <Link to="/#tinh-nang" className={`hidden md:block ${linkCls}`}>Tính năng</Link>
           <Link to="/#bang-gia" className={`hidden md:block ${linkCls}`}>Bảng giá</Link>
           <Link to="/#hoi-dap" className={`hidden lg:block ${linkCls}`}>Hỏi đáp</Link>
-          <button onClick={() => navigate("login")} className={`min-h-10 ${linkCls}`}>Đăng nhập quán</button>
+          {/* B2B marketing only — never link into a brand's customer app (/menu). Customers enter via table QR. */}
+          {role !== "customer" && (
+            <button type="button" onClick={goStaffLogin} className={`min-h-10 ${linkCls}`}>Đăng nhập quán</button>
+          )}
           <Button className="min-h-10 px-4 py-2" onClick={() => navigate("contact")}>Liên hệ tư vấn</Button>
         </nav>
       </div>
@@ -37,9 +47,15 @@ function Col({ title, children }: { title: string; children: ReactNode }) {
 const fl = "hover:text-white hover:underline"
 
 export function PublicFooter({ navigate }: { navigate: (p: Page) => void }) {
+  const { user, role } = useAuth()
   const btn = (label: string, p: Page) => (
-    <li><button onClick={() => navigate(p)} className={`text-left ${fl}`}>{label}</button></li>
+    <li><button type="button" onClick={() => navigate(p)} className={`text-left ${fl}`}>{label}</button></li>
   )
+  function goStaffLogin() {
+    if (role === "customer") return
+    if (user) navigate(homePageOf(user))
+    else navigate("login")
+  }
   return (
     <footer className="bg-espresso text-white">
       <div className="mx-auto grid max-w-6xl gap-10 px-4 py-12 sm:px-8 md:grid-cols-2 lg:grid-cols-[1.4fr_1fr_1fr_1fr]">
@@ -61,9 +77,10 @@ export function PublicFooter({ navigate }: { navigate: (p: Page) => void }) {
         </Col>
         <Col title="Bắt đầu">
           {btn("Liên hệ để được cấp quán", "contact")}
-          {btn("Đăng nhập quản lý và nhân viên", "login")}
-          {btn("Đăng nhập khách hàng", "auth-customer-login")}
-          {btn("Đăng ký khách hàng", "auth-customer-register")}
+          {role !== "customer" && (
+            <li><button type="button" onClick={goStaffLogin} className={`text-left ${fl}`}>Đăng nhập quản lý và nhân viên</button></li>
+          )}
+          <li className="text-white/50">Khách gọi món bằng QR tại quán (không dùng trang chủ này)</li>
         </Col>
         <Col title="Hỗ trợ và pháp lý">
           {btn("Liên hệ", "contact")}

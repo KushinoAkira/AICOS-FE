@@ -59,6 +59,7 @@ const navMap: Record<StaffRole, NavItem[]> = {
     item("admin-branches", "Chi nhánh", "building"),
     item("admin-users", "Tài khoản", "users"),
     item("manager-menu", "Thực đơn", "menu"),
+    item("branch-tables", "Bàn & QR", "table"),
     item("brand-pickup", "Khung giờ lấy hàng", "clock"),
     item("brand-promotions", "Khuyến mãi", "tag"),
     item("brand-loyalty", "Tích điểm", "heart"),

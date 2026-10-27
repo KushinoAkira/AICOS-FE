@@ -29,11 +29,18 @@ export default function UserMenu({ navigate, variant = "customer" }: Props) {
 
   const items: { label: string; onClick: () => void; danger?: boolean; icon: React.ReactNode }[] = [
     ...(isCustomer
-      ? [{
-          label: "Thông tin khách hàng",
-          onClick: () => navigate("customer-profile"),
-          icon: <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2M12 11a4 4 0 100-8 4 4 0 000 8z" />,
-        }]
+      ? [
+          {
+            label: "Giới thiệu nền tảng AICOS",
+            onClick: () => navigate("landing"),
+            icon: <path d="M3 10.5L12 3l9 7.5V20a1 1 0 01-1 1h-5v-6H9v6H4a1 1 0 01-1-1v-9.5z" />,
+          },
+          {
+            label: "Thông tin khách hàng",
+            onClick: () => navigate("customer-profile"),
+            icon: <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2M12 11a4 4 0 100-8 4 4 0 000 8z" />,
+          },
+        ]
       : []),
     {
       label: "Cài đặt tài khoản",

@@ -1,10 +1,10 @@
-import { Suspense, lazy, useCallback, type ReactElement } from "react"
+import { Suspense, lazy, startTransition, useCallback, type ReactElement } from "react"
 import { Navigate, Route, Routes, useLocation, useNavigate } from "react-router"
 import { ToastProvider } from "./context/ToastContext"
 import { ToastContainer } from "./components/ToastContainer"
 import { ErrorBoundary } from "./components/ErrorBoundary"
 import { homePageOf, useAuth } from "./context/AuthContext"
-import { GUEST_ONLY_PAGES, canAccess } from "./router/rbac"
+import { GUEST_ONLY_PAGES, canAccess, loginPageFor } from "./router/rbac"
 import {
   PAGE_PATHS,
   pageFromPath,
@@ -81,15 +81,11 @@ const PlatformHealth = lazy(() => import("./pages/platform/Health"))
 const PlatformRevenue = lazy(() => import("./pages/platform/Revenue"))
 const PlatformAudit = lazy(() => import("./pages/platform/Audit"))
 
+/** Cold-load only. In-app navigations use startTransition so Suspense keeps the previous screen (no full-page flash). */
 function PageFallback() {
   return (
-    <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: "#FAF6F0" }}>
-      <div
-        className="h-8 w-8 rounded-full border-2 animate-spin"
-        style={{ borderColor: "#E8DCCB", borderTopColor: "#6F4E37" }}
-        role="status"
-        aria-label="Đang tải"
-      />
+    <div className="pointer-events-none fixed inset-x-0 top-0 z-[60] h-0.5 overflow-hidden" role="status" aria-label="Đang tải">
+      <div className="h-full w-1/3 animate-pulse" style={{ backgroundColor: "#C97B4A" }} />
     </div>
   )
 }
@@ -105,6 +101,7 @@ export default function App() {
   const returnPage: Page = state.from ?? (user ? homePageOf(user) : "login")
 
   // Same contract the pages already use (`navigate("manager-menu")`), now backed by real URLs.
+  // startTransition keeps the current screen visible while the next lazy chunk loads (avoids sidebar flash).
   const navigate = useCallback(
     (page: Page, params?: Record<string, string>) => {
       const next: NavigationState = { from: currentPage }
@@ -112,7 +109,9 @@ export default function App() {
         next.otpFlow = currentPage === "auth-forgot-password" ? "forgot-password" : "register"
       }
       const path = Object.entries(params ?? {}).reduce((acc, [k, v]) => acc.replace(`:${k}`, encodeURIComponent(v)), PAGE_PATHS[page] as string)
-      routerNavigate(path, { state: next })
+      startTransition(() => {
+        routerNavigate(path, { state: next })
+      })
     },
     [currentPage, routerNavigate],
   )
@@ -182,15 +181,33 @@ export default function App() {
     "platform-revenue": <PlatformRevenue navigate={navigate} />,
     "platform-audit": <PlatformAudit navigate={navigate} />,
   }
-  /** RBAC gate: anonymous -> login, wrong role -> own home page, signed-in user on a login page -> own home page. */
+  /**
+   * RBAC gate for typed URLs and in-app links.
+   * Readable paths are fine — authorization is role checks here (UI) plus API 401/403 (data).
+   * Wrong role always gets 403; only anonymous users are sent to the matching login portal.
+   */
   function guard(page: Page): ReactElement {
-    if (user && GUEST_ONLY_PAGES.includes(page)) return <Navigate to={PAGE_PATHS[homePageOf(user)]} replace />
+    if (user && GUEST_ONLY_PAGES.includes(page)) {
+      const onCustomerAuth = page === "auth-customer-login" || page === "auth-customer-register"
+      const onStaffLogin = page === "login"
+      // Customer already signed in: customer auth → their app; staff login CTA from marketing → stay on public home (never yank into /menu).
+      if (onCustomerAuth && role === "customer") return <Navigate to={PAGE_PATHS[homePageOf(user)]} replace />
+      if (onStaffLogin && role === "customer") return <Navigate to={PAGE_PATHS.landing} replace />
+      if (onStaffLogin && role !== null) return <Navigate to={PAGE_PATHS[homePageOf(user)]} replace />
+      if (!onCustomerAuth && !onStaffLogin) return <Navigate to={PAGE_PATHS[homePageOf(user)]} replace />
+    }
     if (canAccess(page, role)) return screens[page]
     if (!user) {
-      const loginPage: Page = page.startsWith("customer-") || page.startsWith("guest-") ? "auth-customer-login" : "login"
-      return <Navigate to={PAGE_PATHS[loginPage]} replace state={{ from: page } satisfies NavigationState} />
+      return <Navigate to={PAGE_PATHS[loginPageFor(page)]} replace state={{ from: page } satisfies NavigationState} />
     }
-    return <Forbidden onHome={() => routerNavigate(PAGE_PATHS[homePageOf(user)])} />
+    // Keep each surface: customers → their app home; staff → role home. Marketing `/` stays opt-in only.
+    return <Forbidden onHome={() => routerNavigate(role === "customer" ? PAGE_PATHS["customer-menu"] : PAGE_PATHS[homePageOf(user)])} />
+  }
+
+  function publicOrRoleHome() {
+    if (!user) return PAGE_PATHS.landing
+    if (role === "customer") return PAGE_PATHS["customer-menu"]
+    return PAGE_PATHS[homePageOf(user)]
   }
 
   return (
@@ -199,14 +216,12 @@ export default function App() {
       <ErrorBoundary>
         <div className="relative">
           <Suspense fallback={<PageFallback />}>
-            <div key={location.pathname} className="animate-fade-in">
-              <Routes>
-                {(Object.keys(PAGE_PATHS) as Page[]).map((page) => (
-                  <Route key={page} path={PAGE_PATHS[page]} element={guard(page)} />
-                ))}
-                <Route path="*" element={<NotFound onHome={() => routerNavigate(user ? PAGE_PATHS[homePageOf(user)] : PAGE_PATHS.login)} />} />
-              </Routes>
-            </div>
+            <Routes>
+              {(Object.keys(PAGE_PATHS) as Page[]).map((page) => (
+                <Route key={page} path={PAGE_PATHS[page]} element={guard(page)} />
+              ))}
+              <Route path="*" element={<NotFound onHome={() => routerNavigate(publicOrRoleHome())} />} />
+            </Routes>
           </Suspense>
         </div>
       </ErrorBoundary>

@@ -1,11 +1,12 @@
 ﻿import { HttpResponse, delay, http } from "msw"
 import type { AiReply, Feedback } from "../../lib/api/engage"
+import { BRAND_STAFF, CUSTOMER_ONLY, denyUnless, userIdFromRequest } from "./auth"
 import * as bdb from "./brandDb"
 import * as odb from "./orderDb"
 
 const problem = (status: number, title: string, headers?: Record<string, string>) => HttpResponse.json({ title, detail: title }, { status, headers })
 const ok = <T,>(b: T) => HttpResponse.json(b as never)
-const customerOf = (req: Request) => req.headers.get("authorization")?.replace("Bearer mock-", "") ?? "anon"
+const customerOf = userIdFromRequest
 
 const seed = (id: string, rating: number, comment: string, ago: number): Feedback & { customerId: string } => ({
   id, orderId: `seed-${id}`, orderCode: `AI-${id.toUpperCase()}`, rating, comment, createdAtUtc: new Date(Date.now() - ago * 3_600_000).toISOString(), customerId: "seed",
@@ -35,12 +36,16 @@ function reply(message: string): AiReply {
 
 export const engageHandlers = [
   http.post("*/api/v1/ai/recommendations", async ({ request }) => {
+    const denied = denyUnless(request, CUSTOMER_ONLY)
+    if (denied) return denied
     await delay(300)
     const { k = 5 } = (await request.json()) as { history?: string[]; k?: number }
     const live = bdb.products.filter((p) => p.published && !p.soldOutAt.includes(odb.BRANCH_ID))
     return ok({ items: live.slice(0, k).map((p, i) => ({ productId: p.id, name: p.name, price: p.branchPrices[odb.BRANCH_ID] ?? p.basePrice, reason: "Hợp với những món bạn hay gọi", score: 0.95 - i * 0.1 })) })
   }),
   http.post("*/api/v1/ai/feedback/analyze", async ({ request }) => {
+    const denied = denyUnless(request, BRAND_STAFF)
+    if (denied) return denied
     const { texts } = (await request.json()) as { texts: string[] }
     const topics: [RegExp, string][] = [[/nước|latte|cà phê|trà|ngon|nhạt/i, "Đồ uống"], [/nhân viên|bạn pha|thái độ/i, "Phục vụ"], [/chờ|lâu|nhanh|chậm/i, "Tốc độ"], [/quán|nhạc|sạch|ngồi/i, "Không gian"], [/giá|voucher/i, "Giá cả"]]
     return ok({
@@ -50,7 +55,9 @@ export const engageHandlers = [
         return { sentiment: /tệ|chậm|dở|lâu|nhạt|khó chịu|không quay lại/i.test(t) ? "NEGATIVE" : "POSITIVE", confidence: 0.9, aspects: aspectLabels, aspectLabels }
       }),
     })
-  }),  http.post("*/api/v1/ai/chat", async ({ request }) => {
+  }),
+  // Guest QR (no account) also uses the menu assistant — keep chat public, rate-limited below.
+  http.post("*/api/v1/ai/chat", async ({ request }) => {
     await delay(700)
     const now = Date.now()
     while (hits.length && now - hits[0] > 60_000) hits.shift()
@@ -62,12 +69,24 @@ export const engageHandlers = [
     return ok(reply(message))
   }),
   http.get("*/api/v1/feedback/pending", ({ request }) => {
+    const denied = denyUnless(request, CUSTOMER_ONLY)
+    if (denied) return denied
     const me = customerOf(request)
     return ok(odb.orders.filter((o) => o.customerId === me && o.status === "PickedUp" && !feedback.some((f) => f.orderId === o.id)).reverse())
   }),
-  http.get("*/api/v1/feedback/branch", () => ok([...feedback].reverse().map(({ customerId: _c, ...f }) => f))),
-  http.get("*/api/v1/feedback/mine", ({ request }) => ok(feedback.filter((f) => f.customerId === customerOf(request)).reverse())),
+  http.get("*/api/v1/feedback/branch", ({ request }) => {
+    const denied = denyUnless(request, BRAND_STAFF)
+    if (denied) return denied
+    return ok([...feedback].reverse().map(({ customerId: _c, ...f }) => f))
+  }),
+  http.get("*/api/v1/feedback/mine", ({ request }) => {
+    const denied = denyUnless(request, CUSTOMER_ONLY)
+    if (denied) return denied
+    return ok(feedback.filter((f) => f.customerId === customerOf(request)).reverse())
+  }),
   http.post("*/api/v1/feedback", async ({ request }) => {
+    const denied = denyUnless(request, CUSTOMER_ONLY)
+    if (denied) return denied
     const b = (await request.json()) as { orderId: string; rating: number; comment: string }
     const o = odb.orders.find((x) => x.id === b.orderId && x.customerId === customerOf(request))
     if (!o || o.status !== "PickedUp") return problem(409, "Chỉ đánh giá được đơn đã nhận")

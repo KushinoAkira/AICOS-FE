@@ -69,7 +69,9 @@ const mockOrdersApi = {
   completeTable: (tableId: string) => http.post<{ completed: number }>(`${B}/tables/${tableId}/complete`),
   payTable: (tableId: string, b: { method: "cash"; received: number }) => http.post<{ change: number }>(`${B}/tables/${tableId}/pay`, b),
   guest: (token: string) => http.get<GuestMenu>(`${B}/guest/${token}`),
-  guestPlace: (token: string, lines: LineInput[]) => http.post<Order>(`${B}/guest/${token}/orders`, { lines }),
+  /** Only attach the bearer when the caller is a customer; staff sessions must not become customerId on QR orders. */
+  guestPlace: (token: string, lines: LineInput[], asCustomer = false) =>
+    http.post<Order>(`${B}/guest/${token}/orders`, { lines }, { anonymous: !asCustomer }),
   guestOrders: (token: string) => http.get<Order[]>(`${B}/guest/${token}/orders`),
   takeawayMenu: (branchId: string) => http.get<GuestMenu>(`${B}/takeaway/menu?branchId=${branchId}`),
   pickupInfo: (branchId: string) => http.get<PickupInfo>(`${B}/takeaway/info?branchId=${branchId}`),

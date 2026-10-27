@@ -7,10 +7,11 @@ import { Reveal } from "../../components/Reveal"
 import { FaqSection, FinalCta, RolesSection } from "./LandingSections"
 import { FEATURES } from "./landingContent"
 import { Button } from "../../components/ui"
+import { homePageOf, useAuth } from "../../context/AuthContext"
 import { formatVND } from "../../lib/format"
 import { publicApi } from "../../lib/api/platform"
 
-const HERO_IMG = "https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?w=1800&q=70&auto=format&fit=crop"
+const HERO_IMG = "/media/photo-1501339847302-ac426a4a7cbb.jpg"
 
 const STEPS = [
   { n: "1", title: "Liên hệ tư vấn", body: "Cho AICOS biết quy mô và nhu cầu của quán để chọn gói phù hợp." },
@@ -18,11 +19,18 @@ const STEPS = [
   { n: "3", title: "Thiết lập và bán hàng", body: "Tạo chi nhánh, sơ đồ bàn và mã QR, nhập thực đơn, mời nhân viên rồi mở bán." },
 ]
 
-/** Public home: the entry point for shop owners (register a brand) and for customers (sign in). */
+/** Public marketing home for brand owners — not the customer app (customers enter via table QR / customer-login). */
 export default function Landing({ navigate }: { navigate: (p: Page) => void }) {
   const { hash } = useLocation()
+  const { user, role } = useAuth()
   useEffect(() => { if (hash) document.getElementById(hash.slice(1))?.scrollIntoView() }, [hash])
   const plans = useQuery({ queryKey: ["public", "plans"], queryFn: publicApi.plans, retry: 1 })
+  function goStaffAccount() {
+    // Marketing CTA is for brand/staff only — never send a customer session into /menu.
+    if (role === "customer") return
+    if (user) navigate(homePageOf(user))
+    else navigate("login")
+  }
   return (
     <PublicPage navigate={navigate} uc="UC-05">
         <section className="relative isolate overflow-hidden bg-espresso text-white">
@@ -35,9 +43,13 @@ export default function Landing({ navigate }: { navigate: (p: Page) => void }) {
             <p className="rise-in mt-5 max-w-2xl text-lg text-white/80" style={{ "--reveal-delay": "200ms" } as CSSProperties}>Khách gọi món bằng điện thoại, quầy pha chế nhận đơn tức thì, thu ngân đối soát gọn gàng và chủ quán nắm số liệu của mọi chi nhánh.</p>
             <div className="rise-in mt-8 flex flex-wrap gap-3" style={{ "--reveal-delay": "300ms" } as CSSProperties}>
               <Button className="min-h-12 px-6" onClick={() => navigate("contact")}>Liên hệ để dùng thử</Button>
-              <Button variant="secondary" className="min-h-12 px-6" onClick={() => navigate("login")}>Tôi đã có tài khoản</Button>
+              {role !== "customer" && (
+                <Button variant="secondary" className="min-h-12 px-6" onClick={goStaffAccount}>Tôi đã có tài khoản</Button>
+              )}
             </div>
-            <p className="rise-in mt-4 text-sm text-white/70" style={{ "--reveal-delay": "400ms" } as CSSProperties}>AICOS tạo tài khoản quản trị cho thương hiệu của bạn sau khi tư vấn. Dùng thử 14 ngày, không cần thẻ thanh toán.</p>
+            <p className="rise-in mt-4 text-sm text-white/70" style={{ "--reveal-delay": "400ms" } as CSSProperties}>
+              AICOS tạo tài khoản quản trị cho thương hiệu của bạn sau khi tư vấn. Dùng thử 14 ngày, không cần thẻ thanh toán.
+            </p>
           </div>
         </section>
         <section id="tinh-nang" className="border-y border-border bg-surface py-14">
@@ -98,19 +110,6 @@ export default function Landing({ navigate }: { navigate: (p: Page) => void }) {
 
         <FaqSection plans={plans.data ?? []} />
         <FinalCta onContact={() => navigate("contact")} />
-
-        <section className="mx-auto max-w-6xl px-4 pb-14 sm:px-8">
-          <div className="rounded-[20px] bg-sand p-6 sm:flex sm:items-center sm:justify-between sm:p-8">
-            <div>
-              <h2 className="font-serif text-2xl">Bạn là khách hàng?</h2>
-              <p className="mt-1 text-sm text-text-secondary">Quét mã QR trên bàn để gọi món ngay. Đăng nhập để tích điểm và xem lịch sử mua hàng.</p>
-            </div>
-            <div className="mt-4 flex gap-3 sm:mt-0">
-              <Button variant="secondary" className="min-h-11" onClick={() => navigate("auth-customer-register")}>Đăng ký</Button>
-              <Button className="min-h-11" onClick={() => navigate("auth-customer-login")}>Đăng nhập khách hàng</Button>
-            </div>
-          </div>
-        </section>
     </PublicPage>
   )
 }

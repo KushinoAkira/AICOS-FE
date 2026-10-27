@@ -4,7 +4,7 @@ export default function AuthHero() {
     <div className="hidden lg:flex lg:w-5/12 xl:w-6/12 p-6">
       <div className="relative w-full overflow-hidden" style={{ borderRadius: "20px" }}>
         <img
-          src="https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=900&h=1100&fit=crop&auto=format"
+          src="/media/photo-1495474472287-4d71bcdd2085.jpg"
           alt="Không gian quán cà phê ấm áp"
           className="w-full h-full object-cover"
           style={{ minHeight: "500px" }}

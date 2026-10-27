@@ -49,7 +49,7 @@ export function FinalCta({ onContact }: { onContact: () => void }) {
   return (
     <section className="mx-auto max-w-6xl px-4 py-14 sm:px-8">
       <Reveal className="relative isolate overflow-hidden rounded-[20px] bg-espresso p-8 text-center text-white sm:p-12">
-        <img src="https://images.unsplash.com/photo-1442512595331-e89e73853f31?w=1400&q=60&auto=format&fit=crop" alt="" aria-hidden loading="lazy" className="absolute inset-0 -z-20 h-full w-full object-cover" />
+        <img src="/media/photo-1442512595331-e89e73853f31.jpg" alt="" aria-hidden loading="lazy" className="absolute inset-0 -z-20 h-full w-full object-cover" />
         <div aria-hidden className="absolute inset-0 -z-10 bg-espresso/85" />
         <h2 className="font-serif text-3xl">Sẵn sàng đưa quán lên AICOS?</h2>
         <p className="mx-auto mt-3 max-w-xl text-white/75">Để lại thông tin, AICOS sẽ tư vấn và tạo tài khoản quản trị cho thương hiệu của bạn. Dùng thử 14 ngày, không cần thẻ thanh toán.</p>

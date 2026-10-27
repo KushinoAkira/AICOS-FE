@@ -9,6 +9,7 @@ import { env } from "../../config/env"
 import { homePageOf, useAuth } from "../../context/AuthContext"
 import { useCountdown, mmss } from "../../hooks/useCountdown"
 import { ApiError } from "../../lib/api/http"
+import { normalizeRole } from "../../router/roles"
 
 interface Props {
   navigate: (p: Page) => void
@@ -40,7 +41,7 @@ export default function Login(props: Props) {
 function LoginForm({ navigate }: Props) {
   const { t } = useTranslation()
   const brand = useBrand()
-  const { login } = useAuth()
+  const { login, logout } = useAuth()
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [submitting, setSubmitting] = useState(false)
@@ -53,6 +54,12 @@ function LoginForm({ navigate }: Props) {
     setFailure(null)
     try {
       const user = await login(loginName, pass)
+      // Staff portal only — customer accounts belong on /customer-login (brand subset).
+      if (normalizeRole(user) === "customer") {
+        await logout()
+        setFailure({ kind: "unknown", message: "Tài khoản khách hàng vui lòng đăng nhập tại trang khách (QR /customer-login), không dùng cổng quán." })
+        return
+      }
       navigate(homePageOf(user))
     } catch (err) {
       setFailure(classify(err))

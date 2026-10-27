@@ -1,5 +1,6 @@
 ﻿import type { UseQueryResult } from "@tanstack/react-query"
 import type { ReactNode } from "react"
+import { env } from "../../config/env"
 import { ApiError } from "../../lib/api/http"
 import { ErrorState, LoadingState } from "./States"
 
@@ -8,7 +9,10 @@ export function QueryBoundary<T>({ query, children }: { query: UseQueryResult<T>
   if (query.isPending) return <LoadingState />
   if (query.isError) {
     const net = query.error instanceof ApiError && query.error.isNetwork
-    return <ErrorState title={net ? "Không thể kết nối máy chủ" : "Không tải được dữ liệu"} description={query.error.message} onRetry={() => void query.refetch()} />
+    const title = net
+      ? (env.useMock ? "Không tải được dữ liệu giả lập" : "Không thể kết nối máy chủ")
+      : "Không tải được dữ liệu"
+    return <ErrorState title={title} description={query.error.message} onRetry={() => void query.refetch()} />
   }
   return <>{children(query.data)}</>
 }

@@ -2,6 +2,8 @@ import { useState } from "react"
 import type { Page } from "../../App"
 import { Logo } from "../../components/AuthShell"
 import { BrandGate } from "../../components/BrandGate"
+import { PasswordHints, PasswordInput, PasswordMeter } from "../../components/PasswordStrength"
+import { isAcceptable } from "../../lib/password"
 
 interface Props {
   navigate: (p: Page) => void
@@ -13,13 +15,18 @@ export default function CustomerRegister(props: Props) {
 
 function CustomerRegisterForm({ navigate }: Props) {
   const [name, setName] = useState("")
+  const [email, setEmail] = useState("")
   const [phone, setPhone] = useState("")
   const [password, setPassword] = useState("")
+  const [confirm, setConfirm] = useState("")
   const [showPass, setShowPass] = useState(false)
   const [agreed, setAgreed] = useState(false)
+  const mismatch = confirm.length > 0 && confirm !== password
+  const canSubmit = agreed && isAcceptable(password) && password === confirm
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    if (!canSubmit) return
     navigate("auth-otp")
   }
 
@@ -54,6 +61,21 @@ function CustomerRegisterForm({ navigate }: Props) {
             />
           </Field>
 
+          <Field label="Email">
+            <input
+              type="email"
+              autoComplete="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="ten@email.com"
+              required
+              className="w-full px-4 py-3 text-sm outline-none transition-all duration-150"
+              style={inputStyle}
+              onFocus={focusBorder}
+              onBlur={blurBorder}
+            />
+          </Field>
+
           <Field label="Số điện thoại">
             <div className="flex" style={{ border: "1px solid #E6DCCB", borderRadius: "10px", backgroundColor: "#FFFFFF", overflow: "hidden" }}>
               <div
@@ -75,30 +97,14 @@ function CustomerRegisterForm({ navigate }: Props) {
           </Field>
 
           <Field label="Mật khẩu">
-            <div className="relative">
-              <input
-                type={showPass ? "text" : "password"}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                required
-                className="w-full px-4 py-3 pr-11 text-sm outline-none transition-all duration-150"
-                style={inputStyle}
-                onFocus={focusBorder}
-                onBlur={blurBorder}
-              />
-              <button
-                type="button"
-                onClick={() => setShowPass(!showPass)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 transition-opacity"
-                style={{ background: "none", border: "none", cursor: "pointer", opacity: 0.45, color: "#3A2E22" }}
-                onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.opacity = "1" }}
-                onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.opacity = "0.45" }}
-                aria-label={showPass ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
-              >
-                {showPass ? <EyeOff /> : <EyeOn />}
-              </button>
-            </div>
+            <PasswordInput value={password} onChange={setPassword} show={showPass} onToggle={() => setShowPass((s) => !s)} />
+            <PasswordMeter password={password} />
+            <PasswordHints password={password} />
+          </Field>
+
+          <Field label="Nhập lại mật khẩu">
+            <PasswordInput value={confirm} onChange={setConfirm} show={showPass} onToggle={() => setShowPass((s) => !s)} />
+            {mismatch && <p className="mt-1.5 text-xs text-state-danger">Mật khẩu nhập lại không khớp</p>}
           </Field>
 
           <label className="flex items-start gap-3 cursor-pointer select-none">
@@ -119,18 +125,18 @@ function CustomerRegisterForm({ navigate }: Props) {
 
           <button
             type="submit"
-            disabled={!agreed}
+            disabled={!canSubmit}
             className="w-full py-3 text-sm font-medium transition-all duration-150 mt-1"
             style={{
-              backgroundColor: agreed ? "#C97B4A" : "#D6C5B3",
+              backgroundColor: canSubmit ? "#C97B4A" : "#D6C5B3",
               color: "#FAF6F0",
               borderRadius: "10px",
               border: "none",
-              cursor: agreed ? "pointer" : "not-allowed",
+              cursor: canSubmit ? "pointer" : "not-allowed",
               fontFamily: "'Inter', system-ui, sans-serif",
             }}
-            onMouseEnter={(e) => { if (agreed) (e.currentTarget as HTMLButtonElement).style.backgroundColor = "#8B5E3C" }}
-            onMouseLeave={(e) => { if (agreed) (e.currentTarget as HTMLButtonElement).style.backgroundColor = "#C97B4A" }}
+            onMouseEnter={(e) => { if (canSubmit) (e.currentTarget as HTMLButtonElement).style.backgroundColor = "#8B5E3C" }}
+            onMouseLeave={(e) => { if (canSubmit) (e.currentTarget as HTMLButtonElement).style.backgroundColor = "#C97B4A" }}
           >
             Tiếp tục
           </button>
@@ -201,25 +207,6 @@ function focusBorder(e: React.FocusEvent<HTMLInputElement>) {
 }
 function blurBorder(e: React.FocusEvent<HTMLInputElement>) {
   e.currentTarget.style.borderColor = "#E6DCCB"
-}
-
-function EyeOn() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M2 12c2-4 5-6 10-6s8 2 10 6c-2 4-5 6-10 6S4 16 2 12z" />
-      <circle cx="12" cy="12" r="3" />
-    </svg>
-  )
-}
-
-function EyeOff() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M17.94 17.94A10.07 10.07 0 0112 20c-5 0-8-2-10-6a18 18 0 015.06-5.94" />
-      <path d="M9.9 4.24A9.12 9.12 0 0112 4c5 0 8 2 10 6a18 18 0 01-1.72 2.28" />
-      <line x1="1" y1="1" x2="23" y2="23" />
-    </svg>
-  )
 }
 
 function GoogleIcon() {

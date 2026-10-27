@@ -1,13 +1,14 @@
 import { HttpResponse, http } from "msw"
 import type { Applicant, CashClosing, LoyaltyMe, LoyaltyVoucher, Notice, Period, Replacement, Shift } from "../../lib/api/staff"
 import { tierOf } from "../../lib/loyalty"
+import { BRAND_STAFF, CUSTOMER_ONLY, FLOOR_STAFF, denyUnless, userIdFromRequest } from "./auth"
 import * as bdb from "./brandDb"
 import * as db from "./db"
 import * as odb from "./orderDb"
 
 const problem = (status: number, title: string) => HttpResponse.json({ title, detail: title }, { status })
 const ok = <T,>(b: T) => HttpResponse.json(b as never)
-const meOf = (req: Request) => req.headers.get("authorization")?.replace("Bearer mock-", "") ?? "anon"
+const meOf = userIdFromRequest
 const nameOf = (id: string) => db.users.find((u) => u.id === id)?.fullName ?? "Nhân viên"
 
 const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
@@ -62,11 +63,15 @@ const readNotices = new Set<string>()
 
 export const staffHandlers = [
   http.get("*/api/v1/staff/shifts", ({ request }) => {
+    const denied = denyUnless(request, BRAND_STAFF)
+    if (denied) return denied
     const from = new URL(request.url).searchParams.get("from") ?? today()
     const to = addDays(from, 6)
     return ok(shifts.filter((s) => s.date >= from && s.date <= to).map(shiftDto))
   }),
   http.post("*/api/v1/staff/shifts", async ({ request }) => {
+    const denied = denyUnless(request, BRAND_STAFF)
+    if (denied) return denied
     const b = (await request.json()) as { date: string; period: Period; userId: string }
     if (b.date < today()) return problem(422, "Không thể xếp ca trong quá khứ")
     if (shifts.some((s) => s.date === b.date && s.period === b.period && s.userId === b.userId)) return problem(409, `${nameOf(b.userId)} đã có ca này`)
@@ -74,16 +79,23 @@ export const staffHandlers = [
     shifts.push(row)
     return ok(shiftDto(row))
   }),
-  http.delete("*/api/v1/staff/shifts/:id", ({ params }) => {
+  http.delete("*/api/v1/staff/shifts/:id", ({ params, request }) => {
+    const denied = denyUnless(request, BRAND_STAFF)
+    if (denied) return denied
     const i = shifts.findIndex((s) => s.id === params.id)
     if (i < 0) return problem(404, "Không tìm thấy ca")
     if (shifts[i].checkInAtUtc) return problem(409, "Ca đã chấm công, không thể xóa")
     shifts.splice(i, 1)
     return ok({ ok: true })
   }),
-  http.get("*/api/v1/staff/my-shifts", ({ request }) =>
-    ok(shifts.filter((s) => s.userId === meOf(request) && s.date >= today()).sort((a, b) => a.date.localeCompare(b.date) || a.period.localeCompare(b.period)).map(shiftDto))),
+  http.get("*/api/v1/staff/my-shifts", ({ request }) => {
+    const denied = denyUnless(request, FLOOR_STAFF)
+    if (denied) return denied
+    return ok(shifts.filter((s) => s.userId === meOf(request) && s.date >= today()).sort((a, b) => a.date.localeCompare(b.date) || a.period.localeCompare(b.period)).map(shiftDto))
+  }),
   http.post("*/api/v1/staff/shifts/:id/check-in", ({ params, request }) => {
+    const denied = denyUnless(request, FLOOR_STAFF)
+    if (denied) return denied
     const s = shifts.find((x) => x.id === params.id && x.userId === meOf(request))
     if (!s) return problem(404, "Không tìm thấy ca của bạn")
     if (s.date !== today()) return problem(409, "Chưa đến ngày của ca này")
@@ -92,6 +104,8 @@ export const staffHandlers = [
     return ok(shiftDto(s))
   }),
   http.post("*/api/v1/staff/shifts/:id/check-out", ({ params, request }) => {
+    const denied = denyUnless(request, FLOOR_STAFF)
+    if (denied) return denied
     const s = shifts.find((x) => x.id === params.id && x.userId === meOf(request))
     if (!s) return problem(404, "Không tìm thấy ca của bạn")
     if (!s.checkInAtUtc) return problem(409, "Bạn chưa vào ca")
@@ -99,9 +113,14 @@ export const staffHandlers = [
     s.checkOutAtUtc = new Date().toISOString()
     return ok(shiftDto(s))
   }),
-  http.get("*/api/v1/staff/replacements", ({ request }) =>
-    ok(replacements.filter((r) => shifts.some((s) => s.id === r.shiftId)).map((r) => replacementDto(r, meOf(request))).reverse())),
+  http.get("*/api/v1/staff/replacements", ({ request }) => {
+    const denied = denyUnless(request, FLOOR_STAFF)
+    if (denied) return denied
+    return ok(replacements.filter((r) => shifts.some((s) => s.id === r.shiftId)).map((r) => replacementDto(r, meOf(request))).reverse())
+  }),
   http.post("*/api/v1/staff/replacements", async ({ request }) => {
+    const denied = denyUnless(request, FLOOR_STAFF)
+    if (denied) return denied
     const b = (await request.json()) as { shiftId: string; reason: string }
     if (!b.reason.trim()) return problem(422, "Nhập lý do cần ca thay")
     if (!shifts.some((s) => s.id === b.shiftId)) return problem(404, "Không tìm thấy ca")
@@ -111,6 +130,8 @@ export const staffHandlers = [
     return ok(replacementDto(r, meOf(request)))
   }),
   http.post("*/api/v1/staff/replacements/:id/apply", ({ params, request }) => {
+    const denied = denyUnless(request, FLOOR_STAFF)
+    if (denied) return denied
     const r = replacements.find((x) => x.id === params.id)
     const me = meOf(request)
     if (!r || r.status !== "open") return problem(409, "Ca này không còn nhận đăng ký")
@@ -122,6 +143,8 @@ export const staffHandlers = [
     return ok(replacementDto(r, me))
   }),
   http.post("*/api/v1/staff/replacements/:id/approve", async ({ params, request }) => {
+    const denied = denyUnless(request, BRAND_STAFF)
+    if (denied) return denied
     const r = replacements.find((x) => x.id === params.id)
     if (!r || r.status !== "open") return problem(409, "Yêu cầu đã được xử lý")
     const { userId } = (await request.json()) as { userId: string }
@@ -132,9 +155,19 @@ export const staffHandlers = [
     r.filledBy = nameOf(userId)
     return ok(replacementDto(r, meOf(request)))
   }),
-  http.get("*/api/v1/staff/cash/expected", () => ok({ expected: cashExpected(), closed: closings.some((c) => c.day === today()) })),
-  http.get("*/api/v1/staff/cash/closings", () => ok(closings.map(({ day: _day, ...c }) => c).reverse())),
+  http.get("*/api/v1/staff/cash/expected", ({ request }) => {
+    const denied = denyUnless(request, FLOOR_STAFF)
+    if (denied) return denied
+    return ok({ expected: cashExpected(), closed: closings.some((c) => c.day === today()) })
+  }),
+  http.get("*/api/v1/staff/cash/closings", ({ request }) => {
+    const denied = denyUnless(request, FLOOR_STAFF)
+    if (denied) return denied
+    return ok(closings.map(({ day: _day, ...c }) => c).reverse())
+  }),
   http.post("*/api/v1/staff/cash/close", async ({ request }) => {
+    const denied = denyUnless(request, FLOOR_STAFF)
+    if (denied) return denied
     if (closings.some((c) => c.day === today())) return problem(409, "Hôm nay đã chốt tiền mặt")
     const b = (await request.json()) as { counted: number; reason: string }
     const expected = cashExpected()
@@ -144,8 +177,14 @@ export const staffHandlers = [
     closings.push(c)
     return ok(c)
   }),
-  http.get("*/api/v1/loyalty/me", ({ request }) => ok(loyalty(meOf(request)))),
+  http.get("*/api/v1/loyalty/me", ({ request }) => {
+    const denied = denyUnless(request, CUSTOMER_ONLY)
+    if (denied) return denied
+    return ok(loyalty(meOf(request)))
+  }),
   http.post("*/api/v1/loyalty/redeem", ({ request }) => {
+    const denied = denyUnless(request, CUSTOMER_ONLY)
+    if (denied) return denied
     const me = meOf(request)
     const cur = loyalty(me)
     const { redeemPoints, voucherValue } = bdb.settings.loyalty
@@ -159,6 +198,8 @@ export const staffHandlers = [
     return ok(loyalty(me))
   }),
   http.get("*/api/v1/notifications/mine", ({ request }) => {
+    const denied = denyUnless(request, CUSTOMER_ONLY)
+    if (denied) return denied
     const me = meOf(request)
     const body = (status: string) =>
       status === "Ready" ? "Đơn của bạn đã sẵn sàng để nhận." : status === "PickedUp" ? "Cảm ơn bạn! Hãy để lại đánh giá nhé." : status === "Cancelled" ? "Đơn đã được hủy." : `Trạng thái: ${status}`
@@ -166,6 +207,8 @@ export const staffHandlers = [
     return ok(list)
   }),
   http.post("*/api/v1/notifications/read-all", ({ request }) => {
+    const denied = denyUnless(request, CUSTOMER_ONLY)
+    if (denied) return denied
     odb.orders.filter((o) => o.customerId === meOf(request)).forEach((o) => readNotices.add(`n${o.id}-${o.status}`))
     return ok({ ok: true })
   }),

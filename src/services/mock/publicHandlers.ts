@@ -1,5 +1,6 @@
 import { HttpResponse, delay, http } from "msw"
 import type { ContactInput, Tenant } from "../../lib/api/platform"
+import { BRAND_STAFF, denyUnless } from "./auth"
 import * as db from "./db"
 
 const problem = (status: number, title: string, code?: string) => HttpResponse.json({ title, detail: title, code }, { status })
@@ -20,11 +21,15 @@ export const publicHandlers = [
     return ok({ name: t.name, slug: t.slug, status, logoUrl: t.logoUrl, brandColor: t.brandColor })
   }),
   /** Brand Admin's own brand (the demo Brand Admin belongs to "caphenha"). */
-  http.get("*/api/v1/brand/profile", () => {
+  http.get("*/api/v1/brand/profile", ({ request }) => {
+    const denied = denyUnless(request, BRAND_STAFF)
+    if (denied) return denied
     const t = db.tenants.find((x) => x.slug === "caphenha") as Tenant
     return ok({ name: t.name, slug: t.slug, logoUrl: t.logoUrl, brandColor: t.brandColor })
   }),
   http.put("*/api/v1/brand/profile", async ({ request }) => {
+    const denied = denyUnless(request, BRAND_STAFF)
+    if (denied) return denied
     const b = (await request.json()) as { logoUrl?: string; brandColor?: string }
     if (b.brandColor && !/^#[0-9a-fA-F]{6}$/.test(b.brandColor)) return problem(422, "Màu thương hiệu không hợp lệ")
     if (b.logoUrl && b.logoUrl.length > 700_000) return problem(422, "Logo quá lớn (tối đa 512 KB)")

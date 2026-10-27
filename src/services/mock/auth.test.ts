@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { CUSTOMER_ONLY, PLATFORM_ADMIN, denyUnless, issueSession, userFromRequest } from "./auth"
+import { BRAND_STAFF, CUSTOMER_ONLY, FLOOR_STAFF, PLATFORM_ADMIN, denyUnless, issueSession, userFromRequest } from "./auth"
 import * as db from "./db"
 
 function req(auth?: string) {
@@ -34,5 +34,12 @@ describe("mock auth gate", () => {
     expect(denyUnless(req(`Bearer ${customerTok}`), PLATFORM_ADMIN)?.status).toBe(403)
     expect(denyUnless(req(`Bearer ${adminTok}`), PLATFORM_ADMIN)).toBeNull()
     expect(denyUnless(req(`Bearer ${customerTok}`), CUSTOMER_ONLY)).toBeNull()
+  })
+
+  it("lets cashier read the brand menu used by POS", () => {
+    const cashier = db.users.find((u) => u.email === "cashier@aicos.local")!
+    const tok = issueSession(cashier).accessToken
+    expect(denyUnless(req(`Bearer ${tok}`), [...BRAND_STAFF, ...FLOOR_STAFF])).toBeNull()
+    expect(denyUnless(req(`Bearer ${tok}`), BRAND_STAFF)?.status).toBe(403)
   })
 })

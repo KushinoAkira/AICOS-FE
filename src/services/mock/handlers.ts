@@ -2,7 +2,7 @@ import { HttpResponse, delay, http } from "msw"
 import type { BranchDto, UserDto } from "../../lib/api/identity"
 import type { Plan, PaymentProvider, Subscription, Tenant, TenantInput } from "../../lib/api/platform"
 import type { BranchPickup, PickupSettings, Product, ProductInput, Voucher, VoucherInput } from "../../lib/api/brand"
-import { BRAND_STAFF, PLATFORM_ADMIN, denyUnless, issueSession, revokeAccessToken } from "./auth"
+import { BRAND_STAFF, FLOOR_STAFF, PLATFORM_ADMIN, denyUnless, issueSession, revokeAccessToken } from "./auth"
 import * as db from "./db"
 import * as bdb from "./brandDb"
 
@@ -298,8 +298,9 @@ const effectivePickup = (branchId: string): BranchPickup => {
 }
 
 export const brandHandlers = [
+  // Read: floor staff need the published menu for POS. Write endpoints below stay brand-admin only.
   http.get("*/api/v1/brand/menu/products", async ({ request }) => {
-    const denied = denyUnless(request, BRAND_STAFF)
+    const denied = denyUnless(request, [...BRAND_STAFF, ...FLOOR_STAFF])
     if (denied) return denied
     await delay(200)
     return ok(bdb.products)

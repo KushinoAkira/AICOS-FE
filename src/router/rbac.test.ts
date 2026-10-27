@@ -49,6 +49,12 @@ describe("canAccess", () => {
     expect(canAccess("account-settings", CUSTOMER)).toBe(true)
     expect(canAccess("account-settings", "cashier")).toBe(true)
   })
+
+  it("lets barista open the shared shift screen from the sidebar", () => {
+    expect(canAccess("cashier-shift", "barista")).toBe(true)
+    expect(canAccess("cashier-shift", "cashier")).toBe(true)
+    expect(canAccess("cashier-shift", "customer")).toBe(false)
+  })
 })
 
 describe("loginPageFor", () => {

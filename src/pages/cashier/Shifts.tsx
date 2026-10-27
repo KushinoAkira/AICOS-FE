@@ -21,7 +21,7 @@ export default function MyShifts({ navigate }: { navigate: (p: Page) => void }) 
   const apply = useMutation({ mutationFn: staffApi.apply, onSuccess: () => { refresh(); showToast("Đã đăng ký ca thay, chờ quản lý duyệt", "success") }, onError: (e) => showToast(e.message, "error") })
 
   return (
-    <PageFrame page="cashier-shift" navigate={navigate} uc="UC-46" title="Ca của tôi" subtitle="Vào ca, kết thúc ca và đăng ký ca thay.">
+    <PageFrame page="cashier-shift" navigate={navigate} uc="UC-47" title="Ca của tôi" subtitle="Vào ca, kết thúc ca và đăng ký ca thay.">
       <div className="space-y-10">
         <section>
           <h2 className="mb-3 font-serif text-lg text-text-primary">Ca sắp tới</h2>

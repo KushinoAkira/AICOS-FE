@@ -28,6 +28,7 @@ jobs:
       - name: Build
         env:
           VITE_USE_MOCK: "true"
+          VITE_DEMO: "true"
         run: pnpm exec vite build
       - name: Deploy
         env:

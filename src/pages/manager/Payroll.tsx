@@ -39,7 +39,7 @@ export default function ManagerPayroll({ navigate }: Props) {
     >
       <div className="mb-6 flex items-center justify-between flex-wrap gap-4">
         <div>
-          <h1 className="font-serif text-2xl font-medium" style={{ color: "#3A2E22", fontFamily: "'Literata', 'Times New Roman', serif" }}>
+          <h1 className="font-serif text-2xl font-medium" style={{ color: "#3A2E22", fontFamily: "'Literata', 'Inter', system-ui, sans-serif" }}>
             Bảng lương
           </h1>
           <p className="text-sm mt-1" style={{ color: "#8A7A6C" }}>Quản lý chi trả lương nhân viên theo tháng</p>
@@ -94,7 +94,7 @@ export default function ManagerPayroll({ navigate }: Props) {
               <div className="flex items-center gap-3 min-w-0">
                 <div
                   className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium flex-shrink-0"
-                  style={{ backgroundColor: emp.avatarBg, color: "#FAF6F0", fontFamily: "'Literata', 'Times New Roman', serif" }}
+                  style={{ backgroundColor: emp.avatarBg, color: "#FAF6F0", fontFamily: "'Literata', 'Inter', system-ui, sans-serif" }}
                 >
                   {emp.avatar}
                 </div>
@@ -111,7 +111,7 @@ export default function ManagerPayroll({ navigate }: Props) {
               </span>
               <span
                 className="font-serif text-sm font-medium tabular-nums"
-                style={{ color: "#3A2E22", fontFamily: "'Literata', 'Times New Roman', serif" }}
+                style={{ color: "#3A2E22", fontFamily: "'Literata', 'Inter', system-ui, sans-serif" }}
               >
                 {fmt(net)}
               </span>
@@ -145,7 +145,7 @@ function KpiCard({ label, value, sub, subColor }: { label: string; value: string
   return (
     <div className="p-5 rounded-2xl" style={{ backgroundColor: "#FFFFFF", border: "1px solid #E6DCCB" }}>
       <p className="text-xs mb-2" style={{ color: "#8A7A6C" }}>{label}</p>
-      <p className="font-serif text-3xl font-medium mb-1" style={{ color: "#3A2E22", fontFamily: "'Literata', 'Times New Roman', serif" }}>{value}</p>
+      <p className="font-serif text-3xl font-medium mb-1" style={{ color: "#3A2E22", fontFamily: "'Literata', 'Inter', system-ui, sans-serif" }}>{value}</p>
       <p className="text-xs" style={{ color: subColor }}>{sub}</p>
     </div>
   )

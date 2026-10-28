@@ -38,7 +38,7 @@ export default function CustomerProfile({ navigate }: Props) {
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M10 3L5 8l5 5"/></svg>
           Menu
         </button>
-        <span className="font-serif text-base font-medium" style={{ color: "#3A2E22", fontFamily: "'Literata', 'Times New Roman', serif" }}>Hồ sơ</span>
+        <span className="font-serif text-base font-medium" style={{ color: "#3A2E22", fontFamily: "'Literata', 'Inter', system-ui, sans-serif" }}>Hồ sơ</span>
         <button
           onClick={() => void logout()}
           className="text-sm"
@@ -64,7 +64,7 @@ export default function CustomerProfile({ navigate }: Props) {
           </div>
           <h1
             className="font-serif text-2xl font-medium mb-2"
-            style={{ color: "#3A2E22", fontFamily: "'Literata', 'Times New Roman', serif" }}
+            style={{ color: "#3A2E22", fontFamily: "'Literata', 'Inter', system-ui, sans-serif" }}
           >
             Linh Nguyễn
           </h1>
@@ -86,7 +86,7 @@ export default function CustomerProfile({ navigate }: Props) {
               <p className="text-xs mb-1" style={{ color: "#8A7A6C" }}>Điểm tích lũy</p>
               <span
                 className="font-serif text-5xl font-medium"
-                style={{ color: "#3A2E22", fontFamily: "'Literata', 'Times New Roman', serif" }}
+                style={{ color: "#3A2E22", fontFamily: "'Literata', 'Inter', system-ui, sans-serif" }}
               >
                 {points}
               </span>
@@ -120,7 +120,7 @@ export default function CustomerProfile({ navigate }: Props) {
         <div className="mb-8">
           <h2
             className="font-serif text-xl font-medium mb-4"
-            style={{ color: "#3A2E22", fontFamily: "'Literata', 'Times New Roman', serif" }}
+            style={{ color: "#3A2E22", fontFamily: "'Literata', 'Inter', system-ui, sans-serif" }}
           >
             Ưu đãi dành cho bạn
           </h2>
@@ -165,7 +165,7 @@ export default function CustomerProfile({ navigate }: Props) {
         <div>
           <h2
             className="font-serif text-xl font-medium mb-4"
-            style={{ color: "#3A2E22", fontFamily: "'Literata', 'Times New Roman', serif" }}
+            style={{ color: "#3A2E22", fontFamily: "'Literata', 'Inter', system-ui, sans-serif" }}
           >
             Lịch sử đơn hàng
           </h2>

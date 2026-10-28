@@ -38,7 +38,7 @@ function CustomerRegisterForm({ navigate }: Props) {
 
         <h1
           className="font-serif text-2xl font-medium mb-2 leading-snug"
-          style={{ color: "#3A2E22", fontFamily: "'Literata', 'Times New Roman', serif" }}
+          style={{ color: "#3A2E22", fontFamily: "'Literata', 'Inter', system-ui, sans-serif" }}
         >
           Tạo tài khoản để tích điểm mỗi lần ghé quán
         </h1>

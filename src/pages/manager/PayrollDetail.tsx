@@ -72,12 +72,12 @@ export default function PayrollDetail({ navigate }: Props) {
         <div className="flex items-center gap-4 mb-8">
           <div
             className="w-14 h-14 rounded-full flex items-center justify-center text-xl font-medium flex-shrink-0"
-            style={{ backgroundColor: "#8B5E3C", color: "#FAF6F0", fontFamily: "'Literata', 'Times New Roman', serif" }}
+            style={{ backgroundColor: "#8B5E3C", color: "#FAF6F0", fontFamily: "'Literata', 'Inter', system-ui, sans-serif" }}
           >
             L
           </div>
           <div>
-            <h1 className="font-serif text-2xl font-medium" style={{ color: "#3A2E22", fontFamily: "'Literata', 'Times New Roman', serif" }}>
+            <h1 className="font-serif text-2xl font-medium" style={{ color: "#3A2E22", fontFamily: "'Literata', 'Inter', system-ui, sans-serif" }}>
               Trần Thị Lan
             </h1>
             <p className="text-sm mt-0.5" style={{ color: "#8A7A6C" }}>Thu ngân · Cơ sở Quận 1</p>
@@ -102,7 +102,7 @@ export default function PayrollDetail({ navigate }: Props) {
             <span className="text-sm font-medium" style={{ color: "#3A2E22" }}>Thực lãnh</span>
             <span
               className="font-serif text-2xl font-medium"
-              style={{ color: "#C97B4A", fontFamily: "'Literata', 'Times New Roman', serif" }}
+              style={{ color: "#C97B4A", fontFamily: "'Literata', 'Inter', system-ui, sans-serif" }}
             >
               {fmt(net)}
             </span>
@@ -187,7 +187,7 @@ export default function PayrollDetail({ navigate }: Props) {
         >
           <div className="w-full max-w-md p-6 rounded-2xl" style={{ backgroundColor: "#FFFFFF", boxShadow: "0 20px 60px rgba(58,46,34,0.2)" }}>
             <div className="flex items-center justify-between mb-5">
-              <h3 className="font-serif text-lg font-medium" style={{ color: "#3A2E22", fontFamily: "'Literata', 'Times New Roman', serif" }}>
+              <h3 className="font-serif text-lg font-medium" style={{ color: "#3A2E22", fontFamily: "'Literata', 'Inter', system-ui, sans-serif" }}>
                 Điều chỉnh thủ công
               </h3>
               <button

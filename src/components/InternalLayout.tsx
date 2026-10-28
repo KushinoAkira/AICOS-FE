@@ -135,7 +135,7 @@ export default function InternalLayout({ activePage, navigate, children, headerR
         <div className="px-6 pt-7 pb-8">
           <div className="flex items-center gap-2">
             <CoffeeBean />
-            <span className="font-serif text-xl font-medium" style={{ color: "#FAF6F0", fontFamily: "'Literata', 'Times New Roman', serif" }}>
+            <span className="font-serif text-xl font-medium" style={{ color: "#FAF6F0", fontFamily: "'Literata', 'Inter', system-ui, sans-serif" }}>
               AICOS
             </span>
           </div>
@@ -212,7 +212,7 @@ export default function InternalLayout({ activePage, navigate, children, headerR
           >
             <div
               className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium flex-shrink-0"
-              style={{ backgroundColor: "#C97B4A", color: "#FAF6F0", fontFamily: "'Literata', 'Times New Roman', serif" }}
+              style={{ backgroundColor: "#C97B4A", color: "#FAF6F0", fontFamily: "'Literata', 'Inter', system-ui, sans-serif" }}
             >
               {(user?.fullName ?? "?").charAt(0).toUpperCase()}
             </div>

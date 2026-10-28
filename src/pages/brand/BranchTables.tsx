@@ -43,7 +43,7 @@ function printSticker(t: TableRow) {
   const w = window.open("", "_blank", "width=480,height=640")
   if (!w) return
   w.document.write(`<!doctype html><html><head><title>QR bàn ${t.code}</title>
-    <style>body{font-family:Georgia,serif;text-align:center;padding:32px;color:black;background:white}h1{font-size:28px;margin:0 0 8px}p{margin:0 0 16px;font-size:14px}svg{width:240px;height:240px}</style>
+    <style>body{font-family:Inter,system-ui,sans-serif;text-align:center;padding:32px;color:black;background:white}h1{font-size:28px;margin:0 0 8px}p{margin:0 0 16px;font-size:14px}svg{width:240px;height:240px}</style>
     </head><body><h1>Bàn ${t.code}</h1><p>Quét mã để gọi món</p>${svg.outerHTML}</body></html>`)
   w.document.close()
   w.focus()

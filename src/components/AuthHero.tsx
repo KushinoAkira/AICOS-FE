@@ -16,7 +16,7 @@ export default function AuthHero() {
         <div className="absolute bottom-8 left-8 right-8">
           <p
             className="font-serif text-2xl font-medium leading-snug"
-            style={{ color: "#FAF6F0", fontFamily: "'Literata', 'Times New Roman', serif" }}
+            style={{ color: "#FAF6F0", fontFamily: "'Literata', 'Inter', system-ui, sans-serif" }}
           >
             "Mỗi tách cà phê là một khoảnh khắc — chúng tôi giúp bạn trân trọng từng khoảnh khắc đó."
           </p>

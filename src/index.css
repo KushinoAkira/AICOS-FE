@@ -1,11 +1,5 @@
-/* Self-hosted (Hosting CSP blocks Google Fonts). Weight bundles include unicode-range
-   so latin + vietnamese faces don't steal each other's glyphs. */
-@import "@fontsource/literata/400.css";
-@import "@fontsource/literata/500.css";
-@import "@fontsource/literata/600.css";
-@import "@fontsource/inter/400.css";
-@import "@fontsource/inter/500.css";
-@import "@fontsource/inter/600.css";
+/* Self-hosted (Hosting CSP blocks Google Fonts). See fonts.css for subset rules. */
+@import "./fonts.css";
 
 @import 'tailwindcss';
 
@@ -31,8 +25,9 @@
   --radius-card: 16px;
   --radius-control: 10px;
 
-  --font-serif: 'Literata', 'Times New Roman', serif;
-  --font-sans: 'Inter', system-ui, sans-serif;
+  /* Inter — never Times/Georgia/serif: those split Vietnamese diacritics. */
+  --font-serif: "Literata", "Inter", system-ui, sans-serif;
+  --font-sans: "Inter", system-ui, sans-serif;
 }
 
 *, *::before, *::after {
@@ -40,7 +35,7 @@
 }
 
 html {
-  font-family: 'Inter', system-ui, sans-serif;
+  font-family: "Inter", system-ui, sans-serif;
   background-color: #FAF6F0;
   color: #3A2E22;
   line-height: 1.5;
@@ -57,8 +52,8 @@ body {
 ::-webkit-scrollbar-thumb { background: #E6DCCB; border-radius: 999px; }
 ::-webkit-scrollbar-thumb:hover { background: #C97B4A; }
 
-.font-serif { font-family: 'Literata', 'Times New Roman', serif; }
-.font-sans  { font-family: 'Inter', system-ui, sans-serif; }
+.font-serif { font-family: "Literata", "Inter", system-ui, sans-serif; }
+.font-sans  { font-family: "Inter", system-ui, sans-serif; }
 
 @keyframes pulse-dot {
   0%, 100% { opacity: 1; transform: scale(1); }

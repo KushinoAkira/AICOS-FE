@@ -65,7 +65,7 @@ export default function OTPVerification({ navigate, flow = "register" }: Props) 
         {/* Logo */}
         <div className="flex items-center gap-2 mb-10">
           <CoffeeBean />
-          <span className="font-serif text-xl font-medium" style={{ color: "#6F4E37", fontFamily: "'Literata', 'Times New Roman', serif" }}>
+          <span className="font-serif text-xl font-medium" style={{ color: "#6F4E37", fontFamily: "'Literata', 'Inter', system-ui, sans-serif" }}>
             AICOS
           </span>
         </div>
@@ -77,7 +77,7 @@ export default function OTPVerification({ navigate, flow = "register" }: Props) 
 
         <h1
           className="font-serif text-2xl font-medium mb-2 text-center"
-          style={{ color: "#3A2E22", fontFamily: "'Literata', 'Times New Roman', serif" }}
+          style={{ color: "#3A2E22", fontFamily: "'Literata', 'Inter', system-ui, sans-serif" }}
         >
           Nhập mã xác thực
         </h1>
@@ -106,7 +106,7 @@ export default function OTPVerification({ navigate, flow = "register" }: Props) 
                 borderRadius: "10px",
                 backgroundColor: "#FFFFFF",
                 color: "#3A2E22",
-                fontFamily: "'Literata', 'Times New Roman', serif",
+                fontFamily: "'Literata', 'Inter', system-ui, sans-serif",
               }}
               onFocus={(e) => { e.currentTarget.style.borderColor = "#C97B4A" }}
               onBlur={(e) => { e.currentTarget.style.borderColor = e.currentTarget.value ? "#C97B4A" : "#E6DCCB" }}

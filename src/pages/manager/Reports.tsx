@@ -137,7 +137,7 @@ export default function ManagerReports({ navigate }: Props) {
     <InternalLayout role="manager" activePage="manager-reports" navigate={(id) => navigate(id as Page)}>
       {/* ── Page header ────────────────────────────────────────────── */}
       <div className="mb-6">
-        <h1 className="font-serif text-2xl font-medium mb-5" style={{ color: "#3A2E22", fontFamily: "'Literata', 'Times New Roman', serif" }}>
+        <h1 className="font-serif text-2xl font-medium mb-5" style={{ color: "#3A2E22", fontFamily: "'Literata', 'Inter', system-ui, sans-serif" }}>
           Báo cáo
         </h1>
 
@@ -329,7 +329,7 @@ export default function ManagerReports({ navigate }: Props) {
               <div key={card.label} className="p-5 rounded-2xl" style={{ backgroundColor: "#FFFFFF", border: "1px solid #E6DCCB" }}>
                 <p className="text-xs mb-2" style={{ color: "#8A7A6C" }}>{card.label}</p>
                 <div className="flex items-end gap-2">
-                  <p className="font-serif text-2xl font-medium" style={{ color: "#C97B4A", fontFamily: "'Literata', 'Times New Roman', serif" }}>{card.value}</p>
+                  <p className="font-serif text-2xl font-medium" style={{ color: "#C97B4A", fontFamily: "'Literata', 'Inter', system-ui, sans-serif" }}>{card.value}</p>
                   {compare && <DeltaBadge pct={card.delta} positive={card.pos} />}
                 </div>
               </div>
@@ -337,7 +337,7 @@ export default function ManagerReports({ navigate }: Props) {
           </div>
           {/* Chart */}
           <div className="p-6 rounded-2xl" style={{ backgroundColor: "#FFFFFF", border: "1px solid #E6DCCB" }}>
-            <h2 className="font-serif text-lg font-medium mb-4" style={{ color: "#3A2E22", fontFamily: "'Literata', 'Times New Roman', serif" }}>
+            <h2 className="font-serif text-lg font-medium mb-4" style={{ color: "#3A2E22", fontFamily: "'Literata', 'Inter', system-ui, sans-serif" }}>
               Doanh thu theo ngày
             </h2>
             <ResponsiveContainer width="100%" height={220}>
@@ -363,14 +363,14 @@ export default function ManagerReports({ navigate }: Props) {
             <div className="p-5 rounded-2xl" style={{ backgroundColor: "#FFFFFF", border: "1px solid #E6DCCB" }}>
               <p className="text-xs mb-2" style={{ color: "#8A7A6C" }}>Tổng doanh thu</p>
               <div className="flex items-end gap-2">
-                <p className="font-serif text-3xl font-medium" style={{ color: "#C97B4A", fontFamily: "'Literata', 'Times New Roman', serif" }}>{fmtMd(totalRevenue)}</p>
+                <p className="font-serif text-3xl font-medium" style={{ color: "#C97B4A", fontFamily: "'Literata', 'Inter', system-ui, sans-serif" }}>{fmtMd(totalRevenue)}</p>
                 {compare && <DeltaBadge pct="8.4%" positive={true} />}
               </div>
             </div>
             <div className="p-5 rounded-2xl" style={{ backgroundColor: "#FFFFFF", border: "1px solid #E6DCCB" }}>
               <p className="text-xs mb-2" style={{ color: "#8A7A6C" }}>Tổng lượt bán</p>
               <div className="flex items-end gap-2">
-                <p className="font-serif text-3xl font-medium" style={{ color: "#3A2E22", fontFamily: "'Literata', 'Times New Roman', serif" }}>{totalQty.toLocaleString("vi-VN")}</p>
+                <p className="font-serif text-3xl font-medium" style={{ color: "#3A2E22", fontFamily: "'Literata', 'Inter', system-ui, sans-serif" }}>{totalQty.toLocaleString("vi-VN")}</p>
                 {compare && <DeltaBadge pct="5.2%" positive={true} />}
               </div>
             </div>
@@ -391,7 +391,7 @@ export default function ManagerReports({ navigate }: Props) {
                   onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.backgroundColor = "transparent" }}
                 >
                   <div className="w-10 flex-shrink-0 text-center">
-                    <span className="font-serif font-medium" style={{ color: idx === 0 ? "#C97B4A" : idx === 1 ? "#8B5E3C" : idx === 2 ? "#B98A3D" : "#E6DCCB", fontFamily: "'Literata', 'Times New Roman', serif", fontSize: idx < 3 ? "28px" : "22px" }}>
+                    <span className="font-serif font-medium" style={{ color: idx === 0 ? "#C97B4A" : idx === 1 ? "#8B5E3C" : idx === 2 ? "#B98A3D" : "#E6DCCB", fontFamily: "'Literata', 'Inter', system-ui, sans-serif", fontSize: idx < 3 ? "28px" : "22px" }}>
                       {idx + 1}
                     </span>
                   </div>
@@ -403,7 +403,7 @@ export default function ManagerReports({ navigate }: Props) {
                     </div>
                   </div>
                   <div className="text-right flex-shrink-0">
-                    <p className="font-serif text-lg font-medium" style={{ color: "#3A2E22", fontFamily: "'Literata', 'Times New Roman', serif" }}>{item.qty.toLocaleString("vi-VN")}</p>
+                    <p className="font-serif text-lg font-medium" style={{ color: "#3A2E22", fontFamily: "'Literata', 'Inter', system-ui, sans-serif" }}>{item.qty.toLocaleString("vi-VN")}</p>
                     <p className="text-xs" style={{ color: "#C97B4A" }}>{fmtMd(item.revenue)}</p>
                   </div>
                 </div>
@@ -425,7 +425,7 @@ export default function ManagerReports({ navigate }: Props) {
               <div key={card.label} className="p-5 rounded-2xl" style={{ backgroundColor: "#FFFFFF", border: "1px solid #E6DCCB" }}>
                 <p className="text-xs mb-2" style={{ color: "#8A7A6C" }}>{card.label}</p>
                 <div className="flex items-end gap-2">
-                  <p className="font-serif text-3xl font-medium" style={{ color: "#3A2E22", fontFamily: "'Literata', 'Times New Roman', serif" }}>{card.value}</p>
+                  <p className="font-serif text-3xl font-medium" style={{ color: "#3A2E22", fontFamily: "'Literata', 'Inter', system-ui, sans-serif" }}>{card.value}</p>
                   {compare && <DeltaBadge pct={card.delta} positive={card.pos} />}
                 </div>
                 <p className="text-xs mt-1" style={{ color: "#8A7A6C" }}>{card.sub}</p>
@@ -436,7 +436,7 @@ export default function ManagerReports({ navigate }: Props) {
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
             {/* New customers chart */}
             <div className="p-6 rounded-2xl" style={{ backgroundColor: "#FFFFFF", border: "1px solid #E6DCCB" }}>
-              <h2 className="font-serif text-base font-medium mb-4" style={{ color: "#3A2E22", fontFamily: "'Literata', 'Times New Roman', serif" }}>Khách mới theo ngày</h2>
+              <h2 className="font-serif text-base font-medium mb-4" style={{ color: "#3A2E22", fontFamily: "'Literata', 'Inter', system-ui, sans-serif" }}>Khách mới theo ngày</h2>
               <ResponsiveContainer width="100%" height={160}>
                 <LineChart data={CUSTOMER_DATA.newByDay} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
                   <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: "#8A7A6C" }} />
@@ -453,7 +453,7 @@ export default function ManagerReports({ navigate }: Props) {
 
             {/* Loyalty tier */}
             <div className="p-6 rounded-2xl" style={{ backgroundColor: "#FFFFFF", border: "1px solid #E6DCCB" }}>
-              <h2 className="font-serif text-base font-medium mb-4" style={{ color: "#3A2E22", fontFamily: "'Literata', 'Times New Roman', serif" }}>Phân tầng thành viên</h2>
+              <h2 className="font-serif text-base font-medium mb-4" style={{ color: "#3A2E22", fontFamily: "'Literata', 'Inter', system-ui, sans-serif" }}>Phân tầng thành viên</h2>
               <div className="space-y-3">
                 {CUSTOMER_DATA.tiers.map((tier) => (
                   <div key={tier.label}>

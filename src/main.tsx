@@ -27,10 +27,18 @@ function mount() {
   )
 }
 
+/** Drop Cache Storage entries so a prior bad /media (Git LFS pointer) response cannot stick behind MSW. */
+async function clearStaleCaches() {
+  if (!("caches" in window)) return
+  const keys = await caches.keys()
+  await Promise.all(keys.map((k) => caches.delete(k)))
+}
+
 // Mock mode: MSW answers the API calls in the browser, so no backend is needed.
 if (env.useMock) {
   void import("./services/mock/browser")
     .then(async ({ worker }) => {
+      await clearStaleCaches()
       await worker.start({
         quiet: true,
         onUnhandledFrame: "bypass",

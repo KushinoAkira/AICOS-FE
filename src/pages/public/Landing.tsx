@@ -10,8 +10,9 @@ import { Button } from "../../components/ui"
 import { homePageOf, useAuth } from "../../context/AuthContext"
 import { formatVND } from "../../lib/format"
 import { publicApi } from "../../lib/api/platform"
+import { mediaUrl } from "../../lib/media"
 
-const HERO_IMG = "/media/photo-1501339847302-ac426a4a7cbb.jpg"
+const HERO_IMG = mediaUrl("photo-1501339847302-ac426a4a7cbb")
 
 const STEPS = [
   { n: "1", title: "Liên hệ tư vấn", body: "Cho AICOS biết quy mô và nhu cầu của quán để chọn gói phù hợp." },

@@ -56,7 +56,7 @@ export default function CustomerProfile({ navigate }: Props) {
             style={{ border: "3px solid #E6DCCB" }}
           >
             <img
-              src="/media/photo-1438761681033-6461ffad8d80.jpg"
+              src="/media/photo-1438761681033-6461ffad8d80.jpg?v=lfs2"
               alt="Avatar"
               className="w-full h-full object-cover"
               style={{ backgroundColor: "#F5EFE6" }}

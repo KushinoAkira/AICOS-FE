@@ -57,7 +57,7 @@ function CustomerLoginForm({ navigate }: Props) {
 
         <h1
           className="font-serif text-2xl font-medium mb-2"
-          style={{ color: "#3A2E22", fontFamily: "'Fraunces', Georgia, serif", lineHeight: 1.25 }}
+          style={{ color: "#3A2E22", fontFamily: "'Literata', 'Times New Roman', serif", lineHeight: 1.25 }}
         >
           Chào bạn quay lại
         </h1>

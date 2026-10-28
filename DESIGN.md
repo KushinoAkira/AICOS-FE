@@ -26,13 +26,13 @@ colors:
   on-surface: "#3A2E22"
 typography:
   h1:
-    fontFamily: Fraunces
+    fontFamily: Literata
     fontSize: 2rem
     fontWeight: "500"
     lineHeight: 1.2
     letterSpacing: -0.01em
   h2:
-    fontFamily: Fraunces
+    fontFamily: Literata
     fontSize: 1.25rem
     fontWeight: "500"
     lineHeight: 1.3
@@ -105,10 +105,10 @@ never as flashy "magic".
 
 ## Typography
 
-- **Headlines:** Fraunces (serif, medium) - gives the warm, café-menu voice.
+- **Headlines:** Literata (serif, medium) - warm café-menu voice with full Vietnamese composites (Fraunces was dropped: missing VN glyphs).
 - **Body and data:** Inter at 14px for dense dashboards (POS, stock tables), 16px for customer-facing reading.
 - **Labels:** Inter 12px medium with slight tracking.
-- Vietnamese diacritics must render cleanly: always load both fonts with the Vietnamese subset.
+- Vietnamese diacritics must render cleanly: self-host latin + vietnamese subsets (Hosting CSP blocks Google Fonts).
 
 ## Layout
 

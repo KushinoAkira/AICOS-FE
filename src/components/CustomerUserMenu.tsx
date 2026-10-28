@@ -69,7 +69,7 @@ export default function UserMenu({ navigate, variant = "customer" }: Props) {
         aria-expanded={open}
         aria-label="Tài khoản"
         className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium"
-        style={{ backgroundColor: "#C97B4A", color: "#FAF6F0", border: "none", cursor: "pointer", fontFamily: "'Fraunces', Georgia, serif" }}
+        style={{ backgroundColor: "#C97B4A", color: "#FAF6F0", border: "none", cursor: "pointer", fontFamily: "'Literata', 'Times New Roman', serif" }}
       >
         {(user?.fullName ?? "?").charAt(0).toUpperCase()}
       </button>

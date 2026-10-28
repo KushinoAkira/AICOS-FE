@@ -1,5 +1,17 @@
-@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,400&display=swap'); /* impeccable-disable-line overused-font */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap'); /* impeccable-disable-line overused-font */
+/* Self-hosted: Hosting CSP blocks fonts.googleapis.com / fonts.gstatic.com.
+   Literata replaces Fraunces (Fraunces lacks reliable Vietnamese composites). */
+@import "@fontsource/literata/latin-400.css";
+@import "@fontsource/literata/latin-500.css";
+@import "@fontsource/literata/latin-600.css";
+@import "@fontsource/literata/vietnamese-400.css";
+@import "@fontsource/literata/vietnamese-500.css";
+@import "@fontsource/literata/vietnamese-600.css";
+@import "@fontsource/inter/latin-400.css";
+@import "@fontsource/inter/latin-500.css";
+@import "@fontsource/inter/latin-600.css";
+@import "@fontsource/inter/vietnamese-400.css";
+@import "@fontsource/inter/vietnamese-500.css";
+@import "@fontsource/inter/vietnamese-600.css";
 
 @import 'tailwindcss';
 
@@ -25,7 +37,7 @@
   --radius-card: 16px;
   --radius-control: 10px;
 
-  --font-serif: 'Fraunces', Georgia, serif;
+  --font-serif: 'Literata', 'Times New Roman', serif;
   --font-sans: 'Inter', system-ui, sans-serif;
 }
 
@@ -51,7 +63,7 @@ body {
 ::-webkit-scrollbar-thumb { background: #E6DCCB; border-radius: 999px; }
 ::-webkit-scrollbar-thumb:hover { background: #C97B4A; }
 
-.font-serif { font-family: 'Fraunces', Georgia, serif; }
+.font-serif { font-family: 'Literata', 'Times New Roman', serif; }
 .font-sans  { font-family: 'Inter', system-ui, sans-serif; }
 
 @keyframes pulse-dot {

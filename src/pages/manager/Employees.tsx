@@ -70,7 +70,7 @@ export default function ManagerEmployees({ navigate }: Props) {
       }
     >
       <div className="mb-6">
-        <h1 className="font-serif text-2xl font-medium" style={{ color: "#3A2E22", fontFamily: "'Fraunces', Georgia, serif" }}>
+        <h1 className="font-serif text-2xl font-medium" style={{ color: "#3A2E22", fontFamily: "'Literata', 'Times New Roman', serif" }}>
           Nhân sự
         </h1>
         <p className="text-sm mt-1" style={{ color: "#8A7A6C" }}>{STAFF.length} nhân viên · Cơ sở Quận 1</p>
@@ -85,7 +85,7 @@ export default function ManagerEmployees({ navigate }: Props) {
         ].map((card) => (
           <div key={card.label} className="p-5 rounded-2xl" style={{ backgroundColor: "#FFFFFF", border: "1px solid #E6DCCB" }}>
             <p className="text-xs mb-2" style={{ color: "#8A7A6C" }}>{card.label}</p>
-            <p className="font-serif text-3xl font-medium mb-1" style={{ color: "#3A2E22", fontFamily: "'Fraunces', Georgia, serif" }}>{card.value}</p>
+            <p className="font-serif text-3xl font-medium mb-1" style={{ color: "#3A2E22", fontFamily: "'Literata', 'Times New Roman', serif" }}>{card.value}</p>
             <p className="text-xs" style={{ color: card.subColor }}>{card.sub}</p>
           </div>
         ))}
@@ -124,7 +124,7 @@ export default function ManagerEmployees({ navigate }: Props) {
             >
               <div
                 className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-medium flex-shrink-0"
-                style={{ backgroundColor: s.avatarBg, color: "#FAF6F0", fontFamily: "'Fraunces', Georgia, serif" }}
+                style={{ backgroundColor: s.avatarBg, color: "#FAF6F0", fontFamily: "'Literata', 'Times New Roman', serif" }}
               >
                 {s.avatar}
               </div>

@@ -101,7 +101,7 @@ export default function AccountSettings({ navigate, returnPage }: Props) {
           </svg>
           Quay lại
         </button>
-        <span className="text-sm font-medium" style={{ color: "#3A2E22", fontFamily: "'Fraunces', Georgia, serif" }}>
+        <span className="text-sm font-medium" style={{ color: "#3A2E22", fontFamily: "'Literata', 'Times New Roman', serif" }}>
           Cài đặt tài khoản
         </span>
       </div>
@@ -136,7 +136,7 @@ export default function AccountSettings({ navigate, returnPage }: Props) {
           {/* Profile */}
           {section === "profile" && (
             <form onSubmit={handleSave}>
-              <h2 className="font-serif text-xl font-medium mb-6" style={{ color: "#3A2E22", fontFamily: "'Fraunces', Georgia, serif" }}>
+              <h2 className="font-serif text-xl font-medium mb-6" style={{ color: "#3A2E22", fontFamily: "'Literata', 'Times New Roman', serif" }}>
                 Thông tin cá nhân
               </h2>
 
@@ -145,7 +145,7 @@ export default function AccountSettings({ navigate, returnPage }: Props) {
                 <div className="relative">
                   <div
                     className="w-20 h-20 rounded-full flex items-center justify-center text-2xl font-medium"
-                    style={{ backgroundColor: "#C97B4A", color: "#FAF6F0", fontFamily: "'Fraunces', Georgia, serif" }}
+                    style={{ backgroundColor: "#C97B4A", color: "#FAF6F0", fontFamily: "'Literata', 'Times New Roman', serif" }}
                   >
                     {(user?.fullName ?? "?").charAt(0).toUpperCase()}
                   </div>
@@ -231,7 +231,7 @@ export default function AccountSettings({ navigate, returnPage }: Props) {
           {/* Password */}
           {section === "password" && (
             <form onSubmit={handleChangePassword}>
-              <h2 className="font-serif text-xl font-medium mb-6" style={{ color: "#3A2E22", fontFamily: "'Fraunces', Georgia, serif" }}>
+              <h2 className="font-serif text-xl font-medium mb-6" style={{ color: "#3A2E22", fontFamily: "'Literata', 'Times New Roman', serif" }}>
                 Đổi mật khẩu
               </h2>
               <div className="space-y-4 max-w-md">
@@ -270,7 +270,7 @@ export default function AccountSettings({ navigate, returnPage }: Props) {
           {/* Notifications */}
           {section === "notifications" && (
             <div>
-              <h2 className="font-serif text-xl font-medium mb-6" style={{ color: "#3A2E22", fontFamily: "'Fraunces', Georgia, serif" }}>
+              <h2 className="font-serif text-xl font-medium mb-6" style={{ color: "#3A2E22", fontFamily: "'Literata', 'Times New Roman', serif" }}>
                 Thông báo
               </h2>
               <div className="max-w-md space-y-0 rounded-2xl overflow-hidden" style={{ border: "1px solid #E6DCCB" }}>
@@ -294,7 +294,7 @@ export default function AccountSettings({ navigate, returnPage }: Props) {
           {/* Security */}
           {section === "security" && (
             <div>
-              <h2 className="font-serif text-xl font-medium mb-6" style={{ color: "#3A2E22", fontFamily: "'Fraunces', Georgia, serif" }}>
+              <h2 className="font-serif text-xl font-medium mb-6" style={{ color: "#3A2E22", fontFamily: "'Literata', 'Times New Roman', serif" }}>
                 Bảo mật
               </h2>
 

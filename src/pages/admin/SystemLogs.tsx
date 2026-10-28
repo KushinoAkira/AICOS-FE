@@ -65,7 +65,7 @@ export default function AdminSystemLogs({ navigate }: Props) {
       {/* Header */}
       <div className="mb-6 flex items-end justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="font-serif text-2xl font-medium" style={{ color: "#3A2E22", fontFamily: "'Fraunces', Georgia, serif" }}>
+          <h1 className="font-serif text-2xl font-medium" style={{ color: "#3A2E22", fontFamily: "'Literata', 'Times New Roman', serif" }}>
             Nhật ký hệ thống
           </h1>
           <p className="text-sm mt-1" style={{ color: "#8A7A6C" }}>

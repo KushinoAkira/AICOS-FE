@@ -1,17 +1,11 @@
-/* Self-hosted: Hosting CSP blocks fonts.googleapis.com / fonts.gstatic.com.
-   Literata replaces Fraunces (Fraunces lacks reliable Vietnamese composites). */
-@import "@fontsource/literata/latin-400.css";
-@import "@fontsource/literata/latin-500.css";
-@import "@fontsource/literata/latin-600.css";
-@import "@fontsource/literata/vietnamese-400.css";
-@import "@fontsource/literata/vietnamese-500.css";
-@import "@fontsource/literata/vietnamese-600.css";
-@import "@fontsource/inter/latin-400.css";
-@import "@fontsource/inter/latin-500.css";
-@import "@fontsource/inter/latin-600.css";
-@import "@fontsource/inter/vietnamese-400.css";
-@import "@fontsource/inter/vietnamese-500.css";
-@import "@fontsource/inter/vietnamese-600.css";
+/* Self-hosted (Hosting CSP blocks Google Fonts). Weight bundles include unicode-range
+   so latin + vietnamese faces don't steal each other's glyphs. */
+@import "@fontsource/literata/400.css";
+@import "@fontsource/literata/500.css";
+@import "@fontsource/literata/600.css";
+@import "@fontsource/inter/400.css";
+@import "@fontsource/inter/500.css";
+@import "@fontsource/inter/600.css";
 
 @import 'tailwindcss';
 

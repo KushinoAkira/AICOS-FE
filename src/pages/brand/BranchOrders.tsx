@@ -6,6 +6,7 @@ import { PageFrame } from "../../components/PageFrame"
 import { Banner, ConfirmDialog, DataTable, Field, Modal, QueryBoundary, Button, type Column } from "../../components/ui"
 import { useToast } from "../../context/ToastContext"
 import { ordersApi, type Order } from "../../lib/api/orders"
+import { pollWhile, useBranchRealtime } from "../../lib/realtime"
 import { formatDateTime, formatVND } from "../../lib/format"
 import { canTransition, maxRefundable, ORDER_STATUS_LABEL, type OrderStatus } from "../../lib/orderStateMachine"
 
@@ -14,7 +15,8 @@ const FILTERS: (OrderStatus | "all")[] = ["all", "Pending", "Preparing", "Ready"
 export default function BranchOrders({ navigate }: { navigate: (p: Page) => void }) {
   const qc = useQueryClient()
   const { showToast } = useToast()
-  const orders = useQuery({ queryKey: ["orders"], queryFn: ordersApi.orders, refetchInterval: 10000 })
+  const live = useBranchRealtime()
+  const orders = useQuery({ queryKey: ["orders"], queryFn: ordersApi.orders, refetchInterval: pollWhile(live, 10000) })
   const [filter, setFilter] = useState<OrderStatus | "all">("all")
   const [target, setTarget] = useState<Order | null>(null)
   const [reason, setReason] = useState("")

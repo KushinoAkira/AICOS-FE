@@ -7,12 +7,14 @@ import { PayGateway } from "../../components/PayGateway"
 import { Banner, Button, ConfirmDialog, EmptyState, QueryBoundary } from "../../components/ui"
 import { useToast } from "../../context/ToastContext"
 import { ordersApi, type Order, type PayOutcome } from "../../lib/api/orders"
+import { pollWhile, useMemberRealtime } from "../../lib/realtime"
 import { formatDateTime, formatTime, formatVND } from "../../lib/format"
 
 export default function CustomerOrders({ navigate }: { navigate: (p: Page) => void }) {
   const qc = useQueryClient()
   const { showToast } = useToast()
-  const orders = useQuery({ queryKey: ["mine"], queryFn: ordersApi.mine, refetchInterval: 5000 })
+  const live = useMemberRealtime()
+  const orders = useQuery({ queryKey: ["mine"], queryFn: ordersApi.mine, refetchInterval: pollWhile(live, 5000) })
   const [paying, setPaying] = useState<Order | null>(null)
   const [canceling, setCanceling] = useState<Order | null>(null)
   const refresh = () => void qc.invalidateQueries({ queryKey: ["mine"] })

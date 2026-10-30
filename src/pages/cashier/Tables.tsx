@@ -6,6 +6,7 @@ import { PageFrame } from "../../components/PageFrame"
 import { Banner, Button, Field, Modal, QueryBoundary, StatusPill } from "../../components/ui"
 import { useToast } from "../../context/ToastContext"
 import { ordersApi, type TableRow } from "../../lib/api/orders"
+import { pollWhile, useBranchRealtime } from "../../lib/realtime"
 import { formatVND } from "../../lib/format"
 import { tableStateOf } from "../../lib/orderStateMachine"
 
@@ -19,7 +20,8 @@ const stillMaking = (t: TableRow) => t.orders.some((o) => o.status === "Pending"
 export default function CashierTables({ navigate }: { navigate: (p: Page) => void }) {
   const qc = useQueryClient()
   const { showToast } = useToast()
-  const tables = useQuery({ queryKey: ["tables"], queryFn: ordersApi.tables, refetchInterval: 5000 })
+  const live = useBranchRealtime()
+  const tables = useQuery({ queryKey: ["tables"], queryFn: ordersApi.tables, refetchInterval: pollWhile(live, 5000) })
   const [selected, setSelected] = useState<string | null>(null)
   const [received, setReceived] = useState("")
   const [error, setError] = useState<string | null>(null)

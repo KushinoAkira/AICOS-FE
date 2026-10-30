@@ -3,11 +3,13 @@ import type { Page } from "../../App"
 import { CustomerFrame } from "../../components/CustomerFrame"
 import { Button, EmptyState, QueryBoundary } from "../../components/ui"
 import { noticeApi } from "../../lib/api/staff"
+import { pollWhile, useMemberRealtime } from "../../lib/realtime"
 import { formatDateTime } from "../../lib/format"
 
 export default function CustomerNotifications({ navigate }: { navigate: (p: Page) => void }) {
   const qc = useQueryClient()
-  const list = useQuery({ queryKey: ["notices"], queryFn: noticeApi.mine, refetchInterval: 15000 })
+  const live = useMemberRealtime()
+  const list = useQuery({ queryKey: ["notices"], queryFn: noticeApi.mine, refetchInterval: pollWhile(live, 15000) })
   const readAll = useMutation({ mutationFn: noticeApi.readAll, onSuccess: () => void qc.invalidateQueries({ queryKey: ["notices"] }) })
   return (
     <CustomerFrame page="customer-notifications" navigate={navigate} uc="UC-59" title="Thông báo">

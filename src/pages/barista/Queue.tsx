@@ -6,6 +6,7 @@ import { PageFrame } from "../../components/PageFrame"
 import { Button, ConfirmDialog, EmptyState, QueryBoundary } from "../../components/ui"
 import { useToast } from "../../context/ToastContext"
 import { ordersApi, type Order } from "../../lib/api/orders"
+import { pollWhile, useBranchRealtime } from "../../lib/realtime"
 import { formatTime } from "../../lib/format"
 import type { OrderStatus } from "../../lib/orderStateMachine"
 
@@ -15,11 +16,12 @@ const COLUMNS: { status: OrderStatus; title: string }[] = [
   { status: "Ready", title: "Sẵn sàng" },
 ]
 
-/** Barista kiosk: big touch targets, 5s polling, no prices (UC-30..32). */
+/** Barista kiosk: big touch targets, live over SignalR (5s polling as fallback), no prices (UC-30..32). */
 export default function BaristaQueue({ navigate }: { navigate: (p: Page) => void }) {
   const qc = useQueryClient()
   const { showToast } = useToast()
-  const orders = useQuery({ queryKey: ["orders"], queryFn: ordersApi.orders, refetchInterval: 5000 })
+  const live = useBranchRealtime()
+  const orders = useQuery({ queryKey: ["orders"], queryFn: ordersApi.orders, refetchInterval: pollWhile(live, 5000) })
   const [failing, setFailing] = useState<Order | null>(null)
   const [reason, setReason] = useState("")
   const move = useMutation({

@@ -277,3 +277,10 @@ function toQrOrder(o: Raw, tableCode: string): Order {
   })
   return { ...order, lines, source: "qr" }
 }
+
+/** The table-session token of a scanned table, scanning the code first if there is none yet (the real-time channel needs it). */
+export async function guestSessionToken(token: string): Promise<string> {
+  let stored: string | null = null
+  try { stored = sessionStorage.getItem(sessionKey(token)) } catch { /* see scanTable */ }
+  return stored ?? scanTable(token)
+}

@@ -6,6 +6,7 @@ import { PageFrame } from "../../components/PageFrame"
 import { Banner, Button, DataTable, QueryBoundary, type Column } from "../../components/ui"
 import { useToast } from "../../context/ToastContext"
 import { ordersApi, type Order } from "../../lib/api/orders"
+import { pollWhile, useBranchRealtime } from "../../lib/realtime"
 import { formatDateTime, formatVND } from "../../lib/format"
 
 /** Look up transactions only. Staff cannot confirm a payment by eye (BR-26); the provider's answer decides. */
@@ -13,7 +14,8 @@ export default function CashierPayments({ navigate }: { navigate: (p: Page) => v
   const qc = useQueryClient()
   const { showToast } = useToast()
   const [last, setLast] = useState<string | null>(null)
-  const payments = useQuery({ queryKey: ["payments"], queryFn: ordersApi.payments, refetchInterval: 10000 })
+  const live = useBranchRealtime()
+  const payments = useQuery({ queryKey: ["payments"], queryFn: ordersApi.payments, refetchInterval: pollWhile(live, 10000) })
   const lookup = useMutation({
     mutationFn: (o: Order) => ordersApi.lookup(o.id),
     onSuccess: (r) => {

@@ -11,6 +11,7 @@ import { ErrorState, LoadingState } from "../../components/ui"
 import { useAuth } from "../../context/AuthContext"
 import { useToast } from "../../context/ToastContext"
 import { ordersApi, type LineInput } from "../../lib/api/orders"
+import { pollWhile, useGuestRealtime } from "../../lib/realtime"
 import { rememberGuestOrder } from "../../lib/guestHistory"
 
 /** Table QR ordering: cart, what the table already ordered, and history. Guests need no account; payment is at the counter. */
@@ -18,9 +19,10 @@ export default function GuestMenu({ navigate }: { navigate: (p: Page, params?: R
   const { token = "" } = useParams()
   const { role } = useAuth()
   const qc = useQueryClient()
+  const live = useGuestRealtime(token)
   const { showToast } = useToast()
   const menu = useQuery({ queryKey: ["guest", token], queryFn: () => ordersApi.guest(token), retry: false })
-  const orderedCount = useQuery({ queryKey: ["guest", token, "orders"], queryFn: () => ordersApi.guestOrders(token), refetchInterval: 5000, retry: false })
+  const orderedCount = useQuery({ queryKey: ["guest", token, "orders"], queryFn: () => ordersApi.guestOrders(token), refetchInterval: pollWhile(live, 5000), retry: false })
   const [error, setError] = useState<string | null>(null)
   /** Remember the table so signing in brings the customer straight back to this menu (points are earned on this order). */
   const goAuth = (p: Page) => { sessionStorage.setItem("aicos.returnTo", `/q/${token}`); navigate(p) }
@@ -73,7 +75,7 @@ export default function GuestMenu({ navigate }: { navigate: (p: Page, params?: R
             onSubmit={(l) => { setError(null); place.mutate(l) }}
             tabs={{
               orderedCount: orderedCount.data?.length ?? 0,
-              ordered: <OrderedTab token={token} />,
+              ordered: <OrderedTab token={token} channelUp={live} />,
               history: (reorder) => <HistoryTab signedIn={role === "customer"} reorder={reorder} version={sent} onLogin={() => goAuth("auth-customer-login")} />,
             }}
           />

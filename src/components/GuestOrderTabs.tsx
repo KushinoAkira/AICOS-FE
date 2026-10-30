@@ -3,15 +3,16 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { OrderStatusPill } from "./OrderStatusPill"
 import { Banner, Button, EmptyState, ErrorState, LoadingState } from "./ui"
 import { ordersApi, type LineInput, type Order } from "../lib/api/orders"
+import { pollWhile } from "../lib/realtime"
 import { formatDateTime, formatTime, formatVND } from "../lib/format"
 import { clearGuestHistory, readGuestHistory, type PastOrder } from "../lib/guestHistory"
 
 const linesText = (lines: Order["lines"]) => lines.map((l) => `${l.qty}× ${l.name} (${l.size})`).join(", ")
 
 /** "Đã gọi": the table's open orders with live status and the bill request. */
-export function OrderedTab({ token }: { token: string }) {
+export function OrderedTab({ token, channelUp = false }: { token: string; channelUp?: boolean }) {
   const qc = useQueryClient()
-  const orders = useQuery({ queryKey: ["guest", token, "orders"], queryFn: () => ordersApi.guestOrders(token), refetchInterval: 5000, retry: false })
+  const orders = useQuery({ queryKey: ["guest", token, "orders"], queryFn: () => ordersApi.guestOrders(token), refetchInterval: pollWhile(channelUp, 5000), retry: false })
   const bill = useMutation({ mutationFn: () => ordersApi.requestBill(token), onSuccess: () => void qc.invalidateQueries({ queryKey: ["guest", token] }) })
   if (orders.isPending) return <LoadingState />
   if (orders.isError) return <ErrorState description={orders.error.message} onRetry={() => void orders.refetch()} />

@@ -5,13 +5,15 @@ import { Logo } from "../../components/AuthShell"
 import { OrderStatusPill } from "../../components/OrderStatusPill"
 import { Banner, Button, EmptyState, ErrorState, LoadingState } from "../../components/ui"
 import { ordersApi } from "../../lib/api/orders"
+import { pollWhile, useGuestRealtime } from "../../lib/realtime"
 import { formatTime, formatVND } from "../../lib/format"
 
-/** Live status of the table's open orders. Polls every 5s (SignalR replaces this when the hub exists). */
+/** Live status of the table's open orders. Pushed over SignalR; polls every 5s while the channel is down. */
 export default function GuestStatus({ navigate }: { navigate: (p: Page, params?: Record<string, string>) => void }) {
   const { token = "" } = useParams()
   const qc = useQueryClient()
-  const orders = useQuery({ queryKey: ["guest", token, "orders"], queryFn: () => ordersApi.guestOrders(token), refetchInterval: 5000, retry: false })
+  const live = useGuestRealtime(token)
+  const orders = useQuery({ queryKey: ["guest", token, "orders"], queryFn: () => ordersApi.guestOrders(token), refetchInterval: pollWhile(live, 5000), retry: false })
   const bill = useMutation({ mutationFn: () => ordersApi.requestBill(token), onSuccess: () => void qc.invalidateQueries({ queryKey: ["guest", token] }) })
   const total = (orders.data ?? []).filter((o) => o.status !== "Cancelled" && o.status !== "Unfulfillable").reduce((s, o) => s + o.total, 0)
 

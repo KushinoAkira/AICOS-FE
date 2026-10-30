@@ -38,6 +38,8 @@ export interface RequestOptions {
   body?: unknown
   /** Skip the Authorization header and the refresh-on-401 logic (login, register, ...). */
   anonymous?: boolean
+  /** Extra request headers (for example the table-session header of the QR ordering endpoints). */
+  headers?: Record<string, string>
   signal?: AbortSignal
 }
 
@@ -114,7 +116,7 @@ async function restartMockWorker(): Promise<void> {
 }
 
 async function send(method: string, path: string, opts: RequestOptions, token: string | null, retried = false): Promise<Response> {
-  const headers: Record<string, string> = { Accept: "application/json" }
+  const headers: Record<string, string> = { Accept: "application/json", ...opts.headers }
   if (opts.body !== undefined) headers["Content-Type"] = "application/json"
   if (token && !opts.anonymous) headers.Authorization = `Bearer ${token}`
   const brand = currentBrandSlug()

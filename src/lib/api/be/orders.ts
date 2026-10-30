@@ -1,5 +1,6 @@
 import type { OrderStatus, PaymentStatus } from "../../orderStateMachine"
-import { http } from "../http"
+import { currentBrandSlug } from "../../brand"
+import { ApiError, http } from "../http"
 import type { GuestMenu, LineInput, Order, PayOutcome, PickupCheck, PickupInfo, ProviderStatus, TableRow } from "../orders"
 import { tokenStore } from "../tokenStore"
 import { toProduct } from "./brand"
@@ -9,7 +10,8 @@ import { itemsOf, num, rec, recs, str, unsupported, type Raw } from "./util"
  * Real backend ordering (reference sections 3, 5, 6, 7). Differences from the screens' model:
  * - A table's id is its code (`T1`); an order carries `tableNumber` only.
  * - Statuses: backend `Pending > Confirmed > Preparing > Ready > Completed` is mapped onto the app's status set.
- * - Size / sugar / ice / topping have no order field: they travel in the line `note`, and the price is the menu base price.
+ * - Guest QR orders send the chosen option ids, so the server prices size / topping surcharges. Counter (POS) orders still carry
+ *   size / sugar / ice in the line `note` and are priced at the menu price.
  */
 
 function toStatus(o: Raw): OrderStatus {
@@ -21,6 +23,8 @@ function toStatus(o: Raw): OrderStatus {
     case "Ready": return "Ready"
     case "Completed": return dineIn ? "Served" : "PickedUp"
     case "Cancelled": return "Cancelled"
+    case "NoShow": return "NoShow"
+    case "Unfulfillable": return "Unfulfillable"
     default: return "Pending"
   }
 }
@@ -126,14 +130,39 @@ export const beOrdersApi = {
     return { change: b.received - total }
   },
 
-  // ----- guest QR / takeaway / customer: the backend keeps guest ordering in memory and has no takeaway API (reference section 10) -----
+  // ----- guest QR (/orders/qr/*): the table session, the shared cart, checkout and the bill -----
   async guest(token: string): Promise<GuestMenu> {
     const t = rec(await http.get<Raw>(`/tables/public/qr/${token}`, { anonymous: true }))
-    return { ...(await publicMenu(str(t.branchId), str(t.branchName))), tableCode: str(t.tableCode) }
+    const branchId = str(t.branchId)
+    return { ...(await publicMenu(branchId, str(t.branchName) || (await branchName(branchId)))), tableCode: str(t.tableCode) }
   },
-  guestPlace: (): Promise<Order> => unsupported("khách đặt món qua QR (backend chưa có API, đang chạy trong bộ nhớ)"),
-  guestOrders: (): Promise<Order[]> => unsupported("xem đơn của khách QR"),
-  requestBill: (): Promise<{ ok: true }> => unsupported("khách QR gọi thanh toán"),
+  async guestPlace(token: string, lines: LineInput[]): Promise<Order> {
+    const items = lines.map((l) => ({ productId: l.productId, quantity: l.qty, note: l.note.trim() || null, optionIds: optionIdsOf(l) }))
+    return withSession(token, async (headers) => {
+      // The cart belongs to the whole table. Lines added by this call are taken back if one of them is refused, so nothing is left behind.
+      const added: string[] = []
+      try {
+        let known = new Set(recs(rec(await http.get<Raw>("/orders/qr/cart", { anonymous: true, headers })).lines).map((l) => str(l.lineId)))
+        for (const item of items) {
+          const cart = rec(await http.post<Raw>("/orders/qr/cart/items", item, { anonymous: true, headers }))
+          const now = recs(cart.lines).map((l) => str(l.lineId))
+          added.push(...now.filter((id) => !known.has(id)))
+          known = new Set(now)
+        }
+      } catch (e) {
+        await Promise.allSettled(added.map((id) => http.delete<Raw>(`/orders/qr/cart/items/${id}`, { anonymous: true, headers })))
+        throw e
+      }
+      // Sent with the member's token when there is one, so the order earns points.
+      const order = rec(await http.post<Raw>("/orders/qr/checkout", { note: null }, { headers }))
+      return toQrOrder(order, str(order.tableNumber))
+    })
+  },
+  async guestOrders(token: string): Promise<Order[]> {
+    const bill = rec(await withSession(token, (headers) => http.get<Raw>("/orders/qr/session/bill", { anonymous: true, headers })))
+    return recs(bill.orders).map((o) => toQrOrder({ ...o, id: o.orderId }, str(bill.tableCode)))
+  },
+  requestBill: (): Promise<{ ok: true }> => unsupported("gọi thu ngân từ màn hình khách (hãy ra quầy để thanh toán)"),
   takeawayMenu: (branchId: string) => publicMenu(branchId, ""),
   pickupInfo: (): Promise<PickupInfo> => unsupported("đặt món mang đi (SCRUM-80 chưa có API)"),
   pickupCheck: (): Promise<PickupCheck> => unsupported("kiểm tra khung giờ lấy hàng"),
@@ -162,9 +191,89 @@ export const beOrdersApi = {
   },
 }
 
-async function publicMenu(branchId: string, branchName: string): Promise<GuestMenu> {
+async function publicMenu(branchId: string, name: string): Promise<GuestMenu> {
   const menu = rec(await http.get<Raw>(`/menu/public/branches/${branchId}/menu`, { anonymous: true }))
   const products = recs(menu.categories).flatMap((c) =>
-    recs(c.products).map((p) => ({ ...toProduct({ ...p, categoryName: str(c.name) }, new Map()), soldOut: p.isAvailable === false, price: num(p.price ?? p.basePrice) })))
-  return { branchName: branchName || str(menu.branchName), tableCode: "", products }
+    recs(c.products).map((p) => {
+      indexOptions(p)
+      return { ...toProduct({ ...p, categoryName: str(c.name) }, new Map()), soldOut: p.isAvailable === false, price: num(p.price ?? p.basePrice) }
+    }))
+  return { branchName: name || str(menu.branchName), tableCode: "", products }
+}
+
+/** The public lookup of a table has no branch name; the list of active branches has it when the address names the brand. */
+async function branchName(branchId: string): Promise<string> {
+  const code = currentBrandSlug()
+  if (!code) return ""
+  try {
+    const rows = recs(itemsOf(await http.get<Raw[]>("/identity/branches/active", { anonymous: true, query: { tenantCode: code } })))
+    return str(rows.find((b) => str(b.id) === branchId)?.name)
+  } catch { return "" }
+}
+
+// ---------- guest QR helpers ----------
+
+/** What a label on the screen means for the backend. Filled when a menu is opened: `productId|kind|label` -> option id, and option id -> kind + label. */
+const optionIdByLabel = new Map<string, string>()
+const optionById = new Map<string, { kind: string; label: string }>()
+
+function indexOptions(product: Raw) {
+  for (const group of recs(product.optionGroups)) {
+    const kind = str(group.kind).toLowerCase()
+    for (const option of recs(group.options)) {
+      optionIdByLabel.set(`${str(product.id)}|${kind}|${str(option.name)}`, str(option.id))
+      optionById.set(str(option.id), { kind, label: str(option.name) })
+    }
+  }
+}
+
+/** The option ids of a cart line. A label the menu no longer offers is refused instead of being dropped silently. */
+function optionIdsOf(l: LineInput): string[] {
+  const chosen: [string, string][] = [["size", l.size], ["sugar", l.sugar], ["ice", l.ice]]
+  return chosen.filter(([, label]) => label).map(([kind, label]) => {
+    const id = optionIdByLabel.get(`${l.productId}|${kind}|${label}`)
+    if (!id) throw new ApiError(422, `Lựa chọn "${label}" không còn trong thực đơn. Hãy tải lại trang rồi chọn lại.`, "option_unknown")
+    return id
+  })
+}
+
+const sessionKey = (token: string) => `aicos.qr.session.${token}`
+
+/** Scanning the table code gives the token that identifies the table's sitting; every guest call sends it in `X-Table-Session`. */
+async function scanTable(token: string): Promise<string> {
+  const scanned = rec(await http.post<Raw>("/orders/qr/scan", { qrToken: token }, { anonymous: true }))
+  const session = str(scanned.sessionToken)
+  try { sessionStorage.setItem(sessionKey(token), session) } catch { /* private mode: the table is scanned again on the next call */ }
+  return session
+}
+
+/** Runs a guest call with the table session; a session that is unknown or closed is renewed once by scanning the code again. */
+async function withSession<T>(token: string, run: (headers: Record<string, string>) => Promise<T>): Promise<T> {
+  const headersOf = (session: string) => ({ "X-Table-Session": session })
+  let stored: string | null = null
+  try { stored = sessionStorage.getItem(sessionKey(token)) } catch { /* see scanTable */ }
+  try {
+    return await run(headersOf(stored ?? (await scanTable(token))))
+  } catch (e) {
+    if (e instanceof ApiError && (e.code === "qr.session_invalid" || e.code === "qr.session_closed")) return run(headersOf(await scanTable(token)))
+    throw e
+  }
+}
+
+/** An order as the table sees it. The bill lists orders without `type` and `tableNumber`, so they are filled in here. */
+function toQrOrder(o: Raw, tableCode: string): Order {
+  const order = toOrder({ ...o, type: o.type ?? "DineIn", tableNumber: o.tableNumber ?? tableCode })
+  const lines = recs(o.items).map((i, n) => {
+    const options = recs(i.options)
+    const known = options.every((x) => optionById.has(str(x.optionId)))
+    const label = (kind: string) => options.map((x) => optionById.get(str(x.optionId))).find((x) => x?.kind === kind)?.label ?? ""
+    return {
+      ...order.lines[n]!,
+      // Options of a menu this tab has not opened (the page was reloaded) are listed by name so the line still tells what was ordered.
+      size: known ? label("size") : options.map((x) => str(x.name)).join(", "),
+      sugar: known ? label("sugar") : "",
+      ice: known ? label("ice") : "",
+    }
+  })
+  return { ...order, lines, source: "qr" }
 }

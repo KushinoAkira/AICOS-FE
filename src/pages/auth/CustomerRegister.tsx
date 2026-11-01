@@ -1,7 +1,14 @@
 import { useState } from "react"
+import { useNavigate } from "react-router"
 import type { Page } from "../../App"
 import { Logo } from "../../components/AuthShell"
 import { BrandGate } from "../../components/BrandGate"
+import { GoogleButton } from "../../components/GoogleButton"
+import { homePageOf, useAuth } from "../../context/AuthContext"
+import { useToast } from "../../context/ToastContext"
+import { ApiError } from "../../lib/api/http"
+import { authApi } from "../../lib/api/identity"
+import { pendingSignUp } from "../../lib/signUp"
 
 interface Props {
   navigate: (p: Page) => void
@@ -11,16 +18,71 @@ export default function CustomerRegister(props: Props) {
   return <BrandGate><CustomerRegisterForm {...props} /></BrandGate>
 }
 
+type FieldName = "fullName" | "email" | "password" | "confirmPassword"
+type FieldErrors = Partial<Record<FieldName, string>>
+
+/** Server field names (PascalCase) to the form's fields. */
+const SERVER_FIELDS: Record<string, FieldName> = { FullName: "fullName", Email: "email", Password: "password", ConfirmPassword: "confirmPassword" }
+
+function validate(v: Record<FieldName, string>): FieldErrors {
+  const errors: FieldErrors = {}
+  if (!v.fullName.trim()) errors.fullName = "Vui lòng nhập họ và tên."
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.email.trim())) errors.email = "Email chưa đúng định dạng."
+  if (v.password.length < 8 || v.password.length > 100) errors.password = "Mật khẩu dài từ 8 đến 100 ký tự."
+  else if (!/[A-Za-z]/.test(v.password) || !/\d/.test(v.password)) errors.password = "Mật khẩu cần có ít nhất một chữ cái và một chữ số."
+  if (v.confirmPassword !== v.password) errors.confirmPassword = "Mật khẩu xác nhận chưa khớp."
+  return errors
+}
+
 function CustomerRegisterForm({ navigate }: Props) {
-  const [name, setName] = useState("")
-  const [phone, setPhone] = useState("")
+  const [fullName, setFullName] = useState("")
+  const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
+  const [confirmPassword, setConfirmPassword] = useState("")
   const [showPass, setShowPass] = useState(false)
   const [agreed, setAgreed] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
+  const [errors, setErrors] = useState<FieldErrors>({})
+  const routerNavigate = useNavigate()
+  const { googleLogin } = useAuth()
+  const { showToast } = useToast()
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    navigate("auth-otp")
+    const found = validate({ fullName, email, password, confirmPassword })
+    setErrors(found)
+    if (Object.keys(found).length > 0) return
+    setSubmitting(true)
+    try {
+      const pending = await authApi.register({ fullName: fullName.trim(), email: email.trim(), password, confirmPassword })
+      pendingSignUp.set(pending.email, pending.resendAfterSeconds)
+      navigate("auth-otp")
+    } catch (err) {
+      if (err instanceof ApiError && err.fieldErrors) {
+        const mapped: FieldErrors = {}
+        for (const [key, messages] of Object.entries(err.fieldErrors)) {
+          const field = SERVER_FIELDS[key]
+          if (field && messages[0]) mapped[field] = messages[0]
+        }
+        setErrors(mapped)
+        if (Object.keys(mapped).length > 0) return
+      }
+      if (err instanceof ApiError && err.code === "user.duplicate_email") setErrors({ email: "Email này đã được đăng ký. Hãy đăng nhập." })
+      else showToast(err instanceof ApiError ? err.message : "Không thể kết nối máy chủ", "error")
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  async function handleGoogle(idToken: string) {
+    try {
+      const user = await googleLogin(idToken)
+      const back = sessionStorage.getItem("aicos.returnTo")
+      sessionStorage.removeItem("aicos.returnTo")
+      if (back) routerNavigate(back, { replace: true }); else navigate(homePageOf(user))
+    } catch (err) {
+      showToast(err instanceof ApiError ? err.message : "Không thể kết nối máy chủ", "error")
+    }
   }
 
   return (
@@ -39,14 +101,15 @@ function CustomerRegisterForm({ navigate }: Props) {
           Chỉ mất một phút — và mỗi tách cà phê sẽ có thêm ý nghĩa.
         </p>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <Field label="Họ tên">
+        <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+          <Field label="Họ và tên" error={errors.fullName}>
             <input
               type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
+              autoComplete="name"
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
               placeholder="Nguyễn Văn An"
-              required
+              maxLength={255}
               className="w-full px-4 py-3 text-sm outline-none transition-all duration-150"
               style={inputStyle}
               onFocus={focusBorder}
@@ -54,51 +117,26 @@ function CustomerRegisterForm({ navigate }: Props) {
             />
           </Field>
 
-          <Field label="Số điện thoại">
-            <div className="flex" style={{ border: "1px solid #E6DCCB", borderRadius: "10px", backgroundColor: "#FFFFFF", overflow: "hidden" }}>
-              <div
-                className="flex items-center px-3 text-sm flex-shrink-0"
-                style={{ color: "#8A7A6C", backgroundColor: "#F5EFE6", borderRight: "1px solid #E6DCCB" }}
-              >
-                +84
-              </div>
-              <input
-                type="tel"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder="912 345 678"
-                required
-                className="flex-1 px-4 py-3 text-sm outline-none transition-all duration-150"
-                style={{ backgroundColor: "transparent", color: "#3A2E22", fontFamily: "'Inter', system-ui, sans-serif" }}
-              />
-            </div>
+          <Field label="Email" error={errors.email}>
+            <input
+              type="email"
+              autoComplete="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="ten@email.com"
+              className="w-full px-4 py-3 text-sm outline-none transition-all duration-150"
+              style={inputStyle}
+              onFocus={focusBorder}
+              onBlur={blurBorder}
+            />
           </Field>
 
-          <Field label="Mật khẩu">
-            <div className="relative">
-              <input
-                type={showPass ? "text" : "password"}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                required
-                className="w-full px-4 py-3 pr-11 text-sm outline-none transition-all duration-150"
-                style={inputStyle}
-                onFocus={focusBorder}
-                onBlur={blurBorder}
-              />
-              <button
-                type="button"
-                onClick={() => setShowPass(!showPass)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 transition-opacity"
-                style={{ background: "none", border: "none", cursor: "pointer", opacity: 0.45, color: "#3A2E22" }}
-                onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.opacity = "1" }}
-                onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.opacity = "0.45" }}
-                aria-label={showPass ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
-              >
-                {showPass ? <EyeOff /> : <EyeOn />}
-              </button>
-            </div>
+          <Field label="Mật khẩu" error={errors.password} hint="Từ 8 ký tự, có chữ cái và chữ số.">
+            <PasswordInput value={password} onChange={setPassword} show={showPass} onToggle={() => setShowPass(!showPass)} />
+          </Field>
+
+          <Field label="Xác nhận mật khẩu" error={errors.confirmPassword}>
+            <PasswordInput value={confirmPassword} onChange={setConfirmPassword} show={showPass} onToggle={() => setShowPass(!showPass)} />
           </Field>
 
           <label className="flex items-start gap-3 cursor-pointer select-none">
@@ -119,20 +157,20 @@ function CustomerRegisterForm({ navigate }: Props) {
 
           <button
             type="submit"
-            disabled={!agreed}
+            disabled={!agreed || submitting}
             className="w-full py-3 text-sm font-medium transition-all duration-150 mt-1"
             style={{
-              backgroundColor: agreed ? "#C97B4A" : "#D6C5B3",
+              backgroundColor: agreed && !submitting ? "#C97B4A" : "#D6C5B3",
               color: "#FAF6F0",
               borderRadius: "10px",
               border: "none",
-              cursor: agreed ? "pointer" : "not-allowed",
+              cursor: agreed && !submitting ? "pointer" : "not-allowed",
               fontFamily: "'Inter', system-ui, sans-serif",
             }}
-            onMouseEnter={(e) => { if (agreed) (e.currentTarget as HTMLButtonElement).style.backgroundColor = "#8B5E3C" }}
-            onMouseLeave={(e) => { if (agreed) (e.currentTarget as HTMLButtonElement).style.backgroundColor = "#C97B4A" }}
+            onMouseEnter={(e) => { if (agreed && !submitting) (e.currentTarget as HTMLButtonElement).style.backgroundColor = "#8B5E3C" }}
+            onMouseLeave={(e) => { if (agreed && !submitting) (e.currentTarget as HTMLButtonElement).style.backgroundColor = "#C97B4A" }}
           >
-            Tiếp tục
+            {submitting ? "Đang gửi mã…" : "Tạo tài khoản"}
           </button>
         </form>
 
@@ -143,23 +181,7 @@ function CustomerRegisterForm({ navigate }: Props) {
           <div className="flex-1 h-px" style={{ backgroundColor: "#E6DCCB" }} />
         </div>
 
-        <button
-          type="button"
-          className="w-full py-3 text-sm font-medium transition-all duration-150 flex items-center justify-center gap-2.5"
-          style={{
-            backgroundColor: "#FFFFFF",
-            color: "#3A2E22",
-            borderRadius: "10px",
-            border: "1px solid #E6DCCB",
-            cursor: "pointer",
-            fontFamily: "'Inter', system-ui, sans-serif",
-          }}
-          onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = "#F5EFE6" }}
-          onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = "#FFFFFF" }}
-        >
-          <GoogleIcon />
-          Tiếp tục với Google
-        </button>
+        <GoogleButton onCredential={handleGoogle} />
 
         <p className="mt-7 text-sm text-center" style={{ color: "#8A7A6C" }}>
           Đã có tài khoản?{" "}
@@ -179,11 +201,46 @@ function CustomerRegisterForm({ navigate }: Props) {
   )
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({ label, error, hint, children }: { label: string; error?: string; hint?: string; children: React.ReactNode }) {
   return (
     <div>
       <label className="block text-sm font-medium mb-1.5" style={{ color: "#3A2E22" }}>{label}</label>
       {children}
+      {error ? (
+        <p role="alert" className="mt-1.5 text-xs" style={{ color: "#B3402F" }}>{error}</p>
+      ) : hint ? (
+        <p className="mt-1.5 text-xs" style={{ color: "#8A7A6C" }}>{hint}</p>
+      ) : null}
+    </div>
+  )
+}
+
+function PasswordInput({ value, onChange, show, onToggle }: { value: string; onChange: (v: string) => void; show: boolean; onToggle: () => void }) {
+  return (
+    <div className="relative">
+      <input
+        type={show ? "text" : "password"}
+        autoComplete="new-password"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder="••••••••"
+        maxLength={100}
+        className="w-full px-4 py-3 pr-11 text-sm outline-none transition-all duration-150"
+        style={inputStyle}
+        onFocus={focusBorder}
+        onBlur={blurBorder}
+      />
+      <button
+        type="button"
+        onClick={onToggle}
+        className="absolute right-3 top-1/2 -translate-y-1/2 transition-opacity"
+        style={{ background: "none", border: "none", cursor: "pointer", opacity: 0.45, color: "#3A2E22" }}
+        onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.opacity = "1" }}
+        onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.opacity = "0.45" }}
+        aria-label={show ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
+      >
+        {show ? <EyeOff /> : <EyeOn />}
+      </button>
     </div>
   )
 }
@@ -218,17 +275,6 @@ function EyeOff() {
       <path d="M17.94 17.94A10.07 10.07 0 0112 20c-5 0-8-2-10-6a18 18 0 015.06-5.94" />
       <path d="M9.9 4.24A9.12 9.12 0 0112 4c5 0 8 2 10 6a18 18 0 01-1.72 2.28" />
       <line x1="1" y1="1" x2="23" y2="23" />
-    </svg>
-  )
-}
-
-function GoogleIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24">
-      <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
-      <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
-      <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
-      <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
     </svg>
   )
 }

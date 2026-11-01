@@ -9,7 +9,6 @@ import {
   PAGE_PATHS,
   pageFromPath,
   type NavigationState,
-  type OtpFlow,
   type Page,
 } from "./router/pages"
 
@@ -101,16 +100,12 @@ export default function App() {
 
   const state = (location.state ?? {}) as NavigationState
   const currentPage = pageFromPath(location.pathname)
-  const otpFlow: OtpFlow = state.otpFlow ?? "register"
   const returnPage: Page = state.from ?? (user ? homePageOf(user) : "login")
 
   // Same contract the pages already use (`navigate("manager-menu")`), now backed by real URLs.
   const navigate = useCallback(
     (page: Page, params?: Record<string, string>) => {
       const next: NavigationState = { from: currentPage }
-      if (page === "auth-otp") {
-        next.otpFlow = currentPage === "auth-forgot-password" ? "forgot-password" : "register"
-      }
       const path = Object.entries(params ?? {}).reduce((acc, [k, v]) => acc.replace(`:${k}`, encodeURIComponent(v)), PAGE_PATHS[page] as string)
       routerNavigate(path, { state: next })
     },
@@ -125,7 +120,7 @@ export default function App() {
     login: <Login navigate={navigate} />,
     "auth-customer-register": <CustomerRegister navigate={navigate} />,
     "auth-customer-login": <CustomerLogin navigate={navigate} />,
-    "auth-otp": <OTPVerification navigate={navigate} flow={otpFlow} />,
+    "auth-otp": <OTPVerification navigate={navigate} />,
     "auth-forgot-password": <ForgotPassword navigate={navigate} />,
     "auth-reset-password": <ResetPassword navigate={navigate} />,
     "account-settings": <AccountSettings navigate={navigate} returnPage={returnPage} />,

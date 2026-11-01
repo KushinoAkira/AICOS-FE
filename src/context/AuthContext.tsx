@@ -18,6 +18,10 @@ interface AuthContextValue {
   role: Role | null
   isAuthenticated: boolean
   login: (login: string, password: string) => Promise<UserDto>
+  /** Sign-up step 2: the emailed code activates the account and signs the customer in. */
+  verifySignUp: (email: string, code: string) => Promise<UserDto>
+  /** Sign in (or sign up) with the credential Google hands to the page. */
+  googleLogin: (idToken: string) => Promise<UserDto>
   logout: () => Promise<void>
 }
 
@@ -38,14 +42,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return session.user
   }, [])
 
+  const verifySignUp = useCallback(async (email: string, code: string) => {
+    const session = await authApi.verifyRegistration(email.trim(), code)
+    setUser(session.user)
+    return session.user
+  }, [])
+
+  const googleLogin = useCallback(async (idToken: string) => {
+    const session = await authApi.loginWithGoogle(idToken)
+    setUser(session.user)
+    return session.user
+  }, [])
+
   const logout = useCallback(async () => {
     await authApi.logout()
     setUser(null)
   }, [])
 
   const value = useMemo<AuthContextValue>(
-    () => ({ user, role: webRoleOf(user), isAuthenticated: user !== null, login, logout }),
-    [user, login, logout],
+    () => ({ user, role: webRoleOf(user), isAuthenticated: user !== null, login, verifySignUp, googleLogin, logout }),
+    [user, login, verifySignUp, googleLogin, logout],
   )
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }

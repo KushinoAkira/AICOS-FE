@@ -80,12 +80,9 @@ export const PAGE_PATHS = {
 
 export type Page = keyof typeof PAGE_PATHS
 
-export type OtpFlow = "register" | "forgot-password"
-
 /** State carried through the router on `navigate()` (survives refresh, unlike component state). */
 export interface NavigationState {
   from?: Page
-  otpFlow?: OtpFlow
 }
 
 const PATH_TO_PAGE = new Map<string, Page>(

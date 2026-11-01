@@ -1,12 +1,15 @@
 import AuthHero from "../../components/AuthHero"
 import { Logo } from "../../components/AuthShell"
 import { BrandGate } from "../../components/BrandGate"
+import { GoogleButton } from "../../components/GoogleButton"
 import { useState } from "react"
 import { useNavigate } from "react-router"
 import type { Page } from "../../App"
 import { homePageOf, useAuth } from "../../context/AuthContext"
 import { useToast } from "../../context/ToastContext"
 import { ApiError } from "../../lib/api/http"
+import { authApi } from "../../lib/api/identity"
+import { pendingSignUp } from "../../lib/signUp"
 
 interface Props {
   navigate: (p: Page) => void
@@ -20,7 +23,7 @@ function CustomerLoginForm({ navigate }: Props) {
   const [email, setEmail] = useState("")
   const [submitting, setSubmitting] = useState(false)
   const routerNavigate = useNavigate()
-  const { login } = useAuth()
+  const { login, googleLogin } = useAuth()
   const { showToast } = useToast()
   const [password, setPassword] = useState("")
   const [showPass, setShowPass] = useState(false)
@@ -34,9 +37,36 @@ function CustomerLoginForm({ navigate }: Props) {
       sessionStorage.removeItem("aicos.returnTo")
       if (back) routerNavigate(back, { replace: true }); else navigate(homePageOf(user))
     } catch (err) {
-      showToast(err instanceof ApiError ? err.message : "Không thể kết nối máy chủ", "error")
+      if (err instanceof ApiError && err.code === "auth.email_not_verified") {
+        await continueSignUp()
+      } else {
+        showToast(err instanceof ApiError ? err.message : "Không thể kết nối máy chủ", "error")
+      }
     } finally {
       setSubmitting(false)
+    }
+  }
+
+  /** The account exists but its email was never verified: a new code goes out and the code screen opens. */
+  async function continueSignUp() {
+    try {
+      const pending = await authApi.resendRegistration(email.trim())
+      pendingSignUp.set(pending.email, pending.resendAfterSeconds)
+      showToast("Tài khoản chưa xác thực email. Chúng tôi đã gửi mã xác thực.")
+      navigate("auth-otp")
+    } catch (err) {
+      showToast(err instanceof ApiError ? err.message : "Không thể kết nối máy chủ", "error")
+    }
+  }
+
+  async function handleGoogle(idToken: string) {
+    try {
+      const user = await googleLogin(idToken)
+      const back = sessionStorage.getItem("aicos.returnTo")
+      sessionStorage.removeItem("aicos.returnTo")
+      if (back) routerNavigate(back, { replace: true }); else navigate(homePageOf(user))
+    } catch (err) {
+      showToast(err instanceof ApiError ? err.message : "Không thể kết nối máy chủ", "error")
     }
   }
 
@@ -131,6 +161,14 @@ function CustomerLoginForm({ navigate }: Props) {
             Đăng nhập
           </button>
         </form>
+
+        <div className="my-5 flex items-center gap-3">
+          <div className="flex-1 h-px" style={{ backgroundColor: "#E6DCCB" }} />
+          <span className="text-xs" style={{ color: "#8A7A6C" }}>hoặc</span>
+          <div className="flex-1 h-px" style={{ backgroundColor: "#E6DCCB" }} />
+        </div>
+
+        <GoogleButton onCredential={handleGoogle} />
 
         <p className="mt-7 text-sm text-center" style={{ color: "#8A7A6C" }}>
           Chưa có tài khoản?{" "}

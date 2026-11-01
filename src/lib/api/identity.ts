@@ -71,6 +71,20 @@ export interface UserInput {
   branchId?: string | null
 }
 
+/** The answer to a sign-up step that mails a code: where it went and how long before another code can be asked for. */
+export interface SignUpPending {
+  email: string
+  expiresInSeconds: number
+  resendAfterSeconds: number
+}
+
+export interface SignUpInput {
+  fullName: string
+  email: string
+  password: string
+  confirmPassword: string
+}
+
 const BASE = "/identity"
 
 const mockAuthApi = {
@@ -79,8 +93,21 @@ const mockAuthApi = {
     tokenStore.set(session)
     return session
   },
-  register: (body: { fullName: string; email: string; phone?: string; password: string; confirmPassword: string }) =>
-    http.post<UserDto>(`${BASE}/auth/register`, body, { anonymous: true }),
+  /** Step 1 of the sign-up: creates the pending account and mails a 6-digit code. */
+  register: (body: SignUpInput) => http.post<SignUpPending>(`${BASE}/auth/register`, body, { anonymous: true }),
+  /** Step 2: the code from the email activates the account and signs the customer in. */
+  async verifyRegistration(email: string, code: string): Promise<StoredSession> {
+    const session = await http.post<StoredSession>(`${BASE}/auth/register/verify`, { email, code }, { anonymous: true })
+    tokenStore.set(session)
+    return session
+  },
+  resendRegistration: (email: string) => http.post<SignUpPending>(`${BASE}/auth/register/resend`, { email }, { anonymous: true }),
+  /** Signs in with a Google credential (ID token); creates the customer account the first time. */
+  async loginWithGoogle(idToken: string): Promise<StoredSession> {
+    const session = await http.post<StoredSession>(`${BASE}/auth/google`, { idToken }, { anonymous: true })
+    tokenStore.set(session)
+    return session
+  },
   async logout(): Promise<void> {
     const session = tokenStore.get()
     tokenStore.clear()

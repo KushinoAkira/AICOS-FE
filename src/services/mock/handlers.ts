@@ -10,6 +10,9 @@ const MAX_ATTEMPTS = 5
 const LOCK_SECONDS = 15 * 60
 const attempts = new Map<string, { count: number; lockedUntil: number }>()
 const resetTokens = new Map<string, { email: string; expiresAt: number }>()
+/** Demo sign-ups waiting for their code; the demo accepts the code 123456 (no mail is sent in the demo). */
+const pendingSignUps = new Map<string, { fullName: string; password: string }>()
+const DEMO_CODE = "123456"
 
 const problem = (status: number, title: string, extra: Record<string, unknown> = {}) => HttpResponse.json({ title, detail: title, ...extra }, { status })
 const ok = <T,>(body: T) => HttpResponse.json(body as never)
@@ -80,13 +83,30 @@ export const handlers = [
     return ok({ message: "Đã đặt lại mật khẩu" })
   }),
   http.post("*/api/v1/identity/auth/register", async ({ request }) => {
+    await delay(250)
     const b = (await request.json()) as { fullName: string; email: string; password: string }
-    if (db.users.some((u) => u.email === b.email.toLowerCase())) return problem(409, "Email đã được đăng ký", { code: "email_taken" })
-    const created: UserDto = { ...db.users[5], id: `u${db.users.length + 1}`, fullName: b.fullName, email: b.email.toLowerCase() }
-    db.users.push(created)
-    db.passwords[created.email] = b.password
-    return ok(created)
+    const email = b.email.trim().toLowerCase()
+    if (db.users.some((u) => u.email === email)) return problem(409, "Email đã được đăng ký", { code: "user.duplicate_email" })
+    pendingSignUps.set(email, { fullName: b.fullName, password: b.password })
+    return HttpResponse.json({ email, expiresInSeconds: 600, resendAfterSeconds: 60 }, { status: 202 })
   }),
+  http.post("*/api/v1/identity/auth/register/verify", async ({ request }) => {
+    await delay(250)
+    const b = (await request.json()) as { email: string; code: string }
+    const email = b.email.trim().toLowerCase()
+    const pending = pendingSignUps.get(email)
+    if (!pending || b.code !== DEMO_CODE) return problem(422, "Mã xác thực không đúng hoặc đã hết hạn. Hãy yêu cầu mã mới.", { code: "auth.verification_code_invalid" })
+    const created: UserDto = { ...db.users[5], id: `u${db.users.length + 1}`, fullName: pending.fullName, email }
+    db.users.push(created)
+    db.passwords[email] = pending.password
+    pendingSignUps.delete(email)
+    return ok(session(created))
+  }),
+  http.post("*/api/v1/identity/auth/register/resend", async ({ request }) => {
+    const b = (await request.json()) as { email: string }
+    return HttpResponse.json({ email: b.email.trim().toLowerCase(), expiresInSeconds: 600, resendAfterSeconds: 60 }, { status: 202 })
+  }),
+  http.post("*/api/v1/identity/auth/google", () => problem(422, "Đăng nhập Google không có trong bản demo.", { code: "auth.google_not_configured" })),
 
   http.get("*/api/v1/identity/branches/active", () => ok(db.branches.filter((b) => b.status === "Active"))),
   http.get("*/api/v1/identity/branches", ({ request }) => {

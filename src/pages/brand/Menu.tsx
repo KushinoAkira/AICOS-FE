@@ -63,7 +63,7 @@ function BrandMenu({ rows, branches, onChanged }: { rows: Product[]; branches: B
   const [removing, setRemoving] = useState<Product | null>(null)
   const remove = useMutation({
     mutationFn: (id: string) => brandApi.removeProduct(id),
-    onSuccess: () => { void qc.invalidateQueries({ queryKey: ["brand", "products"] }); setRemoving(null); showToast("Đã xóa món", "success") },
+    onSuccess: () => { onChanged(); setRemoving(null); showToast("Đã xóa món", "success") },
     onError: (e) => { setRemoving(null); showToast(e.message, "error") },
   })
   const pending = rows.filter((p) => p.dirty || !p.published).length

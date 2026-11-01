@@ -105,7 +105,7 @@ export interface Area { id: string; branchId: string; name: string; sortOrder: n
 export interface PlanLimits { hasPlan: boolean; planName: string | null; maxBranches: number | null; maxStaffAccounts: number | null; maxTablesPerBranch: number | null }
 export const planLimitsApi = { get: () => http.get<PlanLimits>("/identity/subscription/limits") }
 
-export interface DiningTable { id: string; branchId: string; areaId: string; areaName: string; tableCode: string; capacity: number; status: "Available" | "Occupied" | "OutOfService"; qrToken: string; qrIssuedAtUtc: string }
+export interface DiningTable { id: string; branchId: string; areaId: string; areaName: string; tableCode: string; capacity: number; positionX: number | null; positionY: number | null; status: "Available" | "Occupied" | "OutOfService"; qrToken: string; qrIssuedAtUtc: string }
 /** One table to create: the area by id (generate) or by name (CSV, where a new name creates it). */
 export interface TableBatchRow { areaId?: string; areaName?: string; tableCode: string; capacity: number; positionX?: number; positionY?: number }
 
@@ -114,6 +114,7 @@ export const tableApi = {
   list: async (branchId?: string) => itemsOf(await http.get<DiningTable[]>("/tables/dining-tables", { query: { branchId } })),
   areas: async (branchId?: string) => itemsOf(await http.get<Area[]>("/tables/areas", { query: { branchId } })),
   addArea: (name: string, branchId?: string) => http.post<Area>("/tables/areas", { branchId, name, sortOrder: 0 }),
+  saveLayout: (positions: { tableId: string; positionX: number; positionY: number }[], branchId?: string) => http.put<{ moved: number }>("/tables/floor-plan/layout", { branchId, positions }),
   batch: (rows: TableBatchRow[], branchId?: string) => http.post<{ created: number; areasCreated: number; tables: DiningTable[] }>("/tables/dining-tables/batch", { branchId, rows }),
   removeArea: (id: string) => http.delete<void>(`/tables/areas/${id}`),
   create: (b: { branchId?: string; areaId: string; tableCode: string; capacity: number }) => http.post<DiningTable>("/tables/dining-tables", b),

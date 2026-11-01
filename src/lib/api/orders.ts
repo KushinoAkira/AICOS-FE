@@ -47,6 +47,11 @@ export interface TableRow {
   id: string
   code: string
   seats: number
+  /** Where the table stands on the floor plan. */
+  areaId?: string
+  areaName?: string
+  positionX?: number | null
+  positionY?: number | null
   qrToken: string
   billRequested: boolean
   /** How the guests said they want to pay, when they asked for the bill. */

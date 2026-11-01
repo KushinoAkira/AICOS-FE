@@ -5,6 +5,7 @@ import { useSearchParams } from "react-router"
 import type { Page } from "../../App"
 import { PageFrame } from "../../components/PageFrame"
 import { Banner, Button, ConfirmDialog, EmptyState, Field, Modal, QueryBoundary, StatusPill } from "../../components/ui"
+import { FloorPlanEditor } from "../../components/tables/FloorPlan"
 import { GenerateTablesDialog, ImportTablesDialog } from "../../components/tables/TableBatchDialogs"
 import { useAuth } from "../../context/AuthContext"
 import { useToast } from "../../context/ToastContext"
@@ -72,6 +73,7 @@ export default function BranchTables({ navigate }: { navigate: (p: Page) => void
   const limits = useQuery({ queryKey: ["plan-limits"], queryFn: planLimitsApi.get })
   const [batch, setBatch] = useState<"generate" | "import" | null>(null)
   const [areaFilter, setAreaFilter] = useState("")
+  const [view, setView] = useState<"list" | "map">("list")
   const max = limits.data?.maxTablesPerBranch ?? null
   const used = tables.data?.length ?? 0
   const remaining = max === null ? null : Math.max(0, max - used)
@@ -166,8 +168,14 @@ export default function BranchTables({ navigate }: { navigate: (p: Page) => void
         </form>
       </section>
 
+      <div role="tablist" aria-label="Cách xem bàn" className="mb-4 inline-flex rounded-full border border-border bg-surface p-1">
+        {([["list", "Danh sách"], ["map", "Sơ đồ mặt bằng"]] as const).map(([id, label]) => (
+          <button key={id} role="tab" aria-selected={view === id} onClick={() => setView(id)} className={`min-h-9 rounded-full px-4 text-sm ${view === id ? "bg-espresso text-white" : "text-text-primary"}`}>{label}</button>
+        ))}
+      </div>
+
       <QueryBoundary query={tables}>
-        {(rows) => rows.length === 0 ? <EmptyState title="Chưa có bàn nào" description="Thêm từng bàn, tạo hàng loạt hoặc nhập từ file CSV để có mã QR." /> : (
+        {(rows) => view === "map" ? <FloorPlanEditor key={branchId ?? "own"} tables={rows} areas={areas.data ?? []} branchId={branchId} onSaved={refresh} /> : rows.length === 0 ? <EmptyState title="Chưa có bàn nào" description="Thêm từng bàn, tạo hàng loạt hoặc nhập từ file CSV để có mã QR." /> : (
           <>
           {(areas.data?.length ?? 0) > 1 && (
             <div role="tablist" aria-label="Lọc theo khu vực" className="mb-4 flex flex-wrap gap-2">

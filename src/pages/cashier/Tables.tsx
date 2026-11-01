@@ -2,6 +2,7 @@ import { useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import type { Page } from "../../App"
 import { CounterDigitalPay } from "../../components/CounterDigitalPay"
+import { FloorLegend, FloorMap, type FloorTile, type TileTone } from "../../components/tables/FloorPlan"
 import { OrderStatusPill } from "../../components/OrderStatusPill"
 import { PageFrame } from "../../components/PageFrame"
 import { Banner, Button, Field, Modal, QueryBoundary, StatusPill } from "../../components/ui"
@@ -27,6 +28,8 @@ export default function CashierTables({ navigate }: { navigate: (p: Page) => voi
   const [received, setReceived] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [digital, setDigital] = useState<TableRow | null>(null)
+  const [view, setView] = useState<"map" | "list">("map")
+  const open = (id: string) => { setSelected(id); setReceived(""); setError(null) }
   const pay = useMutation({
     mutationFn: (t: TableRow) => ordersApi.payTable(t.id, { method: "cash", received: Number(received) }),
     onSuccess: (r) => { void qc.invalidateQueries({ queryKey: ["tables"] }); void qc.invalidateQueries({ queryKey: ["orders"] }); setSelected(null); setReceived(""); showToast(r.change > 0 ? `Đã thanh toán. Thối lại ${formatVND(r.change)}` : "Đã thanh toán", "success") },
@@ -41,19 +44,39 @@ export default function CashierTables({ navigate }: { navigate: (p: Page) => voi
   const stateLabel = { Empty: "Trống", InService: "Đang phục vụ", AwaitingPayment: "Chờ thanh toán" } as const
 
   return (
-    <PageFrame page="cashier-tables" navigate={navigate} uc="UC-28" title="Bàn và bill" subtitle="Bàn chờ thanh toán được ưu tiên hiển thị.">
+    <PageFrame page="cashier-tables" navigate={navigate} uc="UC-28" title="Bàn và bill" subtitle="Sơ đồ bàn theo khu vực, màu cho biết bàn nào cần xử lý."
+      action={<div role="tablist" aria-label="Cách xem bàn" className="inline-flex rounded-full border border-border bg-surface p-1">
+        {([["map", "Sơ đồ"], ["list", "Danh sách"]] as const).map(([id, label]) => (
+          <button key={id} role="tab" aria-selected={view === id} onClick={() => setView(id)} className={`min-h-9 rounded-full px-4 text-sm ${view === id ? "bg-espresso text-white" : "text-text-primary"}`}>{label}</button>
+        ))}
+      </div>}>
       <QueryBoundary query={tables}>
         {(rows) => {
           const sorted = [...rows].sort((a, b) => Number(b.billRequested) - Number(a.billRequested) || Number(isSettled(b)) - Number(isSettled(a)))
           const current = rows.find((t) => t.id === selected) ?? null
+          const tiles: FloorTile[] = rows.map((t) => {
+            const st = tableStateOf(t.orders.length ? { open: true, billRequested: t.billRequested } : null)
+            const settled = isSettled(t)
+            const tone: TileTone = settled ? "success" : st === "AwaitingPayment" ? "danger" : st === "InService" ? "pending" : "neutral"
+            return {
+              id: t.id, code: t.code, areaId: t.areaId ?? "", areaName: t.areaName ?? "", positionX: t.positionX, positionY: t.positionY, tone, disabled: st === "Empty",
+              sub: settled ? "Đã trả" : st === "Empty" ? `${t.seats} chỗ` : st === "AwaitingPayment" ? "Gọi tính tiền" : formatVND(billOf(t)),
+            }
+          })
           return (
             <>
+              {view === "map" ? (
+                <>
+                  <div className="mb-4"><FloorLegend items={[{ tone: "neutral", label: "Trống" }, { tone: "pending", label: "Đang phục vụ" }, { tone: "danger", label: "Gọi tính tiền" }, { tone: "success", label: "Đã thanh toán, chờ trả bàn" }]} /></div>
+                  <FloorMap tiles={tiles} onPick={open} />
+                </>
+              ) : (
               <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                 {sorted.map((t) => {
                   const st = tableStateOf(t.orders.length ? { open: true, billRequested: t.billRequested } : null)
                   return (
                     <li key={t.id}>
-                      <button onClick={() => { setSelected(t.id); setReceived(""); setError(null) }} disabled={st === "Empty"} className="w-full rounded-[16px] border border-border bg-surface p-5 text-left hover:border-clay disabled:opacity-60">
+                      <button onClick={() => open(t.id)} disabled={st === "Empty"} className="w-full rounded-[16px] border border-border bg-surface p-5 text-left hover:border-clay disabled:opacity-60">
                         <span className="flex items-center justify-between"><span className="font-serif text-xl text-text-primary">Bàn {t.code}</span>{isSettled(t) ? <StatusPill tone="success">Đã thanh toán</StatusPill> : <StatusPill tone={stateTone[st]}>{stateLabel[st]}</StatusPill>}</span>
                         <span className="mt-2 block text-sm text-text-secondary">{st === "Empty" ? `${t.seats} chỗ` : isSettled(t) ? `${t.orders.length} đơn · bấm để hoàn thành bàn` : `${t.orders.length} đơn · ${formatVND(billOf(t))}`}</span>
                       </button>
@@ -61,6 +84,7 @@ export default function CashierTables({ navigate }: { navigate: (p: Page) => voi
                   )
                 })}
               </ul>
+              )}
               <Modal open={!!current} title={`Bill bàn ${current?.code ?? ""}`} onClose={() => setSelected(null)} footer={current && <><Button variant="secondary" onClick={() => setSelected(null)}>Đóng</Button>{isSettled(current)
                 ? <Button loading={complete.isPending} disabled={stillMaking(current)} disabledReason="Còn món chưa pha xong" onClick={() => complete.mutate(current)}>Hoàn thành bàn</Button>
                 : <Button loading={pay.isPending} disabled={Number(received) < billOf(current)} disabledReason="Số tiền nhận chưa đủ" onClick={() => pay.mutate(current)}>Xác nhận đã nhận tiền</Button>}</>}>

@@ -71,11 +71,11 @@ async function ticketOf(orderId: string): Promise<string> {
   return ticket ? str(ticket.id) : unsupported("đơn này chưa có phiếu pha chế (đơn mang đi chỉ vào bếp sau khi trả tiền)")
 }
 
-async function floorTables(): Promise<{ areaId: string; branchId: string; t: Raw }[]> {
+async function floorTables(): Promise<{ areaId: string; areaName: string; branchId: string; t: Raw }[]> {
   const branchId = tokenStore.get()?.user.branchId ?? ""
   const raw = await http.get<Raw | Raw[]>("/tables/floor-plan", { query: { branchId } })
   const areas = Array.isArray(raw) ? raw : recs(rec(raw).areas ?? rec(raw).items)
-  return recs(areas).flatMap((a) => recs(a.tables).map((t) => ({ areaId: str(a.id), branchId, t })))
+  return recs(areas).flatMap((a) => recs(a.tables).map((t) => ({ areaId: str(a.id), areaName: str(a.name), branchId, t })))
 }
 
 const openTableOrders = async (code: string) =>
@@ -85,9 +85,9 @@ export const beOrdersApi = {
   async tables(): Promise<TableRow[]> {
     const [tables, orders, sessions] = await Promise.all([floorTables(), listOrders({ paymentStatus: "Unpaid" }), http.get<Raw[]>("/orders/qr/sessions").catch(() => [] as Raw[])])
     const asked = new Map(recs(itemsOf(sessions)).filter((s) => str(s.billRequestedAtUtc)).map((s) => [str(s.tableCode), str(s.billRequestedMethod)]))
-    return tables.map(({ t }) => {
+    return tables.map(({ t, areaId, areaName }) => {
       const code = str(t.tableCode)
-      return { id: code, code, seats: num(t.capacity), qrToken: str(t.qrToken), billRequested: asked.has(code), billMethod: (asked.get(code) as "Cash" | "Transfer" | undefined), orders: orders.filter((o) => o.tableCode === code && o.status !== "Cancelled") }
+      return { id: code, code, seats: num(t.capacity), areaId, areaName, positionX: typeof t.positionX === "number" ? t.positionX : null, positionY: typeof t.positionY === "number" ? t.positionY : null, qrToken: str(t.qrToken), billRequested: asked.has(code), billMethod: (asked.get(code) as "Cash" | "Transfer" | undefined), orders: orders.filter((o) => o.tableCode === code && o.status !== "Cancelled") }
     })
   },
   async addTable(b: { code: string; seats: number }): Promise<TableRow> {

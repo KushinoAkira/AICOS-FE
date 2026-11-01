@@ -47,7 +47,13 @@ export interface TableRow {
   id: string
   code: string
   seats: number
+  branchId: string
+  /** 1 = ground floor, 2+ = upper floors (display); prefer floorId when present. */
+  floor: number
+  /** Floor entity id (floor-plan model). */
+  floorId?: string
   qrToken: string
+  isActive?: boolean
   billRequested: boolean
   /** Unpaid orders of the open table session; empty means the table is empty (derived, never stored). */
   orders: Order[]
@@ -56,13 +62,16 @@ export interface TableRow {
 export interface GuestMenu {
   branchName: string
   tableCode: string
+  /** Brand this table QR belongs to — FE sets active brand before other tenant APIs. */
+  tenantSlug?: string
+  branchId?: string
   products: (Product & { soldOut: boolean; price: number })[]
 }
 
 const B = "/api/v1/ordering"
 const mockOrdersApi = {
   tables: () => http.get<TableRow[]>(`${B}/tables`),
-  addTable: (b: { code: string; seats: number }) => http.post<TableRow>(`${B}/tables`, b),
+  addTable: (b: { code: string; seats: number; floor: number }) => http.post<TableRow>(`${B}/tables`, b),
   orders: () => http.get<Order[]>(`${B}/orders`),
   transition: (id: string, b: { status: OrderStatus; reason?: string }) => http.post<Order>(`${B}/orders/${id}/status`, b),
   place: (tableId: string, lines: LineInput[]) => http.post<Order>(`${B}/orders`, { tableId, lines }),

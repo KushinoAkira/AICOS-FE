@@ -1,5 +1,5 @@
-import { Suspense, lazy, startTransition, useCallback, type ReactElement } from "react"
-import { Navigate, Route, Routes, useLocation, useNavigate } from "react-router"
+import { Suspense, lazy, startTransition, useCallback, useEffect, type ReactElement } from "react"
+import { Navigate, Route, Routes, useLocation, useNavigate, useParams } from "react-router"
 import { ToastProvider } from "./context/ToastContext"
 import { ToastContainer } from "./components/ToastContainer"
 import { ErrorBoundary } from "./components/ErrorBoundary"
@@ -7,21 +7,24 @@ import { homePageOf, useAuth } from "./context/AuthContext"
 import { GUEST_ONLY_PAGES, canAccess, loginPageFor } from "./router/rbac"
 import {
   PAGE_PATHS,
-  pageFromPath,
+  matchPage,
+  pathFor,
   type NavigationState,
   type OtpFlow,
   type Page,
 } from "./router/pages"
+import { getActiveBrandSlug, setActiveBrandSlug } from "./lib/brand"
+import { tokenStore } from "./lib/api/tokenStore"
 
-// Re-exported so the existing `import type { Page } from "../../App"` in pages keeps working.
 export type { Page } from "./router/pages"
 
-// Every screen is its own chunk: a cashier never downloads the admin screens.
 const Landing = lazy(() => import("./pages/public/Landing"))
 const Contact = lazy(() => import("./pages/public/Contact"))
 const Terms = lazy(() => import("./pages/public/Legal").then((m) => ({ default: m.Terms })))
 const Privacy = lazy(() => import("./pages/public/Legal").then((m) => ({ default: m.Privacy })))
+const StaffEntry = lazy(() => import("./pages/auth/StaffEntry"))
 const Login = lazy(() => import("./pages/auth/Login"))
+const AdminLogin = lazy(() => import("./pages/auth/AdminLogin"))
 const CustomerRegister = lazy(() => import("./pages/auth/CustomerRegister"))
 const CustomerLogin = lazy(() => import("./pages/auth/CustomerLogin"))
 const OTPVerification = lazy(() => import("./pages/auth/OTPVerification"))
@@ -29,6 +32,7 @@ const ForgotPassword = lazy(() => import("./pages/auth/ForgotPassword"))
 const ResetPassword = lazy(() => import("./pages/auth/ResetPassword"))
 const AccountSettings = lazy(() => import("./pages/shared/AccountSettings"))
 
+const CustomerShops = lazy(() => import("./pages/customer/ShopPicker"))
 const CustomerMenu = lazy(() => import("./pages/customer/Takeaway"))
 const CustomerFeedback = lazy(() => import("./pages/customer/Feedback"))
 const CustomerForYou = lazy(() => import("./pages/customer/ForYou"))
@@ -61,13 +65,14 @@ const BranchTables = lazy(() => import("./pages/brand/BranchTables"))
 const CashierTables = lazy(() => import("./pages/cashier/Tables"))
 const CashierShifts = lazy(() => import("./pages/cashier/Shifts"))
 
-
 const ManagerDashboard = lazy(() => import("./pages/manager/Dashboard"))
 const ManagerReports = lazy(() => import("./pages/manager/Reports"))
 const ManagerFeedback = lazy(() => import("./pages/manager/Feedback"))
 const ManagerEmployees = lazy(() => import("./pages/manager/Employees"))
 const ManagerPayroll = lazy(() => import("./pages/manager/Payroll"))
 const ManagerPayrollDetail = lazy(() => import("./pages/manager/PayrollDetail"))
+const FloorPlanEditor = lazy(() => import("./pages/manager/FloorPlanEditor"))
+const FloorPlanViewer = lazy(() => import("./pages/staff/FloorPlanViewer"))
 
 const AdminSystemLogs = lazy(() => import("./pages/admin/SystemLogs"))
 
@@ -81,7 +86,6 @@ const PlatformHealth = lazy(() => import("./pages/platform/Health"))
 const PlatformRevenue = lazy(() => import("./pages/platform/Revenue"))
 const PlatformAudit = lazy(() => import("./pages/platform/Audit"))
 
-/** Cold-load only. In-app navigations use startTransition so Suspense keeps the previous screen (no full-page flash). */
 function PageFallback() {
   return (
     <div className="pointer-events-none fixed inset-x-0 top-0 z-[60] h-0.5 overflow-hidden" role="status" aria-label="Đang tải">
@@ -90,25 +94,69 @@ function PageFallback() {
   )
 }
 
+function LegacyQrRedirect({ status }: { status?: boolean }) {
+  const { token = "" } = useParams()
+  return <Navigate to={status ? `/t/${encodeURIComponent(token)}/status` : `/t/${encodeURIComponent(token)}`} replace />
+}
+
+function loginPathFor(page: Page): string {
+  const portal = loginPageFor(page)
+  if (portal === "login") {
+    const slug = getActiveBrandSlug() ?? tokenStore.get()?.tenantSlug
+    if (slug) return pathFor("login", { tenantSlug: slug })
+    return pathFor("staff-entry")
+  }
+  return pathFor(portal)
+}
+
 export default function App() {
   const location = useLocation()
   const routerNavigate = useNavigate()
-  const { user, role } = useAuth()
+  const { user, role, logout } = useAuth()
 
   const state = (location.state ?? {}) as NavigationState
-  const currentPage = pageFromPath(location.pathname)
+  const matched = matchPage(location.pathname)
+  const currentPage = matched?.page
   const otpFlow: OtpFlow = state.otpFlow ?? "register"
-  const returnPage: Page = state.from ?? (user ? homePageOf(user) : "login")
+  const returnPage: Page = state.from ?? (user ? homePageOf(user) : "staff-entry")
 
-  // Same contract the pages already use (`navigate("manager-menu")`), now backed by real URLs.
-  // startTransition keeps the current screen visible while the next lazy chunk loads (avoids sidebar flash).
+  useEffect(() => {
+    const onExpired = () => {
+      const slug = getActiveBrandSlug() ?? tokenStore.get()?.tenantSlug
+      const target = slug ? pathFor("login", { tenantSlug: slug }) : pathFor("staff-entry")
+      startTransition(() => routerNavigate(target, { replace: true }))
+    }
+    const onTenantDenied = () => {
+      void logout().finally(() => {
+        const slug = getActiveBrandSlug()
+        startTransition(() => {
+          routerNavigate(slug ? pathFor("login", { tenantSlug: slug }) : pathFor("staff-entry"), { replace: true })
+        })
+      })
+    }
+    window.addEventListener("aicos:session-expired", onExpired)
+    window.addEventListener("aicos:tenant-denied", onTenantDenied)
+    return () => {
+      window.removeEventListener("aicos:session-expired", onExpired)
+      window.removeEventListener("aicos:tenant-denied", onTenantDenied)
+    }
+  }, [logout, routerNavigate])
+
+  // After staff login, keep URL slug aligned with JWT tenant.
+  useEffect(() => {
+    const sessionSlug = tokenStore.get()?.tenantSlug
+    if (sessionSlug && role && role !== "customer" && role !== "superAdmin") {
+      setActiveBrandSlug(sessionSlug)
+    }
+  }, [role, user])
+
   const navigate = useCallback(
     (page: Page, params?: Record<string, string>) => {
       const next: NavigationState = { from: currentPage }
       if (page === "auth-otp") {
         next.otpFlow = currentPage === "auth-forgot-password" ? "forgot-password" : "register"
       }
-      const path = Object.entries(params ?? {}).reduce((acc, [k, v]) => acc.replace(`:${k}`, encodeURIComponent(v)), PAGE_PATHS[page] as string)
+      const path = pathFor(page, params)
       startTransition(() => {
         routerNavigate(path, { state: next })
       })
@@ -121,7 +169,9 @@ export default function App() {
     terms: <Terms navigate={navigate} />,
     privacy: <Privacy navigate={navigate} />,
     contact: <Contact navigate={navigate} />,
+    "staff-entry": <StaffEntry navigate={navigate} />,
     login: <Login navigate={navigate} />,
+    "admin-login": <AdminLogin navigate={navigate} />,
     "auth-customer-register": <CustomerRegister navigate={navigate} />,
     "auth-customer-login": <CustomerLogin navigate={navigate} />,
     "auth-otp": <OTPVerification navigate={navigate} flow={otpFlow} />,
@@ -132,6 +182,7 @@ export default function App() {
     "guest-menu": <GuestMenu navigate={navigate} />,
     "guest-order-status": <GuestStatus navigate={navigate} />,
 
+    "customer-shops": <CustomerShops navigate={navigate} />,
     "customer-menu": <CustomerMenu navigate={navigate} />,
     "customer-tracking": <CustomerOrderTracking navigate={navigate} />,
     "customer-loyalty": <CustomerLoyalty navigate={navigate} />,
@@ -146,6 +197,7 @@ export default function App() {
     "cashier-payments": <CashierPayments navigate={navigate} />,
     "cashier-tables": <CashierTables navigate={navigate} />,
     "cashier-shift": <CashierShifts navigate={navigate} />,
+    "floor-plan-view": <FloorPlanViewer navigate={navigate} />,
 
     "manager-dashboard": <ManagerDashboard navigate={navigate} />,
     "manager-staff": <ManagerEmployees navigate={navigate} />,
@@ -154,6 +206,7 @@ export default function App() {
     "manager-payroll": <ManagerPayroll navigate={navigate} />,
     "manager-payroll-detail": <ManagerPayrollDetail navigate={navigate} />,
     "branch-tables": <BranchTables navigate={navigate} />,
+    "branch-floor-plan": <FloorPlanEditor navigate={navigate} />,
     "branch-pickup": <BranchPickupPage navigate={navigate} />,
     "branch-orders": <BranchOrders navigate={navigate} />,
 
@@ -181,33 +234,26 @@ export default function App() {
     "platform-revenue": <PlatformRevenue navigate={navigate} />,
     "platform-audit": <PlatformAudit navigate={navigate} />,
   }
-  /**
-   * RBAC gate for typed URLs and in-app links.
-   * Readable paths are fine — authorization is role checks here (UI) plus API 401/403 (data).
-   * Wrong role always gets 403; only anonymous users are sent to the matching login portal.
-   */
+
   function guard(page: Page): ReactElement {
     if (user && GUEST_ONLY_PAGES.includes(page)) {
       const onCustomerAuth = page === "auth-customer-login" || page === "auth-customer-register"
-      const onStaffLogin = page === "login"
-      // Customer already signed in: customer auth → their app; staff login CTA from marketing → stay on public home (never yank into /menu).
-      if (onCustomerAuth && role === "customer") return <Navigate to={PAGE_PATHS[homePageOf(user)]} replace />
+      const onStaffLogin = page === "login" || page === "staff-entry" || page === "admin-login"
+      if (onCustomerAuth && role === "customer") return <Navigate to={pathFor(homePageOf(user))} replace />
       if (onStaffLogin && role === "customer") return <Navigate to={PAGE_PATHS.landing} replace />
-      if (onStaffLogin && role !== null) return <Navigate to={PAGE_PATHS[homePageOf(user)]} replace />
-      if (!onCustomerAuth && !onStaffLogin) return <Navigate to={PAGE_PATHS[homePageOf(user)]} replace />
+      if (onStaffLogin && role !== null) return <Navigate to={pathFor(homePageOf(user))} replace />
+      if (!onCustomerAuth && !onStaffLogin) return <Navigate to={pathFor(homePageOf(user))} replace />
     }
     if (canAccess(page, role)) return screens[page]
     if (!user) {
-      return <Navigate to={PAGE_PATHS[loginPageFor(page)]} replace state={{ from: page } satisfies NavigationState} />
+      return <Navigate to={loginPathFor(page)} replace state={{ from: page } satisfies NavigationState} />
     }
-    // Keep each surface: customers → their app home; staff → role home. Marketing `/` stays opt-in only.
-    return <Forbidden onHome={() => routerNavigate(role === "customer" ? PAGE_PATHS["customer-menu"] : PAGE_PATHS[homePageOf(user)])} />
+    return <Forbidden onHome={() => routerNavigate(pathFor(homePageOf(user)))} />
   }
 
   function publicOrRoleHome() {
     if (!user) return PAGE_PATHS.landing
-    if (role === "customer") return PAGE_PATHS["customer-menu"]
-    return PAGE_PATHS[homePageOf(user)]
+    return pathFor(homePageOf(user))
   }
 
   return (
@@ -217,9 +263,19 @@ export default function App() {
         <div className="relative">
           <Suspense fallback={<PageFallback />}>
             <Routes>
-              {(Object.keys(PAGE_PATHS) as Page[]).map((page) => (
+              {/* Static paths before `/:tenantSlug/...` so /admin/login is not captured as a tenant. */}
+              {([...(Object.keys(PAGE_PATHS) as Page[])].sort((a, b) => {
+                const score = (p: string) => {
+                  const parts = p.split("/").filter(Boolean)
+                  return parts.reduce((s, seg) => s + (seg.startsWith(":") ? 1 : 10), parts.length)
+                }
+                return score(PAGE_PATHS[b]) - score(PAGE_PATHS[a])
+              })).map((page) => (
                 <Route key={page} path={PAGE_PATHS[page]} element={guard(page)} />
               ))}
+              <Route path="/login" element={<Navigate to={pathFor("staff-entry")} replace />} />
+              <Route path="/q/:token" element={<LegacyQrRedirect />} />
+              <Route path="/q/:token/status" element={<LegacyQrRedirect status />} />
               <Route path="*" element={<NotFound onHome={() => routerNavigate(publicOrRoleHome())} />} />
             </Routes>
           </Suspense>

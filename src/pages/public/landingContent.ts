@@ -12,7 +12,7 @@ export const FAQ = [
   { q: "Tôi cần chuẩn bị gì để bắt đầu?", a: "Tên thương hiệu, email và số điện thoại của chủ quán để AICOS tạo tài khoản. Logo và màu thương hiệu là tuỳ chọn và có thể đổi sau." },
   { q: "Liên hệ xong bao lâu thì dùng được?", a: "Sau khi tư vấn, đội ngũ AICOS tạo thương hiệu cho bạn, thường trong 1 ngày làm việc. Bạn nhận email mời đặt mật khẩu và bắt đầu dùng thử 14 ngày." },
   { q: "Khách có phải tải ứng dụng không?", a: "Không. Khách quét mã QR trên bàn và gọi món ngay trên trình duyệt điện thoại. Chỉ khi muốn tích điểm mới cần đăng nhập." },
-  { q: "Mỗi quán có địa chỉ đăng nhập riêng không?", a: "Có. Mỗi thương hiệu có địa chỉ riêng dạng ten-quan.aicos.app, hiển thị logo và màu của quán. Tài khoản chỉ đăng nhập được ở quán của mình." },
+  { q: "Khách và nhân viên đăng nhập thế nào?", a: "Khách đăng nhập trên AICOS rồi chọn quán (/{slug}/menu). Nhân viên đăng nhập tại /{slug}/login; Super Admin dùng /admin/login. Không dùng subdomain." },
   { q: "Tôi có thể đổi gói hoặc huỷ không?", a: "Có thể đổi gói hoặc gia hạn trong mục Gói dịch vụ của chủ thương hiệu. Khi huỷ, dữ liệu của bạn được giữ theo chính sách bảo mật." },
   { q: "Dữ liệu của quán có an toàn không?", a: "Dữ liệu mỗi thương hiệu được tách riêng, phân quyền theo vai trò và mọi thao tác quan trọng đều được ghi nhật ký. Xem thêm tại Chính sách bảo mật." },
 ]

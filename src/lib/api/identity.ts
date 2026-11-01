@@ -73,9 +73,21 @@ export interface UserInput {
 
 const BASE = "/identity"
 
+export type LoginOpts = {
+  /** Path slug for `POST /api/v1/{slug}/auth/login` (staff). */
+  tenantSlug?: string | null
+  /** Super Admin portal — `POST /api/v1/admin/auth/login`. */
+  admin?: boolean
+}
+
 const mockAuthApi = {
-  async login(login: string, password: string): Promise<StoredSession> {
-    const session = await http.post<StoredSession>(`${BASE}/auth/login`, { login, password }, { anonymous: true })
+  async login(login: string, password: string, opts: LoginOpts = {}): Promise<StoredSession> {
+    const path = opts.admin
+      ? "/admin/auth/login"
+      : opts.tenantSlug
+        ? `/${opts.tenantSlug}/auth/login`
+        : `${BASE}/auth/login`
+    const session = await http.post<StoredSession>(path, { login, password }, { anonymous: true })
     tokenStore.set(session)
     return session
   },
@@ -98,7 +110,7 @@ const mockAuthApi = {
 const mockBranchesApi = {
   list: (q: { search?: string; status?: BranchStatus; page?: number; pageSize?: number } = {}) =>
     http.get<PagedResponse<BranchDto>>(`${BASE}/branches`, { query: q }),
-  listActive: () => http.get<BranchDto[]>(`${BASE}/branches/active`, { anonymous: true }),
+  listActive: () => http.get<BranchDto[]>(`${BASE}/branches/active`),
   get: (id: string) => http.get<BranchDto>(`${BASE}/branches/${id}`),
   create: (body: BranchInput) => http.post<BranchDto>(`${BASE}/branches`, body),
   update: (id: string, body: BranchInput) => http.put<BranchDto>(`${BASE}/branches/${id}`, body),

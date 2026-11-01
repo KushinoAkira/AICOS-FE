@@ -81,16 +81,22 @@ export const beOrdersApi = {
     const [tables, orders] = await Promise.all([floorTables(), listOrders({ paymentStatus: "Unpaid" })])
     return tables.map(({ t }) => {
       const code = str(t.tableCode)
-      return { id: code, code, seats: num(t.capacity), qrToken: str(t.qrToken), billRequested: false, orders: orders.filter((o) => o.tableCode === code && o.status !== "Cancelled") }
+      return {
+        id: code, code, seats: num(t.capacity),
+        branchId: str(t.branchId), floor: num(t.floor, 1) || 1,
+        qrToken: str(t.qrToken), billRequested: false,
+        orders: orders.filter((o) => o.tableCode === code && o.status !== "Cancelled"),
+      }
     })
   },
-  async addTable(b: { code: string; seats: number }): Promise<TableRow> {
+  async addTable(b: { code: string; seats: number; floor: number }): Promise<TableRow> {
     const first = (await floorTables())[0]
     const areas = recs(itemsOf(await http.get<Raw[]>("/tables/areas")))
     const areaId = first?.areaId || str(areas[0]?.id)
     if (!areaId) return unsupported("thêm bàn: chưa có khu vực nào (tạo khu vực trước)")
-    const t = rec(await http.post<Raw>("/tables/dining-tables", { branchId: first?.branchId ?? tokenStore.get()?.user.branchId, areaId, tableCode: b.code, capacity: b.seats, positionX: 0, positionY: 0 }))
-    return { id: str(t.tableCode) || b.code, code: b.code, seats: b.seats, qrToken: str(t.qrToken), billRequested: false, orders: [] }
+    const branchId = first?.branchId ?? tokenStore.get()?.user.branchId ?? ""
+    const t = rec(await http.post<Raw>("/tables/dining-tables", { branchId, areaId, tableCode: b.code, capacity: b.seats, positionX: 0, positionY: 0 }))
+    return { id: str(t.tableCode) || b.code, code: b.code, seats: b.seats, branchId, floor: b.floor || 1, qrToken: str(t.qrToken), billRequested: false, orders: [] }
   },
   orders: () => listOrders(),
   async transition(id: string, b: { status: OrderStatus; reason?: string }): Promise<Order> {

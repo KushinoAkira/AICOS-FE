@@ -80,7 +80,11 @@ export const bePlatformApi = {
 /** Anonymous endpoints: the backend has no public brand profile, self-registration or contact form yet. */
 export const bePublicApi = {
   plans: () => bePlatformApi.plans(),
-  /** No public lookup exists: trust the address and let login/register (`tenantCode`) reject an unknown brand. */
+  brands: async (): Promise<BrandPublic[]> => [],
+  /** No public lookup exists yet — stub so the FE can still resolve a selected slug. */
   brand: async (slug: string): Promise<BrandPublic> => ({ name: slug, slug, status: "Active" }),
+  qrBrand: async (token: string): Promise<{ token: string; tenantSlug: string; brandName: string; branchId: string }> => ({
+    token, tenantSlug: "", brandName: "", branchId: "",
+  }),
   contact: (): Promise<{ received: true }> => unsupported("form liên hệ"),
 }

@@ -17,7 +17,7 @@ export function Logo({ linked = false }: { linked?: boolean } = {}) {
         <ellipse cx="16" cy="16" rx="11" ry="14" fill="var(--color-terracotta)" />
         <path d="M16 4 Q18.5 16 16 28" stroke="var(--color-espresso)" strokeWidth="1.8" strokeLinecap="round" fill="none" />
       </svg>
-      <span className="font-serif text-2xl font-medium text-espresso">AICOS</span>
+      <span className="font-serif text-[1.75rem] font-medium tracking-tight text-espresso">AICOS</span>
     </div>
   )
   if (!linked) return mark
@@ -25,15 +25,33 @@ export function Logo({ linked = false }: { linked?: boolean } = {}) {
 }
 
 /** Shared frame for the sign-in / reset screens. `hero` adds the photo panel on desktop. */
-export function AuthShell({ title, subtitle, hero, children }: { title: string; subtitle?: string; hero?: boolean; children: ReactNode }) {
+export function AuthShell({
+  title,
+  subtitle,
+  hero,
+  children,
+}: {
+  title?: string
+  subtitle?: string
+  hero?: boolean
+  children: ReactNode
+}) {
   return (
-    <div className="flex min-h-screen bg-bg-base">
+    <div className="relative flex min-h-screen bg-bg-base">
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 opacity-70 lg:hidden"
+        style={{
+          background:
+            "radial-gradient(ellipse 80% 50% at 50% -10%, color-mix(in srgb, var(--color-terracotta) 18%, transparent), transparent 70%)",
+        }}
+      />
       {hero && <AuthHero />}
-      <div className="flex flex-1 items-center justify-center px-6 py-12">
+      <div className="relative flex flex-1 items-center justify-center px-6 py-12">
         <div className="w-full max-w-sm">
           <div className="mb-10"><Logo linked /></div>
-          <h1 className="mb-2 font-serif text-3xl font-medium text-text-primary">{title}</h1>
-          {subtitle && <p className="mb-8 text-sm leading-relaxed text-text-secondary">{subtitle}</p>}
+          {title && <h1 className="mb-2 font-serif text-3xl font-medium text-text-primary">{title}</h1>}
+          {subtitle && <p className={`text-sm leading-relaxed text-text-secondary ${title ? "mb-8" : "mb-8 -mt-2"}`}>{subtitle}</p>}
           {children}
           <p className="mt-12 text-center text-xs text-text-secondary">© {new Date().getFullYear()} AICOS</p>
         </div>

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { canAccess, loginPageFor, PAGE_ACCESS } from "./rbac"
+import { canAccess, HOME_PAGE, loginPageFor, PAGE_ACCESS } from "./rbac"
 import type { Page } from "./pages"
 import type { Role } from "./roles"
 
@@ -14,6 +14,7 @@ describe("canAccess", () => {
   })
 
   it("blocks anonymous users from protected pages", () => {
+    expect(canAccess("customer-shops", null)).toBe(false)
     expect(canAccess("customer-menu", null)).toBe(false)
     expect(canAccess("cashier-pos", null)).toBe(false)
     expect(canAccess("brand-dashboard", null)).toBe(false)
@@ -55,18 +56,33 @@ describe("canAccess", () => {
     expect(canAccess("cashier-shift", "cashier")).toBe(true)
     expect(canAccess("cashier-shift", "customer")).toBe(false)
   })
+
+  it("lets cashier, barista, and brand admin view published floor plans", () => {
+    expect(canAccess("floor-plan-view", "cashier")).toBe(true)
+    expect(canAccess("floor-plan-view", "barista")).toBe(true)
+    expect(canAccess("floor-plan-view", "brandAdmin")).toBe(true)
+    expect(canAccess("floor-plan-view", "branchManager")).toBe(false)
+    expect(canAccess("floor-plan-view", "customer")).toBe(false)
+  })
+})
+
+describe("HOME_PAGE", () => {
+  it("sends customers to the shop picker after login", () => {
+    expect(HOME_PAGE.customer).toBe("customer-shops")
+  })
 })
 
 describe("loginPageFor", () => {
   it("sends customer deep-links to the customer portal", () => {
     expect(loginPageFor("customer-menu")).toBe("auth-customer-login")
     expect(loginPageFor("customer-loyalty")).toBe("auth-customer-login")
+    expect(loginPageFor("customer-shops")).toBe("auth-customer-login")
   })
 
   it("sends staff deep-links to the staff portal", () => {
     expect(loginPageFor("cashier-pos")).toBe("login")
     expect(loginPageFor("brand-dashboard")).toBe("login")
-    expect(loginPageFor("platform-tenants")).toBe("login")
+    expect(loginPageFor("platform-tenants")).toBe("admin-login")
   })
 
   it("never routes guest QR or marketing pages through customer auth by mistake", () => {
@@ -75,3 +91,11 @@ describe("loginPageFor", () => {
     expect(loginPageFor("contact")).toBe("login")
   })
 })
+
+describe("path-based pages", () => {
+  it("includes admin-login and staff-entry as public", () => {
+    expect(canAccess("admin-login", null)).toBe(true)
+    expect(canAccess("staff-entry", null)).toBe(true)
+  })
+})
+

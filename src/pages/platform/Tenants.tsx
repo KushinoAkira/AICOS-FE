@@ -8,6 +8,7 @@ import { useToast } from "../../context/ToastContext"
 import { formatDate, formatVND } from "../../lib/format"
 import { ApiError } from "../../lib/api/http"
 import { platformApi, type Plan, type Tenant, type TenantInput, type TenantStatus } from "../../lib/api/platform"
+import { validateTenantSlug } from "../../lib/tenantSlug"
 import { PLAN_NAME, PlatformPage } from "./PlatformPage"
 
 const STATUS_LABEL: Record<TenantStatus, string> = { Pending: "Chờ duyệt", Active: "Đang hoạt động", Suspended: "Tạm ngưng", Closed: "Đã đóng", Rejected: "Đã từ chối" }
@@ -15,7 +16,17 @@ const STATUS_TONE: Record<TenantStatus, Tone> = { Pending: "info", Active: "succ
 
 const infoSchema = z.object({
   name: z.string().trim().min(2, "Nhập tên thương hiệu"),
-  slug: z.string().regex(/^[a-z0-9-]{3,30}$/, "3-30 ký tự: chữ thường, số, dấu gạch ngang"),
+  slug: z.string().superRefine((v, ctx) => {
+    const r = validateTenantSlug(v)
+    if (!r.ok) {
+      const msg =
+        r.issue === "reserved" ? "Mã này bị dành riêng (admin, api, t, …)"
+        : r.issue === "length" ? "Độ dài 3–40 ký tự"
+        : r.issue === "format" ? "Chỉ chữ thường, số, gạch ngang giữa các phần"
+        : "Nhập mã định danh"
+      ctx.addIssue({ code: "custom", message: msg })
+    }
+  }),
 })
 const adminSchema = z.object({ adminName: z.string().trim().min(2, "Nhập họ tên"), adminEmail: z.string().email("Email không hợp lệ") })
 /** Real backend: the first Brand Admin is created with a phone and an initial password (no invite email yet). */
@@ -44,7 +55,7 @@ export default function PlatformTenants({ navigate }: { navigate: (p: Page) => v
 
   const planList = plans.data ?? []
   const columns: Column<Tenant>[] = [
-    { key: "name", header: "Thương hiệu", sort: (t) => t.name, render: (t) => <div className="flex items-center gap-3">{t.logoUrl ? <img src={t.logoUrl} alt="" className="h-9 w-9 shrink-0 rounded-[10px] border border-border object-contain" /> : <span aria-hidden className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-sand font-serif text-clay">{t.name.charAt(0)}</span>}<div><p className="font-medium text-text-primary">{t.name}</p><p className="text-xs text-text-secondary">{t.slug}.aicos.app</p>{t.applicantEmail && <p className="text-xs text-text-secondary">{t.applicantName} · {t.applicantEmail}{t.applicantPhone ? ` · ${t.applicantPhone}` : ""}</p>}{t.rejectReason && <p className="text-xs text-state-danger">Lý do từ chối: {t.rejectReason}</p>}</div></div> },
+    { key: "name", header: "Thương hiệu", sort: (t) => t.name, render: (t) => <div className="flex items-center gap-3">{t.logoUrl ? <img src={t.logoUrl} alt="" className="h-9 w-9 shrink-0 rounded-[10px] border border-border object-contain" /> : <span aria-hidden className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-sand font-serif text-clay">{t.name.charAt(0)}</span>}<div><p className="font-medium text-text-primary">{t.name}</p><p className="text-xs text-text-secondary">{t.slug}</p>{t.applicantEmail && <p className="text-xs text-text-secondary">{t.applicantName} · {t.applicantEmail}{t.applicantPhone ? ` · ${t.applicantPhone}` : ""}</p>}{t.rejectReason && <p className="text-xs text-state-danger">Lý do từ chối: {t.rejectReason}</p>}</div></div> },
     { key: "plan", header: "Gói", sort: (t) => t.planId, render: (t) => PLAN_NAME(planList, t.planId) },
     { key: "branches", header: "Chi nhánh", sort: (t) => t.branchCount, render: (t) => t.branchCount },
     { key: "status", header: "Trạng thái", render: (t) => <StatusPill tone={STATUS_TONE[t.status]}>{STATUS_LABEL[t.status]}</StatusPill> },
@@ -145,7 +156,7 @@ function TenantWizard({ open, plans, onClose, onCreated }: { open: boolean; plan
       {step === 0 && (
         <div className="space-y-4">
           <Field label="Tên thương hiệu" value={form.name} onChange={(e) => set("name", e.target.value)} error={errors.name} />
-          <Field label="Mã định danh (subdomain)" value={form.slug} onChange={(e) => set("slug", e.target.value.toLowerCase())} error={errors.slug} hint={`${form.slug || "ten-brand"}.aicos.app`} />
+          <Field label="Mã định danh" value={form.slug} onChange={(e) => set("slug", e.target.value.toLowerCase())} error={errors.slug} hint={form.slug || "ten-brand"} />
         </div>
       )}
       {step === 1 && (
@@ -175,7 +186,7 @@ function TenantWizard({ open, plans, onClose, onCreated }: { open: boolean; plan
       )}
       {step === 3 && (
         <dl className="space-y-2 text-sm">
-          {[["Thương hiệu", form.name], ["Subdomain", `${form.slug}.aicos.app`], ["Gói", plan ? `${plan.name} · ${formatVND(plan.monthlyFee)}/tháng` : ""], ["Brand Admin", `${form.adminName} (${form.adminEmail})`]].map(([k, v]) => (
+          {[["Thương hiệu", form.name], ["Mã định danh", form.slug], ["Gói", plan ? `${plan.name} · ${formatVND(plan.monthlyFee)}/tháng` : ""], ["Brand Admin", `${form.adminName} (${form.adminEmail})`]].map(([k, v]) => (
             <div key={k} className="flex justify-between gap-4"><dt className="text-text-secondary">{k}</dt><dd className="text-right text-text-primary">{v}</dd></div>
           ))}
         </dl>

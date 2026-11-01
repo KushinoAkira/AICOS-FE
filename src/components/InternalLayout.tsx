@@ -1,5 +1,7 @@
 import { type ReactNode, useRef, useLayoutEffect, useState } from "react"
 import { useAuth } from "../context/AuthContext"
+import { useBrand } from "../context/BrandContext"
+import { useActiveBranch } from "../hooks/useActiveBranch"
 import UserMenu from "./CustomerUserMenu"
 import type { Page } from "../router/pages"
 import type { Role } from "../router/roles"
@@ -26,6 +28,7 @@ const ICONS: Record<string, string> = {
   swap: "M17 1l4 4-4 4M3 11V9a4 4 0 014-4h14M7 23l-4-4 4-4M21 13v2a4 4 0 01-4 4H3",
   cash: "M2 6h20v12H2zM12 9a3 3 0 100 6 3 3 0 000-6z",
   table: "M3 7h18M3 12h18M9 7v10M15 7v10",
+  map: "M1 6l7-3 8 3 7-3v15l-7 3-8-3-7 3zM8 3v15M16 6v15",
   list: "M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01",
   cup: "M5 8h12v6a5 5 0 01-5 5H10a5 5 0 01-5-5zM17 9h2a2 2 0 010 4h-2M8 2v3M12 2v3",
   shield: "M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z",
@@ -60,6 +63,7 @@ const navMap: Record<StaffRole, NavItem[]> = {
     item("admin-users", "Tài khoản", "users"),
     item("manager-menu", "Thực đơn", "menu"),
     item("branch-tables", "Bàn & QR", "table"),
+    item("floor-plan-view", "Sơ đồ tầng", "map"),
     item("brand-pickup", "Khung giờ lấy hàng", "clock"),
     item("brand-promotions", "Khuyến mãi", "tag"),
     item("brand-loyalty", "Tích điểm", "heart"),
@@ -74,21 +78,27 @@ const navMap: Record<StaffRole, NavItem[]> = {
   branchManager: [
     item("manager-dashboard", "Tổng quan", "grid"),
     item("branch-orders", "Đơn hàng", "list"),
-    item("manager-menu", "Tình trạng món", "menu"),
+    item("manager-menu", "Thực đơn", "menu"),
     item("manager-staff", "Nhân sự", "users"),
     item("branch-schedule", "Lịch làm việc", "calendar"),
     item("branch-shift-requests", "Ca thay", "swap"),
     item("manager-payroll", "Bảng lương", "cash"),
     item("branch-tables", "Bàn & QR", "table"),
+    item("branch-floor-plan", "Sơ đồ tầng", "map"),
     item("branch-pickup", "Khung giờ lấy hàng", "clock"),
     item("manager-reports", "Báo cáo", "chart"),
     item("manager-feedback", "Phản hồi", "heart"),
   ],
-  barista: [item("barista-queue", "Hàng đợi pha chế", "cup"), item("cashier-shift", "Ca làm việc", "clock2")],
+  barista: [
+    item("barista-queue", "Hàng đợi pha chế", "cup"),
+    item("floor-plan-view", "Sơ đồ tầng", "map"),
+    item("cashier-shift", "Ca làm việc", "clock2"),
+  ],
   cashier: [
     item("cashier-pos", "Tạo đơn", "cash"),
     item("cashier-payments", "Thanh toán cần xử lý", "card"),
     item("cashier-tables", "Bàn và bill", "table"),
+    item("floor-plan-view", "Sơ đồ tầng", "map"),
     item("cashier-shift", "Ca làm việc", "clock2"),
   ],
 }
@@ -111,10 +121,14 @@ interface Props {
 
 export default function InternalLayout({ activePage, navigate, children, headerRight }: Props) {
   const { user, role: userRole, logout } = useAuth()
+  const brand = useBrand()
   const role: StaffRole = userRole && userRole !== "customer" ? userRole : "cashier"
+  const { branches, branchId, canSwitch, select, branch, branchesLoading } = useActiveBranch()
   const nav = navMap[role]
   const navContainerRef = useRef<HTMLDivElement>(null)
   const [pillStyle, setPillStyle] = useState<{ top: number; height: number }>({ top: 0, height: 40 })
+  const shop = role !== "superAdmin" && brand.kind === "ready" ? brand.brand : null
+  const markColor = shop?.brandColor || "#C97B4A"
 
   useLayoutEffect(() => {
     if (!navContainerRef.current) return
@@ -131,12 +145,33 @@ export default function InternalLayout({ activePage, navigate, children, headerR
         className="flex flex-col flex-shrink-0 w-56 h-screen overflow-y-auto"
         style={{ backgroundColor: "#6F4E37" }}
       >
-        {/* Logo */}
+        {/* Brand / platform mark */}
         <div className="px-6 pt-7 pb-8">
-          <div className="flex items-center gap-2">
-            <CoffeeBean />
-            <span className="font-serif text-xl font-medium" style={{ color: "#FAF6F0", fontFamily: "'Literata', 'Inter', system-ui, sans-serif" }}>
-              AICOS
+          <div className="flex items-center gap-2.5 min-w-0">
+            {shop?.logoUrl ? (
+              <img
+                src={shop.logoUrl}
+                alt=""
+                className="h-8 w-8 shrink-0 rounded-[10px] object-contain"
+                style={{ backgroundColor: "rgba(250,246,240,0.12)" }}
+              />
+            ) : shop ? (
+              <span
+                aria-hidden
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px] font-serif text-sm font-medium"
+                style={{ backgroundColor: markColor, color: "#FAF6F0" }}
+              >
+                {shop.name.charAt(0)}
+              </span>
+            ) : (
+              <CoffeeBean />
+            )}
+            <span
+              className="truncate font-serif text-xl font-medium"
+              style={{ color: "#FAF6F0", fontFamily: "'Literata', 'Inter', system-ui, sans-serif" }}
+              title={shop?.name ?? "AICOS"}
+            >
+              {shop?.name ?? "AICOS"}
             </span>
           </div>
           <div
@@ -145,6 +180,35 @@ export default function InternalLayout({ activePage, navigate, children, headerR
           >
             {roleLabel[role]}
           </div>
+          {canSwitch && (
+            <label className="mt-4 block">
+              <span className="mb-1 block text-[10px] uppercase tracking-wide" style={{ color: "rgba(250,246,240,0.45)" }}>Chi nhánh đang xem</span>
+              <select
+                value={branchId ?? ""}
+                onChange={(e) => select(e.target.value)}
+                className="w-full rounded-[10px] border-0 px-2 py-2 text-sm"
+                style={{ backgroundColor: "rgba(250,246,240,0.12)", color: "#FAF6F0" }}
+              >
+                <option value="" disabled>Chọn chi nhánh</option>
+                {branches.map((b) => (
+                  <option key={b.id} value={b.id} style={{ color: "#3A2E22" }}>{b.name}</option>
+                ))}
+              </select>
+            </label>
+          )}
+          {!canSwitch && role !== "superAdmin" && (
+            <div className="mt-3 space-y-0.5">
+              <p className="truncate text-xs font-medium" style={{ color: "rgba(250,246,240,0.85)" }} title={branch?.name}>
+                {branch?.name
+                  ?? (branchesLoading ? "Đang tải chi nhánh…" : user?.branchId ? "Không tải được chi nhánh" : "Chưa gán chi nhánh")}
+              </p>
+              {branch?.address && (
+                <p className="line-clamp-2 text-[11px] leading-snug" style={{ color: "rgba(250,246,240,0.5)" }} title={branch.address}>
+                  {branch.address}
+                </p>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Nav */}

@@ -14,7 +14,7 @@ export function PublicHeader({ navigate }: { navigate: (p: Page) => void }) {
   function goStaffLogin() {
     if (role === "customer") return
     if (user) navigate(homePageOf(user))
-    else navigate("login")
+    else navigate("staff-entry")
   }
   return (
     <header className="sticky top-0 z-30 border-b border-border bg-bg-base/95 backdrop-blur">
@@ -54,7 +54,7 @@ export function PublicFooter({ navigate }: { navigate: (p: Page) => void }) {
   function goStaffLogin() {
     if (role === "customer") return
     if (user) navigate(homePageOf(user))
-    else navigate("login")
+    else navigate("staff-entry")
   }
   return (
     <footer className="bg-espresso text-white">

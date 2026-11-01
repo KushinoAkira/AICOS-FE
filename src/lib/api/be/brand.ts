@@ -19,6 +19,7 @@ export function toProduct(p: Raw, categories: Map<string, string>): Product {
   const choice = (o: Raw): OptionChoice => ({ id: str(o.id) || str(o.name), label: str(o.name), priceDelta: num(o.priceDelta) })
   return {
     id: str(p.id),
+    branchId: str(p.branchId),
     name: str(p.name),
     category: str(p.categoryName) || categories.get(str(p.categoryId)) || "",
     description: str(p.description),
@@ -71,7 +72,7 @@ export const beMenuApi = {
     // Per-branch price overrides are written on the branch publication (the API has no separate "price" call).
     await Promise.all(Object.entries(body.branchPrices).map(([branchId, price]) =>
       http.put<Raw>(`/menu/products/${productId}/branches/${branchId}`, { isPublished: true, priceOverride: price })))
-    return { ...toProduct(saved, new Map([[str(saved.categoryId), body.category]])), id: productId, branchPrices: body.branchPrices }
+    return { ...toProduct(saved, new Map([[str(saved.categoryId), body.category]])), id: productId, branchId: str(saved.branchId), branchPrices: body.branchPrices }
   },
   async publish(branchIds: string[]): Promise<{ published: number }> {
     const products = await listProducts()

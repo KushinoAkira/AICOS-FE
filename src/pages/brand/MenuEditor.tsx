@@ -1,16 +1,14 @@
 import { useState } from "react"
 import { Banner, Button, Field, Modal } from "../../components/ui"
-import type { BranchDto } from "../../lib/api/identity"
 import type { OptionChoice, Product, ProductInput, Topping } from "../../lib/api/brand"
 
 const CATEGORIES = ["Cà phê", "Trà trái cây", "Trà sữa", "Đá xay", "Bánh ngọt"]
 const digits = (s: string) => s.replace(/\D/g, "")
 const list = (s: string) => s.split(",").map((x) => x.trim()).filter(Boolean)
 
-/** Create / edit a product: options, dependent toppings and per-branch prices (UC-14). Validation mirrors the API. */
-export function MenuEditor({ product, branches, saving, serverError, onSave, onClose }: {
+/** Create / edit a product for the active branch catalog. */
+export function MenuEditor({ product, saving, serverError, onSave, onClose }: {
   product: Product | null
-  branches: BranchDto[]
   saving: boolean
   serverError: string | null
   onSave: (input: ProductInput) => void
@@ -25,14 +23,12 @@ export function MenuEditor({ product, branches, saving, serverError, onSave, onC
   const [sugar, setSugar] = useState((product?.sugarLevels ?? ["0%", "50%", "100%"]).join(", "))
   const [ice, setIce] = useState((product?.iceLevels ?? ["Ít đá", "Vừa", "Nhiều đá"]).join(", "))
   const [toppings, setToppings] = useState<{ label: string; price: string; coldOnly: boolean }[]>((product?.toppings ?? []).map((t) => ({ label: t.label, price: String(t.priceDelta), coldOnly: t.requiresChoiceId === "cold" })))
-  const [branchPrices, setBranchPrices] = useState<Record<string, string>>(Object.fromEntries(Object.entries(product?.branchPrices ?? {}).map(([k, v]) => [k, String(v)])))
   const [error, setError] = useState<string | null>(null)
 
   function submit() {
     const base = Number(price)
     if (!name.trim()) return setError("Nhập tên món")
     if (!(base > 0)) return setError("Giá gốc phải lớn hơn 0")
-    for (const [id, v] of Object.entries(branchPrices)) if (v !== "" && !(Number(v) > 0)) return setError(`Giá chi nhánh ${branches.find((b) => b.id === id)?.name ?? ""} phải lớn hơn 0`)
     if (sizes.some((s) => !s.label.trim())) return setError("Mỗi kích cỡ cần có tên")
     const sizeChoices: OptionChoice[] = sizes.map((s, i) => ({ id: `sz${i}`, label: s.label.trim(), priceDelta: Number(s.delta) || 0 }))
     const toppingList: Topping[] = toppings.filter((t) => t.label.trim()).map((t, i) => ({ id: `tp${i}`, label: t.label.trim(), priceDelta: Number(t.price) || 0, requiresChoiceId: t.coldOnly ? "cold" : undefined }))
@@ -40,7 +36,7 @@ export function MenuEditor({ product, branches, saving, serverError, onSave, onC
     setError(null)
     onSave({
       name: name.trim(), category, description, imageUrl: imageUrl.trim() || undefined, basePrice: base,
-      branchPrices: Object.fromEntries(Object.entries(branchPrices).filter(([, v]) => v !== "").map(([k, v]) => [k, Number(v)])),
+      branchPrices: {},
       sizes: sizeChoices, sugarLevels: list(sugar), iceLevels: list(ice), toppings: toppingList,
     })
   }
@@ -56,7 +52,7 @@ export function MenuEditor({ product, branches, saving, serverError, onSave, onC
               {CATEGORIES.map((c) => <option key={c}>{c}</option>)}
             </select>
           </label>
-          <Field label="Giá gốc (₫)" inputMode="numeric" value={price} onChange={(e) => setPrice(digits(e.target.value))} />
+          <Field label="Giá (₫)" inputMode="numeric" value={price} onChange={(e) => setPrice(digits(e.target.value))} />
         </div>
         <Field label="Ảnh minh họa (URL)" value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} />
         <Field label="Mô tả" value={description} onChange={(e) => setDescription(e.target.value)} />
@@ -87,16 +83,6 @@ export function MenuEditor({ product, branches, saving, serverError, onSave, onC
             </div>
           ))}
           <button type="button" onClick={() => setToppings([...toppings, { label: "", price: "0", coldOnly: false }])} className="text-sm text-clay hover:underline">+ Thêm topping</button>
-        </fieldset>
-
-        <fieldset>
-          <legend className="mb-2 text-sm font-medium text-text-primary">Giá theo chi nhánh (để trống = dùng giá gốc)</legend>
-          {branches.map((b) => (
-            <div key={b.id} className="mb-2 flex items-center justify-between gap-3">
-              <span className="text-sm text-text-secondary">{b.name}</span>
-              <input aria-label={`Giá tại ${b.name}`} inputMode="numeric" value={branchPrices[b.id] ?? ""} onChange={(e) => setBranchPrices({ ...branchPrices, [b.id]: digits(e.target.value) })} className="w-1/3 rounded-[10px] border border-border px-3 py-2 text-sm" />
-            </div>
-          ))}
         </fieldset>
       </div>
     </Modal>

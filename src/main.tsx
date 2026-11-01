@@ -15,13 +15,13 @@ function mount() {
   createRoot(document.getElementById("root")!).render(
     <StrictMode>
       <QueryClientProvider client={queryClient}>
-        <BrandProvider>
-          <BrowserRouter>
+        <BrowserRouter>
+          <BrandProvider>
             <AuthProvider>
               <App />
             </AuthProvider>
-          </BrowserRouter>
-        </BrandProvider>
+          </BrandProvider>
+        </BrowserRouter>
       </QueryClientProvider>
     </StrictMode>,
   )

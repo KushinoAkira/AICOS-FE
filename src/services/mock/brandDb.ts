@@ -1,6 +1,7 @@
 import type { BrandSubscription, CancelPolicy, LoyaltySettings, MerchantSettings, PayRules, PickupSettings, Product, Voucher } from "../../lib/api/brand"
 
-const BRANCH_1 = "00000000-0000-0000-0000-000000000b01"
+export const BRANCH_1 = "00000000-0000-0000-0000-000000000b01"
+export const BRANCH_2 = "b02"
 
 const sizes = [
   { id: "s", label: "S", priceDelta: 0 },
@@ -27,23 +28,28 @@ const CATEGORY_IMAGES: Record<string, string[]> = {
 let imgSeq = 0
 const imageFor = (category: string) => { const pool = CATEGORY_IMAGES[category] ?? CATEGORY_IMAGES["Cà phê"]; return IMG(pool[imgSeq++ % pool.length]) }
 
-const p = (id: string, name: string, category: string, basePrice: number, extra: Partial<Product> = {}): Product => ({
-  id, name, category, description: "", imageUrl: imageFor(category), basePrice, branchPrices: {}, sizes, sugarLevels: sugar, iceLevels: ice, toppings, published: true, dirty: false, soldOutAt: [], ...extra,
+const p = (id: string, branchId: string, name: string, category: string, basePrice: number, extra: Partial<Product> = {}): Product => ({
+  id, branchId, name, category, description: "", imageUrl: imageFor(category), basePrice, branchPrices: {}, sizes, sugarLevels: sugar, iceLevels: ice, toppings, published: true, dirty: false, soldOutAt: [], ...extra,
 })
 
+/** Separate catalogs: Quận 1 vs Thủ Đức. */
 export const products: Product[] = [
-  p("p1", "Cà phê sữa đá", "Cà phê", 35000, { description: "Robusta pha phin, sữa đặc." }),
-  p("p2", "Cà phê đen đá", "Cà phê", 29000),
-  p("p3", "Espresso", "Cà phê", 39000, { toppings: [toppings[0]], iceLevels: ["Nóng"] }),
-  p("p4", "Cappuccino", "Cà phê", 49000, { branchPrices: { [BRANCH_1]: 52000 } }),
-  p("p5", "Latte", "Cà phê", 49000),
-  p("p6", "Cold brew cam", "Cà phê", 55000, { soldOutAt: [BRANCH_1] }),
-  p("p7", "Trà đào cam sả", "Trà trái cây", 49000),
-  p("p8", "Trà vải hoa hồng", "Trà trái cây", 49000),
-  p("p9", "Trà sữa trân châu", "Trà sữa", 45000),
-  p("p10", "Matcha đá xay", "Đá xay", 59000, { dirty: true }),
-  p("p11", "Bánh croissant", "Bánh ngọt", 35000, { sizes: [{ id: "one", label: "1 cái", priceDelta: 0 }], sugarLevels: [], iceLevels: [], toppings: [] }),
-  p("p12", "Bánh tiramisu", "Bánh ngọt", 45000, { sizes: [{ id: "one", label: "1 phần", priceDelta: 0 }], sugarLevels: [], iceLevels: [], toppings: [], published: false, dirty: true }),
+  // Quận 1
+  p("p1", BRANCH_1, "Cà phê sữa đá", "Cà phê", 35000, { description: "Robusta pha phin, sữa đặc." }),
+  p("p2", BRANCH_1, "Cà phê đen đá", "Cà phê", 29000),
+  p("p3", BRANCH_1, "Espresso", "Cà phê", 39000, { toppings: [toppings[0]], iceLevels: ["Nóng"] }),
+  p("p4", BRANCH_1, "Cappuccino", "Cà phê", 52000),
+  p("p5", BRANCH_1, "Cold brew cam", "Cà phê", 55000, { soldOutAt: [BRANCH_1] }),
+  p("p6", BRANCH_1, "Trà đào cam sả", "Trà trái cây", 49000),
+  p("p7", BRANCH_1, "Bánh croissant", "Bánh ngọt", 35000, { sizes: [{ id: "one", label: "1 cái", priceDelta: 0 }], sugarLevels: [], iceLevels: [], toppings: [] }),
+  p("p8", BRANCH_1, "Bánh tiramisu", "Bánh ngọt", 45000, { sizes: [{ id: "one", label: "1 phần", priceDelta: 0 }], sugarLevels: [], iceLevels: [], toppings: [], published: false, dirty: true }),
+  // Thủ Đức — different set
+  p("p9", BRANCH_2, "Latte hạt phỉ", "Cà phê", 55000, { description: "Chỉ bán tại Thủ Đức." }),
+  p("p10", BRANCH_2, "Americano", "Cà phê", 39000),
+  p("p11", BRANCH_2, "Trà sữa trân châu", "Trà sữa", 45000),
+  p("p12", BRANCH_2, "Matcha đá xay", "Đá xay", 59000),
+  p("p13", BRANCH_2, "Trà vải hoa hồng", "Trà trái cây", 49000),
+  p("p14", BRANCH_2, "Bánh mì que", "Bánh ngọt", 25000, { sizes: [{ id: "one", label: "1 cây", priceDelta: 0 }], sugarLevels: [], iceLevels: [], toppings: [] }),
 ]
 
 export const settings: {

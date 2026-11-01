@@ -10,12 +10,14 @@ export interface Topping extends OptionChoice {
 }
 export interface Product {
   id: string
+  /** Catalog owner — each branch has its own menu. */
+  branchId: string
   name: string
   category: string
   description: string
   imageUrl?: string
   basePrice: number
-  /** Branch id -> price override (UC-14). */
+  /** Legacy price overrides (unused when menus are per-branch). */
   branchPrices: Record<string, number>
   sizes: OptionChoice[]
   sugarLevels: string[]
@@ -24,10 +26,10 @@ export interface Product {
   published: boolean
   /** Changed after the last publish. */
   dirty: boolean
-  /** Branch id -> availability; missing = available. */
+  /** When includes this product's branchId, the item is sold out there. */
   soldOutAt: string[]
 }
-export type ProductInput = Omit<Product, "id" | "published" | "dirty" | "soldOutAt">
+export type ProductInput = Omit<Product, "id" | "published" | "dirty" | "soldOutAt" | "branchId">
 
 // ---------- settings ----------
 export interface PickupSettings { slotMinutes: number; capacityPerSlot: number; cutoffMinutes: number; lockMinutes: number }

@@ -1,4 +1,5 @@
 import { useState } from "react"
+import { useParams } from "react-router"
 import { useTranslation } from "react-i18next"
 import type { Page } from "../../App"
 import { AuthShell } from "../../components/AuthShell"
@@ -9,16 +10,17 @@ import { env } from "../../config/env"
 import { homePageOf, useAuth } from "../../context/AuthContext"
 import { useCountdown, mmss } from "../../hooks/useCountdown"
 import { ApiError } from "../../lib/api/http"
+import { clearActiveBranchId, setActiveBranchId } from "../../lib/branch"
+import { setActiveBrandSlug } from "../../lib/brand"
 import { normalizeRole } from "../../router/roles"
 
 interface Props {
-  navigate: (p: Page) => void
+  navigate: (p: Page, params?: Record<string, string>) => void
 }
 
 type Failure = { kind: "network" } | { kind: "invalid" } | { kind: "locked"; seconds: number } | { kind: "disabled" } | { kind: "unknown"; message: string }
 
-const DEMO_ACCOUNTS = [
-  { label: "Quản trị nền tảng", email: "admin@aicos.local", password: "Admin@12345" },
+const DEMO_STAFF = [
   { label: "Quản trị thương hiệu", email: "brand@aicos.local", password: "Staff@12345" },
   { label: "Quản lý chi nhánh", email: "manager@aicos.local", password: "Staff@12345" },
   { label: "Pha chế", email: "warehouse@aicos.local", password: "Staff@12345" },
@@ -34,12 +36,14 @@ function classify(err: unknown): Failure {
   return { kind: "unknown", message: err.message }
 }
 
+/** Staff login for one brand: `/{slug}/login`. Tenant comes from the path, then from the session JWT. */
 export default function Login(props: Props) {
   return <BrandGate><LoginForm {...props} /></BrandGate>
 }
 
 function LoginForm({ navigate }: Props) {
   const { t } = useTranslation()
+  const { tenantSlug = "" } = useParams()
   const brand = useBrand()
   const { login, logout } = useAuth()
   const [email, setEmail] = useState("")
@@ -48,19 +52,34 @@ function LoginForm({ navigate }: Props) {
   const [failure, setFailure] = useState<Failure | null>(null)
   const lockSeconds = useCountdown(failure?.kind === "locked" ? failure.seconds : 0)
   const locked = failure?.kind === "locked" && lockSeconds > 0
+  const slug = brand.kind === "ready" || brand.kind === "loading" || brand.kind === "notFound" || brand.kind === "error" ? brand.slug : tenantSlug
+  const brandName = brand.kind === "ready" ? brand.brand.name : slug
 
   async function submit(loginName = email, pass = password) {
+    if (!slug) return
     setSubmitting(true)
     setFailure(null)
     try {
-      const user = await login(loginName, pass)
-      // Staff portal only — customer accounts belong on /customer-login (brand subset).
+      setActiveBrandSlug(slug)
+      const user = await login(loginName, pass, { tenantSlug: slug })
       if (normalizeRole(user) === "customer") {
         await logout()
-        setFailure({ kind: "unknown", message: "Tài khoản khách hàng vui lòng đăng nhập tại trang khách (QR /customer-login), không dùng cổng quán." })
+        setFailure({ kind: "unknown", message: "Tài khoản khách hàng vui lòng đăng nhập tại trang khách (/customer-login)." })
         return
       }
-      navigate(homePageOf(user))
+      if (normalizeRole(user) === "superAdmin") {
+        await logout()
+        setFailure({ kind: "unknown", message: "Tài khoản quản trị nền tảng vui lòng dùng /admin/login." })
+        return
+      }
+      // BR-05: branch-locked roles bind to account branch; Brand Admin picks after login.
+      const role = normalizeRole(user)
+      if (user.branchId && (role === "branchManager" || role === "cashier" || role === "barista")) {
+        setActiveBranchId(user.branchId)
+      } else {
+        clearActiveBranchId()
+      }
+      navigate(homePageOf(user), { tenantSlug: slug })
     } catch (err) {
       setFailure(classify(err))
     } finally {
@@ -68,8 +87,13 @@ function LoginForm({ navigate }: Props) {
     }
   }
 
+  const title = brand.kind === "ready" ? `Đăng nhập · ${brand.brand.name}` : t("auth.title")
+  const subtitle = brand.kind === "ready"
+    ? `Nhân viên và quản trị của ${brand.brand.name}`
+    : t("auth.subtitle")
+
   return (
-    <AuthShell hero title={t("auth.title")} subtitle={t("auth.subtitle")}>
+    <AuthShell hero title={title} subtitle={subtitle}>
       <form onSubmit={(e) => { e.preventDefault(); void submit() }} className="space-y-4" noValidate>
         {failure?.kind === "network" && (
           <Banner action={<button type="button" onClick={() => void submit()} className="font-medium underline">{t("common.retry")}</button>}>
@@ -90,28 +114,30 @@ function LoginForm({ navigate }: Props) {
         />
         <Field label={t("auth.password")} type="password" autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} />
 
-        <Button type="submit" loading={submitting} disabled={locked || !email || !password} disabledReason={locked ? "Tài khoản đang bị khóa tạm" : "Nhập email và mật khẩu"} className="mt-2 w-full">
+        <Button type="submit" loading={submitting} disabled={locked || !email || !password || !slug} disabledReason={locked ? "Tài khoản đang bị khóa tạm" : "Nhập email và mật khẩu"} className="mt-2 w-full">
           {t("auth.submit")}
         </Button>
       </form>
 
-      <div className="mt-5 text-center">
-        <button type="button" onClick={() => navigate("auth-forgot-password")} className="text-sm text-clay hover:underline">
+      <div className="mt-5 text-center text-sm text-text-secondary">
+        <button type="button" onClick={() => navigate("auth-forgot-password")} className="text-clay hover:underline">
           {t("auth.forgot")}
         </button>
-        {brand.kind === "platform" && (
-          <p className="mt-3 text-sm text-text-secondary">
-            Chưa có quán trên AICOS?{" "}
-            <button type="button" onClick={() => navigate("contact")} className="font-medium text-clay hover:underline">Liên hệ AICOS</button>
-          </p>
-        )}
+        <p className="mt-3">
+          Sai quán?{" "}
+          <button type="button" onClick={() => navigate("staff-entry")} className="font-medium text-clay hover:underline">
+            Chọn thương hiệu khác
+          </button>
+        </p>
       </div>
 
-      {env.demo && (
+      {env.demo && slug && (
         <div className="mt-8 border-t border-border pt-5">
-          <p className="mb-3 text-xs font-medium uppercase tracking-wide text-text-secondary">{t("auth.demo")}</p>
+          <p className="mb-3 text-xs font-medium uppercase tracking-wide text-text-secondary">
+            {t("auth.demo")} · {brandName}
+          </p>
           <div className="flex flex-wrap gap-2">
-            {DEMO_ACCOUNTS.map((a) => (
+            {DEMO_STAFF.filter((a) => slug === "caphenha" || a.email === "brand@aicos.local" || a.email === "manager@aicos.local").map((a) => (
               <Button key={a.email} type="button" variant="secondary" className="px-3 py-1.5 text-xs" disabled={submitting} onClick={() => void submit(a.email, a.password)}>
                 {a.label}
               </Button>

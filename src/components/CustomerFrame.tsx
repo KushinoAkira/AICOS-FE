@@ -1,8 +1,11 @@
-﻿import type { ReactNode } from "react"
+import { useEffect, type ReactNode } from "react"
+import { Navigate } from "react-router"
 import { Logo } from "./AuthShell"
 import CustomerUserMenu from "./CustomerUserMenu"
 import { AiChat } from "./AiChat"
 import { useAuth } from "../context/AuthContext"
+import { useBrand } from "../context/BrandContext"
+import { getActiveBrandSlug } from "../lib/brand"
 import { PAGE_PATHS, type Page } from "../router/pages"
 
 const DINE_IN_KEY = "aicos.dineInToken"
@@ -24,7 +27,7 @@ const LINKS: { page: Page; label: string }[] = [
   { page: "customer-notifications", label: "Thông báo" },
 ]
 
-type Navigate = (p: Page, params?: Record<string, string>) => void
+type NavigateFn = (p: Page, params?: Record<string, string>) => void
 
 /**
  * Customer-facing chrome (QR dine-in + member area).
@@ -41,7 +44,7 @@ export function CustomerFrame({
   children,
 }: {
   page: Page
-  navigate: Navigate
+  navigate: NavigateFn
   uc: string
   title?: string
   subtitle?: ReactNode
@@ -50,10 +53,20 @@ export function CustomerFrame({
   children: ReactNode
 }) {
   const { role } = useAuth()
+  const brand = useBrand()
   const isCustomer = role === "customer"
   const dineInToken = readDineInToken()
   const onDineIn = page === "guest-menu" || page === "guest-order-status"
   const showDineIn = onDineIn || !!dineInToken
+  const needsBrand = isCustomer && page.startsWith("customer-") && page !== "customer-shops"
+
+  useEffect(() => {
+    if (needsBrand && !getActiveBrandSlug()) navigate("customer-shops")
+  }, [needsBrand, navigate])
+
+  if (needsBrand && !getActiveBrandSlug()) {
+    return <Navigate to={PAGE_PATHS["customer-shops"]} replace />
+  }
 
   const links: { page: Page; label: string; params?: Record<string, string> }[] = [
     ...(showDineIn && dineInToken ? [{ page: "guest-menu" as Page, label: "Tại bàn", params: { token: dineInToken } }] : []),
@@ -67,7 +80,7 @@ export function CustomerFrame({
 
   function goAuth(target: Page = "auth-customer-login") {
     const path = onDineIn && dineInToken
-      ? `/q/${dineInToken}`
+      ? `/t/${dineInToken}`
       : (PAGE_PATHS[page] as string).includes(":")
         ? window.location.pathname
         : (PAGE_PATHS[page] as string)
@@ -89,11 +102,13 @@ export function CustomerFrame({
       return
     }
     if (isCustomer) {
-      navigate("customer-menu")
+      navigate(getActiveBrandSlug() ? "customer-menu" : "customer-shops")
       return
     }
     goCustomerAuth(PAGE_PATHS["customer-menu"] as string)
   }
+
+  const shopLabel = brand.kind === "ready" ? brand.brand.name : null
 
   return (
     <div data-uc={uc} className="min-h-screen bg-bg-base">
@@ -119,6 +134,16 @@ export function CustomerFrame({
             })}
           </nav>
           <div className="flex shrink-0 items-center gap-2">
+            {isCustomer && shopLabel && (
+              <button
+                type="button"
+                onClick={() => navigate("customer-shops")}
+                className="hidden max-w-[10rem] truncate rounded-full border border-border px-3 py-1.5 text-xs text-text-secondary hover:bg-sand sm:block"
+                title="Đổi quán"
+              >
+                {shopLabel}
+              </button>
+            )}
             {isCustomer ? (
               <CustomerUserMenu navigate={navigate} />
             ) : (

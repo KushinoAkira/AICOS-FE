@@ -8,12 +8,17 @@ const BASE = "/identity"
 
 /** Real backend (FE-INTEGRATION-API-REFERENCE section 1). */
 export const beAuthApi = {
-  async login(login: string, password: string): Promise<StoredSession> {
-    const session = await http.post<StoredSession>(`${BASE}/auth/login`, { login, password }, { anonymous: true })
+  async login(login: string, password: string, opts: { tenantSlug?: string | null; admin?: boolean } = {}): Promise<StoredSession> {
+    const path = opts.admin
+      ? "/admin/auth/login"
+      : opts.tenantSlug
+        ? `/${opts.tenantSlug}/auth/login`
+        : `${BASE}/auth/login`
+    const session = await http.post<StoredSession>(path, { login, password }, { anonymous: true })
     tokenStore.set(session)
     return session
   },
-  /** A customer belongs to one brand: the brand comes from the address the customer is on (`tenantCode`). */
+  /** Platform customer account — shop is chosen after login, not at register. */
   register: (body: { fullName: string; email: string; phone?: string; password: string; confirmPassword: string }) =>
     http.post<UserDto>(`${BASE}/auth/register`, { ...body, tenantCode: currentBrandSlug() ?? "" }, { anonymous: true }),
   async logout(): Promise<void> {
@@ -48,7 +53,7 @@ export const beBranchesApi = {
     if (!Array.isArray(res)) return res
     return paged(res.filter((b) => (!q.search || b.name.toLowerCase().includes(q.search.toLowerCase())) && (!q.status || b.status === q.status)), q.page, q.pageSize)
   },
-  listActive: () => http.get<BranchDto[]>(`${BASE}/branches/active`, { anonymous: true }).then(itemsOf),
+  listActive: () => http.get<BranchDto[]>(`${BASE}/branches/active`).then(itemsOf),
   get: async (id: string): Promise<BranchDto> => {
     const all = itemsOf(await http.get<List<BranchDto>>(`${BASE}/branches`))
     const found = all.find((b) => b.id === id)

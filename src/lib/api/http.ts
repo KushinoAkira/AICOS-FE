@@ -6,6 +6,7 @@
  * - Sends the Bearer token, refreshes once on 401, normalises ProblemDetails errors.
  */
 import { env } from "../../config/env"
+import { getActiveBranchId } from "../branch"
 import { currentBrandSlug } from "../brand"
 import { tokenStore, type StoredSession } from "./tokenStore"
 
@@ -130,8 +131,20 @@ async function send(method: string, path: string, opts: RequestOptions, token: s
   if (opts.body !== undefined) headers["Content-Type"] = "application/json"
   if (token && !opts.anonymous) headers.Authorization = `Bearer ${token}`
   const brand = currentBrandSlug()
-  // Mock only: the real gateway resolves the tenant from the host name, and an extra header would need CORS changes.
+  // Mock only: tenant/branch headers. Real BE must take branch from JWT claims (BR-05).
   if (brand && env.useMock) headers["X-Tenant"] = brand
+  if (env.useMock) {
+    const sessionUser = tokenStore.get()?.user
+    // Branch-locked staff: always send account branchId — never a tampered session pick.
+    const lockedBranch =
+      sessionUser?.branchId
+      && (sessionUser.role === "BranchManager" || sessionUser.role === "Manager" || sessionUser.role === "Cashier"
+        || sessionUser.role === "Barista" || sessionUser.role === "WarehouseStaff")
+        ? sessionUser.branchId
+        : null
+    const branch = lockedBranch ?? getActiveBranchId()
+    if (branch) headers["X-Branch"] = branch
+  }
   try {
     return await fetch(buildUrl(path, opts.query), {
       method,
@@ -166,7 +179,13 @@ export async function request<T>(method: string, path: string, opts: RequestOpti
     else window.dispatchEvent(new Event("aicos:session-expired"))
   }
 
-  if (!res.ok) throw await toApiError(res)
+  if (!res.ok) {
+    const err = await toApiError(res)
+    if (err.status === 403 && (err.code === "tenant_suspended" || err.code === "tenant_mismatch")) {
+      window.dispatchEvent(new CustomEvent("aicos:tenant-denied", { detail: { code: err.code } }))
+    }
+    throw err
+  }
   if (res.status === 204) return undefined as T
 
   // Hosting SPA rewrite serves index.html when MSW missed the call — restart worker once and retry.

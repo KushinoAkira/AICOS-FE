@@ -20,7 +20,7 @@ const STEPS = [
   { n: "3", title: "Thiết lập và bán hàng", body: "Tạo chi nhánh, sơ đồ bàn và mã QR, nhập thực đơn, mời nhân viên rồi mở bán." },
 ]
 
-/** Public marketing home for brand owners — not the customer app (customers enter via table QR / customer-login). */
+/** Public marketing home for brand owners — customers enter via /customer-login → /shops (or table QR). */
 export default function Landing({ navigate }: { navigate: (p: Page) => void }) {
   const { hash } = useLocation()
   const { user, role } = useAuth()
@@ -30,7 +30,7 @@ export default function Landing({ navigate }: { navigate: (p: Page) => void }) {
     // Marketing CTA is for brand/staff only — never send a customer session into /menu.
     if (role === "customer") return
     if (user) navigate(homePageOf(user))
-    else navigate("login")
+    else navigate("staff-entry")
   }
   return (
     <PublicPage navigate={navigate} uc="UC-05">

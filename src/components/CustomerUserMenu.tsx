@@ -31,6 +31,11 @@ export default function UserMenu({ navigate, variant = "customer" }: Props) {
     ...(isCustomer
       ? [
           {
+            label: "Đổi quán",
+            onClick: () => navigate("customer-shops"),
+            icon: <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2V9zM9 22V12h6v10" />,
+          },
+          {
             label: "Giới thiệu nền tảng AICOS",
             onClick: () => navigate("landing"),
             icon: <path d="M3 10.5L12 3l9 7.5V20a1 1 0 01-1 1h-5v-6H9v6H4a1 1 0 01-1-1v-9.5z" />,

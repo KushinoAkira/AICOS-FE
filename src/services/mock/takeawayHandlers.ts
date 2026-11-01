@@ -34,7 +34,7 @@ const REFUND_CONFIRM_MS = 4000
 const provider = new Map<string, ProviderStatus>()
 
 const customerOf = userIdFromRequest
-const priceOf = (p: (typeof bdb.products)[number]) => p.branchPrices[odb.BRANCH_ID] ?? p.basePrice
+const priceOf = (p: (typeof bdb.products)[number], branchId: string) => p.branchPrices[branchId] ?? p.basePrice
 
 function markPaid(o: Order) {
   o.paymentStatus = "Paid"
@@ -49,38 +49,53 @@ function startRefund(o: Order, amount: number) {
   setTimeout(() => { o.paymentStatus = o.refundedAmount >= o.paidAmount ? "Refunded" : "Paid" }, REFUND_CONFIRM_MS)
 }
 
+function denyIfTenantSuspended(request: Request) {
+  const slug = request.headers.get("x-tenant")
+  const t = slug ? db.tenantBySlug(slug) : undefined
+  if (t && (t.status === "Suspended" || t.status === "Closed")) {
+    return problem(403, "Thương hiệu đang tạm ngưng — không thể đặt mang đi")
+  }
+  return null
+}
+
 export const takeawayHandlers = [
   http.get("*/api/v1/ordering/takeaway/menu", ({ request }) => {
-    const denied = denyUnless(request, CUSTOMER_ONLY)
+    const denied = denyUnless(request, CUSTOMER_ONLY) ?? denyIfTenantSuspended(request)
     if (denied) return denied
-    const products = bdb.products.filter((p) => p.published).map((p) => ({ ...p, price: priceOf(p), soldOut: p.soldOutAt.includes(odb.BRANCH_ID) }))
-    return ok({ branchName: "Chi nhánh Quận 1", tableCode: "Mang đi", products })
+    const url = new URL(request.url)
+    const branchId = url.searchParams.get("branchId") || odb.BRANCH_ID
+    const br = db.branches.find((b) => b.id === branchId)
+    const products = bdb.products
+      .filter((p) => p.published && p.branchId === branchId)
+      .map((p) => ({ ...p, price: priceOf(p, branchId), soldOut: p.soldOutAt.includes(branchId) }))
+    return ok({ branchName: br?.name ?? "Chi nhánh", tableCode: "Mang đi", branchId, products })
   }),
   http.get("*/api/v1/ordering/takeaway/info", ({ request }) => {
-    const denied = denyUnless(request, CUSTOMER_ONLY)
+    const denied = denyUnless(request, CUSTOMER_ONLY) ?? denyIfTenantSuspended(request)
     if (denied) return denied
     const br = db.branches.find((b) => b.id === odb.BRANCH_ID)
     return ok({ open: (br?.openingTime ?? "07:00").slice(0, 5), close: (br?.closingTime ?? "22:00").slice(0, 5), ...bdb.settings.pickup })
   }),
   http.get("*/api/v1/ordering/takeaway/check", ({ request }) => {
-    const denied = denyUnless(request, CUSTOMER_ONLY)
+    const denied = denyUnless(request, CUSTOMER_ONLY) ?? denyIfTenantSuspended(request)
     if (denied) return denied
     try { return ok(checkSlot(new URL(request.url).searchParams.get("at") ?? "")) } catch (e) { return problem(500, `check: ${String(e)}`) }
   }),
   http.post("*/api/v1/ordering/takeaway", async ({ request }) => {
-    const denied = denyUnless(request, CUSTOMER_ONLY)
+    const denied = denyUnless(request, CUSTOMER_ONLY) ?? denyIfTenantSuspended(request)
     if (denied) return denied
-    const b = (await request.json()) as { slot: string; lines: LineInput[] }
+    const b = (await request.json()) as { slot: string; lines: LineInput[]; branchId?: string }
+    const branchId = b.branchId || odb.BRANCH_ID
     const chk = checkSlot(b.slot)
     if (!chk.ok) return problem(409, chk.message ?? "Giờ nhận không hợp lệ")
     if (b.lines.length === 0) return problem(422, "Giỏ hàng trống")
     const lines: Order["lines"] = []
     for (const l of b.lines) {
-      const p = bdb.products.find((x) => x.id === l.productId && x.published)
+      const p = bdb.products.find((x) => x.id === l.productId && x.published && x.branchId === branchId)
       if (!p) return problem(422, "Món không còn trên thực đơn")
-      if (p.soldOutAt.includes(odb.BRANCH_ID)) return problem(422, `${p.name} đã hết`)
+      if (p.soldOutAt.includes(branchId)) return problem(422, `${p.name} đã hết`)
       const delta = p.sizes.find((s) => s.label === l.size)?.priceDelta ?? 0
-      lines.push({ productId: p.id, name: p.name, size: l.size, sugar: l.sugar, ice: l.ice, qty: l.qty, unitPrice: priceOf(p) + delta, note: l.note })
+      lines.push({ productId: p.id, name: p.name, size: l.size, sugar: l.sugar, ice: l.ice, qty: l.qty, unitPrice: priceOf(p, branchId) + delta, note: l.note })
     }
     const o: Order = {
       id: `o${odb.orders.length + 1}`, code: odb.nextOrderCode(), tableId: "", tableCode: "Mang đi", channel: "takeaway", status: "PendingPayment", paymentStatus: "Unpaid",

@@ -8,7 +8,10 @@ import { OrderComposer } from "../../components/OrderComposer"
 import { ErrorState, LoadingState } from "../../components/ui"
 import { useAuth } from "../../context/AuthContext"
 import { useToast } from "../../context/ToastContext"
+import { publicApi } from "../../lib/api/platform"
 import { ordersApi, type LineInput } from "../../lib/api/orders"
+import { setActiveBranchId } from "../../lib/branch"
+import { setActiveBrandSlug } from "../../lib/brand"
 import { rememberGuestOrder } from "../../lib/guestHistory"
 
 /** Table QR ordering inside the customer chrome: guests order without an account; signed-in customers earn points after the bill is completed. */
@@ -20,11 +23,32 @@ export default function GuestMenu({ navigate }: { navigate: (p: Page, params?: R
   const { showToast } = useToast()
   useEffect(() => { if (token) rememberDineInToken(token) }, [token])
 
-  const menu = useQuery({ queryKey: ["guest", token], queryFn: () => ordersApi.guest(token), retry: false })
+  const qrBrand = useQuery({
+    queryKey: ["public", "qr", token],
+    queryFn: () => publicApi.qrBrand(token),
+    enabled: !!token,
+    retry: false,
+    staleTime: 60_000,
+  })
+  useEffect(() => {
+    if (qrBrand.data?.tenantSlug) setActiveBrandSlug(qrBrand.data.tenantSlug)
+    if (qrBrand.data?.branchId) setActiveBranchId(qrBrand.data.branchId)
+  }, [qrBrand.data?.tenantSlug, qrBrand.data?.branchId])
+
+  const menu = useQuery({
+    queryKey: ["guest", token],
+    queryFn: () => ordersApi.guest(token),
+    retry: false,
+    enabled: !!token && (qrBrand.isSuccess || qrBrand.isError),
+  })
+  useEffect(() => {
+    if (menu.data?.tenantSlug) setActiveBrandSlug(menu.data.tenantSlug)
+    if (menu.data?.branchId) setActiveBranchId(menu.data.branchId)
+  }, [menu.data?.tenantSlug, menu.data?.branchId])
   const orderedCount = useQuery({ queryKey: ["guest", token, "orders"], queryFn: () => ordersApi.guestOrders(token), refetchInterval: 5000, retry: false })
   const [error, setError] = useState<string | null>(null)
   const goAuth = (p: Page) => {
-    sessionStorage.setItem("aicos.returnTo", `/q/${token}`)
+    sessionStorage.setItem("aicos.returnTo", `/t/${token}`)
     navigate(p)
   }
   const [sent, setSent] = useState(0)
@@ -72,7 +96,8 @@ export default function GuestMenu({ navigate }: { navigate: (p: Page, params?: R
       subtitle="Không cần đăng nhập để đặt. Thanh toán tại quầy khi dùng xong."
       headerExtra={tableMeta}
     >
-      {menu.isPending && <LoadingState />}
+      {(qrBrand.isPending || menu.isPending) && <LoadingState />}
+      {qrBrand.isError && <ErrorState title="Không mở được mã QR" description={qrBrand.error.message} onRetry={() => void qrBrand.refetch()} />}
       {menu.isError && <ErrorState title="Không mở được thực đơn" description={menu.error.message} onRetry={() => void menu.refetch()} />}
       {menu.data && (
         <OrderComposer

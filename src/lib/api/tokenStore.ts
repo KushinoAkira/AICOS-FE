@@ -6,6 +6,10 @@ export interface StoredSession {
   refreshToken: string
   refreshTokenExpiresAtUtc: string
   user: UserDto
+  /** Staff brand after login; customers pick a shop on the platform instead. Mirror of JWT tenant claim. */
+  tenantSlug?: string | null
+  /** Tenant id claim (null for Super Admin / platform customer). */
+  tenantId?: string | null
 }
 
 const KEY = "aicos.session"

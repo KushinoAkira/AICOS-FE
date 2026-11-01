@@ -7,6 +7,7 @@ import type { Page } from "../../App"
 import { homePageOf, useAuth } from "../../context/AuthContext"
 import { useToast } from "../../context/ToastContext"
 import { ApiError } from "../../lib/api/http"
+import { getActiveBrandSlug } from "../../lib/brand"
 import { normalizeRole } from "../../router/roles"
 
 interface Props {
@@ -39,7 +40,10 @@ function CustomerLoginForm({ navigate }: Props) {
       }
       const back = sessionStorage.getItem("aicos.returnTo")
       sessionStorage.removeItem("aicos.returnTo")
-      if (back) routerNavigate(back, { replace: true }); else navigate(homePageOf(user))
+      // QR / deep-link return keeps the shop already set; otherwise go pick a shop.
+      if (back) routerNavigate(back, { replace: true })
+      else if (getActiveBrandSlug()) navigate("customer-menu")
+      else navigate(homePageOf(user))
     } catch (err) {
       showToast(err instanceof ApiError ? err.message : "Không đăng nhập được. Thử tải lại trang (F5).", "error")
     } finally {
@@ -62,7 +66,7 @@ function CustomerLoginForm({ navigate }: Props) {
           Chào bạn quay lại
         </h1>
         <p className="text-sm mb-7" style={{ color: "#8A7A6C", lineHeight: 1.6 }}>
-          Đăng nhập để xem điểm tích lũy và theo dõi đơn hàng của bạn.
+          Đăng nhập AICOS một lần, rồi chọn quán để đặt món và tích điểm.
         </p>
 
         <form onSubmit={handleSubmit} className="space-y-4">

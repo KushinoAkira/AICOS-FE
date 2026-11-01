@@ -6,7 +6,10 @@ import { CustomerFrame, rememberDineInToken } from "../../components/CustomerFra
 import { OrderStatusPill } from "../../components/OrderStatusPill"
 import { Banner, Button, EmptyState, ErrorState, LoadingState } from "../../components/ui"
 import { useAuth } from "../../context/AuthContext"
+import { publicApi } from "../../lib/api/platform"
 import { ordersApi } from "../../lib/api/orders"
+import { setActiveBranchId } from "../../lib/branch"
+import { setActiveBrandSlug } from "../../lib/brand"
 import { formatTime, formatVND } from "../../lib/format"
 
 /** Live status of the table's open orders — same customer chrome as the QR menu. */
@@ -16,7 +19,25 @@ export default function GuestStatus({ navigate }: { navigate: (p: Page, params?:
   const qc = useQueryClient()
   useEffect(() => { if (token) rememberDineInToken(token) }, [token])
 
-  const orders = useQuery({ queryKey: ["guest", token, "orders"], queryFn: () => ordersApi.guestOrders(token), refetchInterval: 5000, retry: false })
+  const qrBrand = useQuery({
+    queryKey: ["public", "qr", token],
+    queryFn: () => publicApi.qrBrand(token),
+    enabled: !!token,
+    retry: false,
+    staleTime: 60_000,
+  })
+  useEffect(() => {
+    if (qrBrand.data?.tenantSlug) setActiveBrandSlug(qrBrand.data.tenantSlug)
+    if (qrBrand.data?.branchId) setActiveBranchId(qrBrand.data.branchId)
+  }, [qrBrand.data?.tenantSlug, qrBrand.data?.branchId])
+
+  const orders = useQuery({
+    queryKey: ["guest", token, "orders"],
+    queryFn: () => ordersApi.guestOrders(token),
+    refetchInterval: 5000,
+    retry: false,
+    enabled: !!token && (qrBrand.isSuccess || qrBrand.isError),
+  })
   const bill = useMutation({
     mutationFn: () => ordersApi.requestBill(token),
     onSuccess: () => void qc.invalidateQueries({ queryKey: ["guest", token] }),

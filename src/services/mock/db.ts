@@ -5,35 +5,70 @@ const NOW = new Date()
 const iso = (daysAgo: number) => new Date(NOW.getTime() - daysAgo * 86_400_000).toISOString()
 const ahead = (days: number) => new Date(NOW.getTime() + days * 86_400_000).toISOString()
 
-const BRANCH_ID = "00000000-0000-0000-0000-000000000b01"
+/** Demo branch ids (Cà phê Nhà). */
+export const BRANCH_Q1 = "00000000-0000-0000-0000-000000000b01"
+export const BRANCH_TD = "b02"
+/** Trà Sữa Mây single branch. */
+export const BRANCH_MAY = "b-may-01"
 
 const user = (id: string, fullName: string, email: string, role: UserDto["role"], branchId: string | null): UserDto => ({
   id, fullName, email, username: null, phone: "0900000000", role, branchId, status: "Active",
   mustChangePassword: false, lockoutEndUtc: null, lastLoginAtUtc: iso(0), createdAtUtc: iso(60), updatedAtUtc: null,
 })
 
-/** email -> password (same demo accounts as the real seed). */
+/**
+ * Password lookup: `tenantSlug:email` for tenant users, `platform:email` for Super Admin / platform customer.
+ * Same email may exist under two tenants (UNIQUE per tenant).
+ */
 export const passwords: Record<string, string> = {
-  "admin@aicos.local": "Admin@12345",
-  "brand@aicos.local": "Staff@12345",
-  "manager@aicos.local": "Staff@12345",
-  "warehouse@aicos.local": "Staff@12345",
-  "cashier@aicos.local": "Staff@12345",
-  "customer@aicos.local": "Customer@12345",
+  "platform:admin@aicos.local": "Admin@12345",
+  "caphenha:brand@aicos.local": "Staff@12345",
+  "caphenha:manager@aicos.local": "Staff@12345",
+  "caphenha:warehouse@aicos.local": "Staff@12345",
+  "caphenha:cashier@aicos.local": "Staff@12345",
+  "trasuamay:brand@aicos.local": "Staff@12345",
+  "trasuamay:manager@aicos.local": "Staff@12345",
+  "platform:customer@aicos.local": "Customer@12345",
 }
 
-/** Which brand each demo account belongs to. The platform admin belongs to none, so it signs in on the platform site only. */
+/** userId → tenant slug (staff of a brand). Super Admin / platform customer omitted. */
+export const tenantSlugOfUserId: Record<string, string> = {
+  u2: "caphenha",
+  u3: "caphenha",
+  u4: "caphenha",
+  u5: "caphenha",
+  u2b: "trasuamay",
+  u3b: "trasuamay",
+}
+
+/** @deprecated Prefer tenantSlugOfUserId — kept for older call sites keyed by email (single-tenant demos). */
 export const tenantOfUser: Record<string, string> = {
-  "brand@aicos.local": "caphenha", "manager@aicos.local": "caphenha", "warehouse@aicos.local": "caphenha",
-  "cashier@aicos.local": "caphenha", "customer@aicos.local": "caphenha",
+  "brand@aicos.local": "caphenha",
+  "manager@aicos.local": "caphenha",
+  "warehouse@aicos.local": "caphenha",
+  "cashier@aicos.local": "caphenha",
+}
+
+export function passwordKey(tenantSlug: string | null | undefined, email: string): string {
+  return `${tenantSlug ?? "platform"}:${email.trim().toLowerCase()}`
+}
+
+export function findUserByEmailInTenant(email: string, tenantSlug: string | null): UserDto | undefined {
+  const login = email.trim().toLowerCase()
+  if (!tenantSlug) {
+    return users.find((u) => u.email === login && (u.role === "SystemAdmin" || u.role === "SuperAdmin" || u.role === "Customer"))
+  }
+  return users.find((u) => u.email === login && tenantSlugOfUserId[u.id] === tenantSlug)
 }
 
 export const users: UserDto[] = [
   user("u1", "Quản trị nền tảng", "admin@aicos.local", "SystemAdmin", null),
-  user("u2", "Chủ chuỗi Demo", "brand@aicos.local", "Manager", BRANCH_ID),
-  user("u3", "Quản lý Quận 1", "manager@aicos.local", "Manager", BRANCH_ID),
-  user("u4", "Pha chế Minh", "warehouse@aicos.local", "WarehouseStaff", BRANCH_ID),
-  user("u5", "Thu ngân Lan", "cashier@aicos.local", "Cashier", BRANCH_ID),
+  user("u2", "Chủ chuỗi Demo", "brand@aicos.local", "BrandAdmin", null),
+  user("u3", "Quản lý Quận 1", "manager@aicos.local", "BranchManager", BRANCH_Q1),
+  user("u4", "Pha chế Minh", "warehouse@aicos.local", "Barista", BRANCH_Q1),
+  user("u5", "Thu ngân Lan", "cashier@aicos.local", "Cashier", BRANCH_Q1),
+  user("u2b", "Chủ Trà Sữa Mây", "brand@aicos.local", "BrandAdmin", null),
+  user("u3b", "QL Chi nhánh Mây", "manager@aicos.local", "BranchManager", BRANCH_MAY),
   user("u6", "Khách hàng Demo", "customer@aicos.local", "Customer", null),
 ]
 
@@ -42,9 +77,17 @@ const branch = (id: string, name: string, address: string): BranchDto => ({
 })
 
 export const branches: BranchDto[] = [
-  branch(BRANCH_ID, "AICOS Quận 1", "1 Nguyễn Huệ, Q1, TP.HCM"),
-  branch("b02", "AICOS Thủ Đức", "12 Võ Văn Ngân, TP.Thủ Đức"),
+  branch(BRANCH_Q1, "AICOS Quận 1", "1 Nguyễn Huệ, Q1, TP.HCM"),
+  branch(BRANCH_TD, "AICOS Thủ Đức", "12 Võ Văn Ngân, TP.Thủ Đức"),
+  branch(BRANCH_MAY, "Trà Sữa Mây Q3", "88 Nguyễn Thị Minh Khai, Q3"),
 ]
+
+/** Branches owned by each tenant slug (mock isolation). */
+export const branchesOfTenant: Record<string, string[]> = {
+  caphenha: [BRANCH_Q1, BRANCH_TD],
+  trasuamay: [BRANCH_MAY],
+  highlanddemo: [],
+}
 
 export const plans: Plan[] = [
   { id: "p-starter", name: "Starter", monthlyFee: 490_000, billingCycle: "Monthly", maxBranches: 1, maxUsers: 10, graceDays: 7 },
@@ -57,6 +100,15 @@ export const tenants: Tenant[] = [
   { id: "t2", name: "Trà Sữa Mây", slug: "trasuamay", planId: "p-starter", status: "Active", branchCount: 1, createdAtUtc: iso(45), brandColor: "#B5483A" },
   { id: "t3", name: "Highland Demo", slug: "highlanddemo", planId: "p-chain", status: "Suspended", branchCount: 6, createdAtUtc: iso(300), brandColor: "#3E6A8A" },
 ]
+
+export function tenantBySlug(slug: string | null | undefined): Tenant | undefined {
+  if (!slug) return undefined
+  return tenants.find((t) => t.slug === slug)
+}
+
+export function tenantIdOfSlug(slug: string): string | null {
+  return tenantBySlug(slug)?.id ?? null
+}
 
 export const subscriptions: Subscription[] = [
   { id: "s1", tenantId: "t1", tenantName: "Cà phê Nhà", planId: "p-growth", status: "Active", paymentStatus: "Paid", renewsAtUtc: ahead(12), overdueDays: 0 },

@@ -46,7 +46,7 @@ export default function ResetPassword({ navigate }: Props) {
     try {
       await authApi.resetPassword({ token, code: code.trim(), newPassword, confirmNewPassword: confirm })
       showToast("Đã đặt lại mật khẩu. Hãy đăng nhập.", "success")
-      navigate("login")
+      navigate("staff-entry")
     } catch (err) {
       if (err instanceof ApiError && err.code === "auth.reset_code_invalid") setErrors({ code: "Mã không đúng hoặc đã hết hạn" })
       else if (err instanceof ApiError && (err.status === 410 || err.status === 404)) setExpired(true)

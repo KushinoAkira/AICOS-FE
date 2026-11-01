@@ -2,57 +2,120 @@ import { HttpResponse, delay, http } from "msw"
 import type { BranchDto, UserDto } from "../../lib/api/identity"
 import type { Plan, PaymentProvider, Subscription, Tenant, TenantInput } from "../../lib/api/platform"
 import type { BranchPickup, PickupSettings, Product, ProductInput, Voucher, VoucherInput } from "../../lib/api/brand"
-import { BRAND_STAFF, FLOOR_STAFF, PLATFORM_ADMIN, denyUnless, issueSession, revokeAccessToken } from "./auth"
+import { BRAND_STAFF, FLOOR_STAFF, GENERIC_AUTH_FAIL, PLATFORM_ADMIN, denyUnless, effectiveBranchId, issueSession, revokeAccessToken, tenantSlugOf, userFromRequest } from "./auth"
 import * as db from "./db"
 import * as bdb from "./brandDb"
+import { normalizeTenantSlug } from "../../lib/tenantSlug"
 
 const MAX_ATTEMPTS = 5
 const LOCK_SECONDS = 15 * 60
+/** Lockout key = `tenantSlug|email` or `admin|email` / `platform|email`. */
 const attempts = new Map<string, { count: number; lockedUntil: number }>()
-const resetTokens = new Map<string, { email: string; expiresAt: number }>()
+const resetTokens = new Map<string, { email: string; tenantSlug: string | null; expiresAt: number }>()
 
 const problem = (status: number, title: string, extra: Record<string, unknown> = {}) => HttpResponse.json({ title, detail: title, ...extra }, { status })
 const ok = <T,>(body: T) => HttpResponse.json(body as never)
 
 const paged = <T,>(items: T[]) => ({ items, page: 1, pageSize: items.length || 20, totalCount: items.length })
 
-export const handlers = [
-  // ---------- identity ----------
-  http.post("*/api/v1/identity/auth/login", async ({ request }) => {
-    await delay(250)
-    const body = (await request.json()) as { login: string; password: string }
-    const login = body.login.trim().toLowerCase()
-    const state = attempts.get(login) ?? { count: 0, lockedUntil: 0 }
-    if (state.lockedUntil > Date.now()) {
-      return problem(423, "Tài khoản bị khóa tạm", { code: "account_locked", retryAfterSeconds: Math.ceil((state.lockedUntil - Date.now()) / 1000) })
-    }
-    // A brand owner who registered themselves has no account until the Super Admin approves and the invite is accepted.
-    const applied = db.tenants.find((t) => t.applicantEmail?.toLowerCase() === login)
-    if (applied && !db.users.some((u) => u.email === login)) {
-      if (applied.status === "Pending") return problem(403, "Đăng ký thương hiệu của bạn đang chờ AICOS duyệt. Chúng tôi sẽ gửi email khi có kết quả.", { code: "tenant_pending" })
-      if (applied.status === "Rejected") return problem(403, `Đăng ký thương hiệu đã bị từ chối${applied.rejectReason ? `: ${applied.rejectReason}` : ""}.`, { code: "tenant_rejected" })
-      return problem(403, "Thương hiệu đã được duyệt. Hãy mở email mời để đặt mật khẩu rồi đăng nhập.", { code: "invite_pending" })
-    }
-    const found = db.users.find((u) => u.email === login)
-    // On a brand's own address only that brand's accounts may sign in.
-    const brandSlug = request.headers.get("x-tenant")
-    if (found && brandSlug && db.tenantOfUser[found.email] !== brandSlug && db.passwords[found.email] === body.password) {
-      return problem(403, "Tài khoản này không thuộc thương hiệu hiện tại. Hãy đăng nhập tại địa chỉ của thương hiệu bạn.", { code: "wrong_tenant" })
-    }
-    if (!found || db.passwords[found.email] !== body.password) {
+function lockKey(scope: string, email: string) {
+  return `${scope}|${email.trim().toLowerCase()}`
+}
+
+type LoginMode = { kind: "admin" } | { kind: "tenant"; slug: string } | { kind: "legacy"; headerTenant: string | null }
+
+async function handleLogin(request: Request, mode: LoginMode) {
+  await delay(250)
+  const body = (await request.json()) as { login: string; password: string }
+  const login = body.login.trim().toLowerCase()
+
+  let scope: string
+  let tenantSlug: string | null
+  if (mode.kind === "admin") {
+    scope = "admin"
+    tenantSlug = null
+  } else if (mode.kind === "tenant") {
+    scope = mode.slug
+    tenantSlug = mode.slug
+  } else {
+    scope = mode.headerTenant ?? "platform"
+    tenantSlug = mode.headerTenant
+  }
+
+  const key = lockKey(scope, login)
+  const state = attempts.get(key) ?? { count: 0, lockedUntil: 0 }
+  if (state.lockedUntil > Date.now()) {
+    return problem(423, "Tài khoản bị khóa tạm", { code: "account_locked", retryAfterSeconds: Math.ceil((state.lockedUntil - Date.now()) / 1000) })
+  }
+
+  if (mode.kind === "tenant" || (mode.kind === "legacy" && tenantSlug)) {
+    const slug = tenantSlug!
+    const tenant = db.tenantBySlug(slug)
+    // Unknown or suspended — same generic failure as bad credentials (no enumeration).
+    if (!tenant || tenant.status === "Suspended" || tenant.status === "Closed" || tenant.status === "Pending" || tenant.status === "Rejected") {
       state.count += 1
       if (state.count >= MAX_ATTEMPTS) {
         state.count = 0
         state.lockedUntil = Date.now() + LOCK_SECONDS * 1000
-        attempts.set(login, state)
+        attempts.set(key, state)
         return problem(423, "Tài khoản bị khóa tạm", { code: "account_locked", retryAfterSeconds: LOCK_SECONDS })
       }
-      attempts.set(login, state)
-      return problem(401, "Email hoặc mật khẩu không đúng", { code: "invalid_credentials", attemptsLeft: MAX_ATTEMPTS - state.count })
+      attempts.set(key, state)
+      return problem(401, GENERIC_AUTH_FAIL, { code: "invalid_credentials" })
     }
-    if (found.status === "Locked") return problem(403, "Tài khoản đã bị vô hiệu hóa", { code: "account_disabled" })
-    attempts.delete(login)
-    return ok(issueSession(found))
+  }
+
+  const applied = db.tenants.find((t) => t.applicantEmail?.toLowerCase() === login)
+  if (applied && !db.findUserByEmailInTenant(login, applied.slug)) {
+    if (applied.status === "Pending") return problem(403, "Đăng ký thương hiệu của bạn đang chờ AICOS duyệt. Chúng tôi sẽ gửi email khi có kết quả.", { code: "tenant_pending" })
+    if (applied.status === "Rejected") return problem(403, `Đăng ký thương hiệu đã bị từ chối${applied.rejectReason ? `: ${applied.rejectReason}` : ""}.`, { code: "tenant_rejected" })
+    return problem(403, "Thương hiệu đã được duyệt. Hãy mở email mời để đặt mật khẩu rồi đăng nhập.", { code: "invite_pending" })
+  }
+
+  let found: UserDto | undefined
+  if (mode.kind === "admin") {
+    found = db.users.find((u) => u.email === login && (u.role === "SystemAdmin" || u.role === "SuperAdmin"))
+  } else if (tenantSlug) {
+    found = db.findUserByEmailInTenant(login, tenantSlug)
+  } else {
+    // Legacy platform login without tenant: Super Admin or Customer only.
+    found = db.findUserByEmailInTenant(login, null)
+  }
+
+  const expectedPwd = found ? db.passwords[db.passwordKey(tenantSlugOf(found) ?? (mode.kind === "admin" ? "platform" : tenantSlug), found.email)] : undefined
+  if (!found || expectedPwd !== body.password) {
+    state.count += 1
+    if (state.count >= MAX_ATTEMPTS) {
+      state.count = 0
+      state.lockedUntil = Date.now() + LOCK_SECONDS * 1000
+      attempts.set(key, state)
+      return problem(423, "Tài khoản bị khóa tạm", { code: "account_locked", retryAfterSeconds: LOCK_SECONDS })
+    }
+    attempts.set(key, state)
+    return problem(401, GENERIC_AUTH_FAIL, { code: "invalid_credentials", attemptsLeft: MAX_ATTEMPTS - state.count })
+  }
+  if (found.status === "Locked") return problem(403, "Tài khoản đã bị vô hiệu hóa", { code: "account_disabled" })
+  if (mode.kind === "admin" && found.role !== "SystemAdmin" && found.role !== "SuperAdmin") {
+    return problem(401, GENERIC_AUTH_FAIL, { code: "invalid_credentials" })
+  }
+  if (mode.kind === "tenant" && (found.role === "SystemAdmin" || found.role === "SuperAdmin" || found.role === "Customer")) {
+    return problem(401, GENERIC_AUTH_FAIL, { code: "invalid_credentials" })
+  }
+  attempts.delete(key)
+  return ok(issueSession(found))
+}
+
+export const handlers = [
+  // ---------- auth (path-based tenant + admin) ----------
+  http.post("*/api/v1/admin/auth/login", ({ request }) => handleLogin(request, { kind: "admin" })),
+  /** Legacy path — registered before `/:slug/auth/login` so it is not swallowed by the param route. */
+  http.post("*/api/v1/identity/auth/login", ({ request }) =>
+    handleLogin(request, { kind: "legacy", headerTenant: normalizeTenantSlug(request.headers.get("x-tenant")) }),
+  ),
+  http.post("*/api/v1/:slug/auth/login", ({ request, params }) => {
+    const slug = normalizeTenantSlug(String(params.slug ?? ""))
+    if (!slug) return problem(401, GENERIC_AUTH_FAIL, { code: "invalid_credentials" })
+    return handleLogin(request, { kind: "tenant", slug })
   }),
   http.post("*/api/v1/identity/auth/logout", ({ request }) => {
     const header = request.headers.get("authorization") ?? ""
@@ -69,10 +132,10 @@ export const handlers = [
     await delay(300)
     const { email } = (await request.json()) as { email: string }
     const normalized = email.toLowerCase()
+    const headerTenant = normalizeTenantSlug(request.headers.get("x-tenant"))
     const token = `rt-${crypto.getRandomValues(new Uint8Array(16)).reduce((s, b) => s + b.toString(16).padStart(2, "0"), "")}`
-    const known = !!db.passwords[normalized]
-    if (known) resetTokens.set(token, { email: normalized, expiresAt: Date.now() + 30 * 60_000 })
-    // Demo builds always include `devToken` (dead token if email unknown) so response shape does not enumerate accounts.
+    const known = Object.keys(db.passwords).some((k) => k.endsWith(`:${normalized}`))
+    if (known) resetTokens.set(token, { email: normalized, tenantSlug: headerTenant, expiresAt: Date.now() + 30 * 60_000 })
     const demo = import.meta.env.VITE_DEMO === "true" || import.meta.env.DEV
     return ok({
       message: "Nếu email tồn tại, liên kết đặt lại mật khẩu đã được gửi.",
@@ -85,9 +148,14 @@ export const handlers = [
     const entry = resetTokens.get(body.token)
     if (body.token.startsWith("expired") || !entry || entry.expiresAt < Date.now()) return problem(410, "Liên kết đã hết hạn hoặc không hợp lệ", { code: "token_expired" })
     if (!body.newPassword || body.newPassword.length < 8) return problem(422, "Mật khẩu mới phải có ít nhất 8 ký tự")
-    db.passwords[entry.email] = body.newPassword
+    const pk = db.passwordKey(entry.tenantSlug, entry.email)
+    if (db.passwords[pk]) db.passwords[pk] = body.newPassword
+    else {
+      const hit = Object.keys(db.passwords).find((k) => k.endsWith(`:${entry.email}`))
+      if (hit) db.passwords[hit] = body.newPassword
+    }
     resetTokens.delete(body.token)
-    attempts.delete(entry.email)
+    attempts.delete(lockKey(entry.tenantSlug ?? "platform", entry.email))
     return ok({ message: "Đã đặt lại mật khẩu" })
   }),
   http.post("*/api/v1/identity/auth/register", async ({ request }) => {
@@ -98,7 +166,7 @@ export const handlers = [
       return problem(423, "Quá nhiều lần đăng ký. Thử lại sau.", { code: "rate_limited", retryAfterSeconds: Math.ceil((state.lockedUntil - Date.now()) / 1000) })
     }
     if (!b.password || b.password.length < 8) return problem(422, "Mật khẩu phải có ít nhất 8 ký tự")
-    if (db.users.some((u) => u.email === login)) {
+    if (db.users.some((u) => u.email === login && u.role === "Customer")) {
       state.count += 1
       if (state.count >= MAX_ATTEMPTS) {
         state.count = 0
@@ -108,29 +176,49 @@ export const handlers = [
       return problem(409, "Email đã được đăng ký", { code: "email_taken" })
     }
     attempts.delete(`reg:${login}`)
-    const created: UserDto = { ...db.users[5], id: `u${db.users.length + 1}`, fullName: b.fullName, email: login }
+    const created: UserDto = {
+      id: `u${db.users.length + 1}`, fullName: b.fullName, email: login, username: null, phone: null, role: "Customer",
+      branchId: null, status: "Active", mustChangePassword: false, lockoutEndUtc: null, lastLoginAtUtc: null,
+      createdAtUtc: new Date().toISOString(), updatedAtUtc: null,
+    }
     db.users.push(created)
-    db.passwords[created.email] = b.password
+    db.passwords[db.passwordKey(null, created.email)] = b.password
     return ok(created)
   }),
 
   http.get("*/api/v1/identity/branches/active", ({ request }) => {
-    const denied = denyUnless(request, BRAND_STAFF)
+    // Floor staff may read their own branch (label in sidebar); Brand Admin sees all of the tenant.
+    const denied = denyUnless(request, [...BRAND_STAFF, ...FLOOR_STAFF])
     if (denied) return denied
-    return ok(db.branches.filter((b) => b.status === "Active"))
+    const actor = userFromRequest(request)!
+    const slug = tenantSlugOf(actor)
+    const ids = slug ? new Set(db.branchesOfTenant[slug] ?? []) : null
+    let list = db.branches.filter((b) => b.status === "Active" && (!ids || ids.has(b.id)))
+    // BR-05: branch-locked accounts only see the branch on their JWT.
+    if (actor.branchId) list = list.filter((b) => b.id === actor.branchId)
+    return ok(list)
   }),
   http.get("*/api/v1/identity/branches", ({ request }) => {
     const denied = denyUnless(request, BRAND_STAFF)
     if (denied) return denied
+    const actor = userFromRequest(request)!
+    const slug = tenantSlugOf(actor)
+    const ids = slug ? new Set(db.branchesOfTenant[slug] ?? []) : null
     const s = (new URL(request.url).searchParams.get("search") ?? "").toLowerCase()
-    return ok(paged(db.branches.filter((b) => b.name.toLowerCase().includes(s))))
+    return ok(paged(db.branches.filter((b) => (!ids || ids.has(b.id)) && b.name.toLowerCase().includes(s))))
   }),
   http.post("*/api/v1/identity/branches", async ({ request }) => {
     const denied = denyUnless(request, BRAND_STAFF)
     if (denied) return denied
+    const actor = userFromRequest(request)!
+    const slug = tenantSlugOf(actor)
     const body = (await request.json()) as Partial<BranchDto>
     const created = { ...db.branches[0], ...body, id: `b${db.branches.length + 1}`, status: "Active" } as BranchDto
     db.branches.push(created)
+    if (slug) {
+      db.branchesOfTenant[slug] ??= []
+      db.branchesOfTenant[slug].push(created.id)
+    }
     return ok(created)
   }),
   http.put("*/api/v1/identity/branches/:id", async ({ params, request }) => {
@@ -152,17 +240,28 @@ export const handlers = [
   http.get("*/api/v1/identity/users", ({ request }) => {
     const denied = denyUnless(request, BRAND_STAFF)
     if (denied) return denied
+    const actor = userFromRequest(request)!
+    const slug = tenantSlugOf(actor)
     const sp = new URL(request.url).searchParams
     const s = (sp.get("search") ?? "").toLowerCase()
-    return ok(paged(db.users.filter((u) => (u.fullName + u.email).toLowerCase().includes(s) && (!sp.get("role") || u.role === sp.get("role")))))
+    return ok(paged(db.users.filter((u) => {
+      if (slug && db.tenantSlugOfUserId[u.id] !== slug) return false
+      if (u.role === "SystemAdmin" || u.role === "SuperAdmin" || u.role === "Customer") return false
+      return (u.fullName + u.email).toLowerCase().includes(s) && (!sp.get("role") || u.role === sp.get("role"))
+    })))
   }),
   http.post("*/api/v1/identity/users", async ({ request }) => {
     const denied = denyUnless(request, BRAND_STAFF)
     if (denied) return denied
+    const actor = userFromRequest(request)!
+    const slug = tenantSlugOf(actor)
     const b = (await request.json()) as Partial<UserDto> & { password: string }
-    const created = { ...db.users[4], ...b, id: `u${db.users.length + 1}`, status: "Active" } as UserDto
+    const email = (b.email ?? "").trim().toLowerCase()
+    if (slug && db.findUserByEmailInTenant(email, slug)) return problem(409, "Email đã tồn tại trong thương hiệu này", { code: "email_taken" })
+    const created = { ...db.users[4], ...b, email, id: `u${db.users.length + 1}`, status: "Active" } as UserDto
     db.users.push(created)
-    db.passwords[created.email] = b.password
+    if (slug) db.tenantSlugOfUserId[created.id] = slug
+    db.passwords[db.passwordKey(slug, created.email)] = b.password
     return ok(created)
   }),
   http.patch("*/api/v1/identity/users/:id/status", async ({ params, request }) => {
@@ -170,7 +269,15 @@ export const handlers = [
     if (denied) return denied
     const u = db.users.find((x) => x.id === params.id)
     if (!u) return problem(404, "Không tìm thấy người dùng")
+    const actor = userFromRequest(request)!
+    const slug = tenantSlugOf(actor)
+    if (slug && db.tenantSlugOfUserId[u.id] !== slug) return problem(404, "Không tìm thấy người dùng")
     u.status = ((await request.json()) as { status: UserDto["status"] }).status
+    // Brand Admin early unlock (BR-02): clearing Locked also clears temporary lockout attempts.
+    if (u.status === "Active") {
+      attempts.delete(lockKey(slug ?? "platform", u.email))
+      u.lockoutEndUtc = null
+    }
     return ok(u)
   }),
 
@@ -185,8 +292,10 @@ export const handlers = [
     const denied = denyUnless(request, PLATFORM_ADMIN)
     if (denied) return denied
     const b = (await request.json()) as TenantInput
-    if (db.tenants.some((t) => t.slug === b.slug)) return problem(409, "Mã định danh (subdomain) đã tồn tại", { code: "slug_taken" })
-    const created: Tenant = { id: `t${db.tenants.length + 1}`, name: b.name, slug: b.slug, planId: b.planId, status: "Active", branchCount: 0, createdAtUtc: new Date().toISOString() }
+    const slugCheck = normalizeTenantSlug(b.slug)
+    if (!slugCheck) return problem(422, "Mã định danh không hợp lệ hoặc bị dành riêng", { code: "slug_invalid" })
+    if (db.tenants.some((t) => t.slug === slugCheck)) return problem(409, "Mã định danh đã tồn tại", { code: "slug_taken" })
+    const created: Tenant = { id: `t${db.tenants.length + 1}`, name: b.name, slug: slugCheck, planId: b.planId, status: "Active", branchCount: 0, createdAtUtc: new Date().toISOString() }
     db.tenants.push(created)
     db.audit.unshift({ id: `a${Date.now()}`, at: created.createdAtUtc, actor: "admin@aicos.local", action: "Tạo tenant", target: `${b.name} (Brand Admin: ${b.adminEmail})` })
     return ok(created)
@@ -297,40 +406,54 @@ const effectivePickup = (branchId: string): BranchPickup => {
   return { inherited: !override, values: override ?? bdb.settings.pickup, defaults: bdb.settings.pickup }
 }
 
+function branchFromRequest(request: Request): string | null {
+  return effectiveBranchId(request)
+}
+
 export const brandHandlers = [
-  // Read: floor staff need the published menu for POS. Write endpoints below stay brand-admin only.
+  // Menu is per-branch (X-Branch). Brand Admin + Branch Manager can write.
   http.get("*/api/v1/brand/menu/products", async ({ request }) => {
     const denied = denyUnless(request, [...BRAND_STAFF, ...FLOOR_STAFF])
     if (denied) return denied
     await delay(200)
-    return ok(bdb.products)
+    const branchId = branchFromRequest(request)
+    if (!branchId) return ok([])
+    return ok(bdb.products.filter((p) => p.branchId === branchId))
   }),
   http.post("*/api/v1/brand/menu/products", async ({ request }) => {
     const denied = denyUnless(request, BRAND_STAFF)
     if (denied) return denied
+    const branchId = branchFromRequest(request)
+    if (!branchId) return problem(422, "Chọn chi nhánh trước khi thêm món")
     const b = (await request.json()) as ProductInput
     const err = validateProduct(b)
     if (err) return problem(422, err)
-    const created: Product = { ...b, id: `p${bdb.products.length + 1}`, published: false, dirty: true, soldOutAt: [] }
+    const created: Product = { ...b, id: `p${bdb.products.length + 1}`, branchId, published: true, dirty: false, soldOutAt: [], branchPrices: b.branchPrices ?? {} }
     bdb.products.push(created)
     return ok(created)
   }),
   http.put("*/api/v1/brand/menu/products/:id", async ({ params, request }) => {
     const denied = denyUnless(request, BRAND_STAFF)
     if (denied) return denied
+    const branchId = branchFromRequest(request)
     const p = bdb.products.find((x) => x.id === params.id)
-    if (!p) return problem(404, "Không tìm thấy món")
+    if (!p || (branchId && p.branchId !== branchId)) return problem(404, "Không tìm thấy món")
     const b = (await request.json()) as ProductInput
     const err = validateProduct(b)
     if (err) return problem(422, err)
-    Object.assign(p, b, { dirty: true })
+    Object.assign(p, b, { dirty: false, published: true })
     return ok(p)
   }),
   http.post("*/api/v1/brand/menu/publish", async ({ request }) => {
     const denied = denyUnless(request, BRAND_STAFF)
     if (denied) return denied
+    const branchId = branchFromRequest(request)
+    if (!branchId) return problem(422, "Chọn chi nhánh trước khi publish")
     let n = 0
-    for (const p of bdb.products) if (p.dirty || !p.published) { p.published = true; p.dirty = false; n += 1 }
+    for (const p of bdb.products) {
+      if (p.branchId !== branchId) continue
+      if (p.dirty || !p.published) { p.published = true; p.dirty = false; n += 1 }
+    }
     return ok({ published: n })
   }),
   http.patch("*/api/v1/brand/menu/products/:id/availability", async ({ params, request }) => {
@@ -339,7 +462,8 @@ export const brandHandlers = [
     const p = bdb.products.find((x) => x.id === params.id)
     if (!p) return problem(404, "Không tìm thấy món")
     const b = (await request.json()) as { branchId: string; available: boolean }
-    p.soldOutAt = b.available ? p.soldOutAt.filter((x) => x !== b.branchId) : [...new Set([...p.soldOutAt, b.branchId])]
+    const bid = b.branchId || p.branchId
+    p.soldOutAt = b.available ? p.soldOutAt.filter((x) => x !== bid) : [...new Set([...p.soldOutAt, bid])]
     return ok(p)
   }),
 

@@ -108,7 +108,9 @@ export interface ContactInput {
 
 const mockPublicApi = {
   plans: () => http.get<Plan[]>(`${PUB}/plans`, { anonymous: true }),
+  brands: () => http.get<BrandPublic[]>(`${PUB}/brands`, { anonymous: true }),
   brand: (slug: string) => http.get<BrandPublic>(`${PUB}/brands/${slug}`, { anonymous: true }),
+  qrBrand: (token: string) => http.get<{ token: string; tenantSlug: string; brandName: string; branchId: string }>(`${PUB}/qr/${token}`, { anonymous: true }),
   contact: (body: ContactInput) => http.post<{ received: true }>(`${PUB}/contact`, body, { anonymous: true }),
 }
 

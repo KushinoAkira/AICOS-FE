@@ -23,7 +23,9 @@ export const PAGE_ACCESS: Record<Page, Access> = {
   terms: "public",
   privacy: "public",
   contact: "public",
+  "staff-entry": "public",
   login: "public",
+  "admin-login": "public",
   "auth-customer-register": "public",
   "auth-customer-login": "public",
   "auth-otp": "public",
@@ -34,6 +36,7 @@ export const PAGE_ACCESS: Record<Page, Access> = {
 
   "account-settings": "authenticated",
 
+  "customer-shops": CUSTOMER,
   "customer-menu": CUSTOMER,
   "customer-tracking": CUSTOMER,
   "customer-loyalty": CUSTOMER,
@@ -49,6 +52,8 @@ export const PAGE_ACCESS: Record<Page, Access> = {
   "cashier-tables": CASHIER,
   // Shared attendance / replacement screen (UC-47/48/31). Cash closing inside stays cashier-only.
   "cashier-shift": [...CASHIER, ...BARISTA],
+  /** Published layout + live status; Brand Admin read-only with branch picker. */
+  "floor-plan-view": [...CASHIER, ...BARISTA, ...BA],
 
   "manager-dashboard": BM,
   "manager-staff": BM,
@@ -57,6 +62,7 @@ export const PAGE_ACCESS: Record<Page, Access> = {
   "manager-payroll": BM,
   "manager-payroll-detail": BM,
   "branch-tables": BRAND_AND_BRANCH,
+  "branch-floor-plan": BM,
   "branch-pickup": BM,
   "branch-orders": BM,
 
@@ -93,7 +99,7 @@ export const HOME_PAGE: Record<Role, Page> = {
   branchManager: "manager-dashboard",
   barista: "barista-queue",
   cashier: "cashier-pos",
-  customer: "customer-menu",
+  customer: "customer-shops",
 }
 
 export function canAccess(page: Page, role: Role | null): boolean {
@@ -107,10 +113,13 @@ export const isPublicPage = (page: Page) => PAGE_ACCESS[page] === "public"
 
 /**
  * Which login portal an anonymous visitor should use when they hit a protected URL.
- * Staff and customer portals stay separate — never send a customer deep-link to `/login`.
+ * Staff and customer portals stay separate — never send a customer deep-link to staff login.
+ * Super Admin platform pages go to `/admin/login`.
  */
 export function loginPageFor(page: Page): Page {
   if (page.startsWith("customer-")) return "auth-customer-login"
+  if (page.startsWith("platform-")) return "admin-login"
+  if (page === "login" || page === "staff-entry" || page === "admin-login") return page
   return "login"
 }
 
@@ -118,7 +127,7 @@ export function loginPageFor(page: Page): Page {
  * Auth entry pages a signed-in user should not see again (bounced to their home).
  * Landing stays reachable so `/` always opens the marketing home, even when a customer session exists.
  *
- * Note: readable URLs (`/cashier/pos`, `/menu`, …) are intentional. Authorization is enforced by
+ * Note: readable URLs under `/{slug}/...` are intentional. Authorization is enforced by
  * `canAccess` + the App guard (and by the API). Obfuscating paths is not access control.
  */
-export const GUEST_ONLY_PAGES: Page[] = ["login", "auth-customer-login", "auth-customer-register"]
+export const GUEST_ONLY_PAGES: Page[] = ["staff-entry", "login", "admin-login", "auth-customer-login", "auth-customer-register"]

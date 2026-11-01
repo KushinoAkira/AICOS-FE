@@ -32,12 +32,12 @@ function ProfileForm({ initial }: { initial: Profile }) {
   return (
     <div className="grid max-w-4xl gap-6 lg:grid-cols-[1fr_320px]">
       <div className="space-y-6 rounded-[16px] border border-border bg-surface p-5 sm:p-6">
-        <div><p className="text-sm text-text-secondary">Tên thương hiệu</p><p className="font-serif text-xl text-text-primary">{initial.name}</p><p className="text-xs text-text-secondary">{initial.slug}.aicos.app</p></div>
+        <div><p className="text-sm text-text-secondary">Tên thương hiệu</p><p className="font-serif text-xl text-text-primary">{initial.name}</p><p className="text-xs text-text-secondary">Mã: {initial.slug}</p></div>
         <LogoPicker name={initial.name} value={logo} onChange={setLogo} />
         <ColorPicker value={color} onChange={setColor} />
         <div className="flex flex-wrap gap-3">
           <Button loading={save.isPending} disabled={!dirty} disabledReason="Chưa có thay đổi" onClick={() => save.mutate()}>Lưu thay đổi</Button>
-          <Button variant="secondary" onClick={() => window.open(`/login?brand=${initial.slug}`, "_blank", "noopener")}>Mở trang đăng nhập của quán</Button>
+          <Button variant="secondary" onClick={() => window.open(`/${initial.slug}/login`, "_blank", "noopener")}>Mở trang đăng nhập quán</Button>
         </div>
       </div>
       <BrandPreview name={initial.name} logo={logo} color={color} />

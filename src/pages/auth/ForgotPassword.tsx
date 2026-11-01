@@ -63,7 +63,7 @@ export default function ForgotPassword({ navigate }: Props) {
         </form>
       )}
       <div className="mt-5 text-center">
-        <button type="button" onClick={() => navigate("login")} className="text-sm text-clay hover:underline">← Quay lại đăng nhập</button>
+        <button type="button" onClick={() => navigate("staff-entry")} className="text-sm text-clay hover:underline">← Quay lại đăng nhập</button>
       </div>
     </AuthShell>
   )

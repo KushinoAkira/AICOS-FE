@@ -5,6 +5,8 @@ import { OrderStatusPill } from "../../components/OrderStatusPill"
 import { PageFrame } from "../../components/PageFrame"
 import { Banner, Button, Field, Modal, QueryBoundary, StatusPill } from "../../components/ui"
 import { useToast } from "../../context/ToastContext"
+import { useActiveBranch } from "../../hooks/useActiveBranch"
+import { floorLabel } from "../../lib/branch"
 import { ordersApi, type TableRow } from "../../lib/api/orders"
 import { formatVND } from "../../lib/format"
 import { tableStateOf } from "../../lib/orderStateMachine"
@@ -17,12 +19,19 @@ const stillMaking = (t: TableRow) => t.orders.some((o) => o.status === "Pending"
 
 /** Table map and cash bill. Table state is derived from the open session (never stored). */
 export default function CashierTables({ navigate }: { navigate: (p: Page) => void }) {
+  const { branchId } = useActiveBranch()
   const qc = useQueryClient()
   const { showToast } = useToast()
-  const tables = useQuery({ queryKey: ["tables"], queryFn: ordersApi.tables, refetchInterval: 5000 })
+  const tables = useQuery({
+    queryKey: ["tables", branchId],
+    queryFn: () => ordersApi.tables(),
+    refetchInterval: 5000,
+    enabled: !!branchId,
+  })
   const [selected, setSelected] = useState<string | null>(null)
   const [received, setReceived] = useState("")
   const [error, setError] = useState<string | null>(null)
+  const [floorTab, setFloorTab] = useState<number | "all">("all")
   const pay = useMutation({
     mutationFn: (t: TableRow) => ordersApi.payTable(t.id, { method: "cash", received: Number(received) }),
     onSuccess: (r) => { void qc.invalidateQueries({ queryKey: ["tables"] }); void qc.invalidateQueries({ queryKey: ["orders"] }); setSelected(null); setReceived(""); showToast(r.change > 0 ? `Đã thanh toán. Thối lại ${formatVND(r.change)}` : "Đã thanh toán", "success") },
@@ -40,10 +49,20 @@ export default function CashierTables({ navigate }: { navigate: (p: Page) => voi
     <PageFrame page="cashier-tables" navigate={navigate} uc="UC-28" title="Bàn và bill" subtitle="Bàn chờ thanh toán được ưu tiên hiển thị.">
       <QueryBoundary query={tables}>
         {(rows) => {
-          const sorted = [...rows].sort((a, b) => Number(b.billRequested) - Number(a.billRequested) || Number(isSettled(b)) - Number(isSettled(a)))
+          const floors = [...new Set(rows.map((t) => t.floor))].sort((a, b) => a - b)
+          const filtered = floorTab === "all" ? rows : rows.filter((t) => t.floor === floorTab)
+          const sorted = [...filtered].sort((a, b) => Number(b.billRequested) - Number(a.billRequested) || Number(isSettled(b)) - Number(isSettled(a)))
           const current = rows.find((t) => t.id === selected) ?? null
           return (
             <>
+              {floors.length > 1 && (
+                <div className="mb-5 flex flex-wrap gap-2">
+                  <button type="button" onClick={() => setFloorTab("all")} className={`rounded-full px-4 py-1.5 text-sm ${floorTab === "all" ? "bg-espresso text-white" : "bg-sand text-text-secondary"}`}>Tất cả</button>
+                  {floors.map((f) => (
+                    <button key={f} type="button" onClick={() => setFloorTab(f)} className={`rounded-full px-4 py-1.5 text-sm ${floorTab === f ? "bg-espresso text-white" : "bg-sand text-text-secondary"}`}>{floorLabel(f)}</button>
+                  ))}
+                </div>
+              )}
               <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                 {sorted.map((t) => {
                   const st = tableStateOf(t.orders.length ? { open: true, billRequested: t.billRequested } : null)
@@ -51,7 +70,7 @@ export default function CashierTables({ navigate }: { navigate: (p: Page) => voi
                     <li key={t.id}>
                       <button onClick={() => { setSelected(t.id); setReceived(""); setError(null) }} disabled={st === "Empty"} className="w-full rounded-[16px] border border-border bg-surface p-5 text-left hover:border-clay disabled:opacity-60">
                         <span className="flex items-center justify-between"><span className="font-serif text-xl text-text-primary">Bàn {t.code}</span>{isSettled(t) ? <StatusPill tone="success">Đã thanh toán</StatusPill> : <StatusPill tone={stateTone[st]}>{stateLabel[st]}</StatusPill>}</span>
-                        <span className="mt-2 block text-sm text-text-secondary">{st === "Empty" ? `${t.seats} chỗ` : isSettled(t) ? `${t.orders.length} đơn · bấm để hoàn thành bàn` : `${t.orders.length} đơn · ${formatVND(billOf(t))}`}</span>
+                        <span className="mt-2 block text-sm text-text-secondary">{st === "Empty" ? `${t.seats} chỗ · ${floorLabel(t.floor)}` : isSettled(t) ? `${t.orders.length} đơn · bấm để hoàn thành bàn` : `${t.orders.length} đơn · ${formatVND(billOf(t))}`}</span>
                       </button>
                     </li>
                   )

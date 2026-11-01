@@ -114,6 +114,7 @@ export const tableApi = {
   list: async (branchId?: string) => itemsOf(await http.get<DiningTable[]>("/tables/dining-tables", { query: { branchId } })),
   areas: async (branchId?: string) => itemsOf(await http.get<Area[]>("/tables/areas", { query: { branchId } })),
   addArea: (name: string, branchId?: string) => http.post<Area>("/tables/areas", { branchId, name, sortOrder: 0 }),
+  cloneFloorPlan: (fromBranchId: string, toBranchIds: string[]) => http.post<{ branches: { branchId: string; tables: number; areasCreated: number }[] }>("/tables/floor-plan/clone", { fromBranchId, toBranchIds }),
   saveLayout: (positions: { tableId: string; positionX: number; positionY: number }[], branchId?: string) => http.put<{ moved: number }>("/tables/floor-plan/layout", { branchId, positions }),
   batch: (rows: TableBatchRow[], branchId?: string) => http.post<{ created: number; areasCreated: number; tables: DiningTable[] }>("/tables/dining-tables/batch", { branchId, rows }),
   removeArea: (id: string) => http.delete<void>(`/tables/areas/${id}`),

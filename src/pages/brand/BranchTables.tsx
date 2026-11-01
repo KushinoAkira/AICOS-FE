@@ -6,7 +6,7 @@ import type { Page } from "../../App"
 import { PageFrame } from "../../components/PageFrame"
 import { Banner, Button, ConfirmDialog, EmptyState, Field, Modal, QueryBoundary, StatusPill } from "../../components/ui"
 import { FloorPlanEditor } from "../../components/tables/FloorPlan"
-import { GenerateTablesDialog, ImportTablesDialog } from "../../components/tables/TableBatchDialogs"
+import { CloneFloorPlanDialog, GenerateTablesDialog, ImportTablesDialog } from "../../components/tables/TableBatchDialogs"
 import { useAuth } from "../../context/AuthContext"
 import { useToast } from "../../context/ToastContext"
 import { branchesApi } from "../../lib/api/identity"
@@ -71,7 +71,9 @@ export default function BranchTables({ navigate }: { navigate: (p: Page) => void
   const tables = useQuery({ queryKey: ["dining-tables", branchId], queryFn: () => tableApi.list(branchId), enabled: ready })
   const areas = useQuery({ queryKey: ["areas", branchId], queryFn: () => tableApi.areas(branchId), enabled: ready })
   const limits = useQuery({ queryKey: ["plan-limits"], queryFn: planLimitsApi.get })
-  const [batch, setBatch] = useState<"generate" | "import" | null>(null)
+  const [batch, setBatch] = useState<"generate" | "import" | "clone" | null>(null)
+  const noPlan = limits.data?.hasPlan === false
+  const blocked = !ready || noPlan
   const [areaFilter, setAreaFilter] = useState("")
   const [view, setView] = useState<"list" | "map">("list")
   const max = limits.data?.maxTablesPerBranch ?? null
@@ -127,9 +129,10 @@ export default function BranchTables({ navigate }: { navigate: (p: Page) => void
       page="branch-tables" navigate={navigate} uc="UC-25" title="Bàn và mã QR" subtitle="Mỗi bàn có một mã QR riêng để in và dán tại bàn."
       action={<div className="flex flex-wrap gap-2">
         <Button variant="secondary" disabled={!ready || used === 0} disabledReason="Chưa có bàn để in" onClick={printAll}>In QR hàng loạt</Button>
-        <Button variant="secondary" disabled={!ready} onClick={() => setBatch("import")}>Nhập CSV</Button>
-        <Button variant="secondary" disabled={!ready} onClick={() => setBatch("generate")}>Tạo hàng loạt</Button>
-        <Button disabled={!ready} onClick={() => open("new")}>Thêm bàn</Button>
+        {isBrand && (branches.data?.length ?? 0) > 1 && <Button variant="secondary" disabled={blocked || used === 0} disabledReason={noPlan ? "Thương hiệu chưa có gói dịch vụ" : "Chi nhánh này chưa có bàn để nhân bản"} onClick={() => setBatch("clone")}>Nhân bản sang chi nhánh khác</Button>}
+        <Button variant="secondary" disabled={blocked} onClick={() => setBatch("import")}>Nhập CSV</Button>
+        <Button variant="secondary" disabled={blocked} onClick={() => setBatch("generate")}>Tạo hàng loạt</Button>
+        <Button disabled={blocked} onClick={() => open("new")}>Thêm bàn</Button>
       </div>}
     >
       {isBrand && (
@@ -140,6 +143,7 @@ export default function BranchTables({ navigate }: { navigate: (p: Page) => void
           </select>
         </div>
       )}
+      {noPlan && <div className="mb-4"><Banner tone="warn">Thương hiệu chưa có gói dịch vụ nên chưa tạo được bàn. Hãy liên hệ AICOS để được gán gói.</Banner></div>}
       {isBrand && branches.isSuccess && branches.data.length === 0 && <div className="mb-4"><Banner tone="warn">Thương hiệu chưa có chi nhánh. Hãy tạo chi nhánh trước.</Banner></div>}
       {tables.isSuccess && (
         <p className="mb-4 text-sm text-text-secondary">
@@ -203,6 +207,7 @@ export default function BranchTables({ navigate }: { navigate: (p: Page) => void
       </QueryBoundary>
 
       {batch === "generate" && <GenerateTablesDialog areas={areas.data ?? []} existing={(tables.data ?? []).map((t) => t.tableCode)} branchId={branchId} remaining={remaining} onClose={() => setBatch(null)} onDone={batchDone} />}
+      {batch === "clone" && branchId && <CloneFloorPlanDialog fromBranchId={branchId} tableCount={used} maxTables={max} branches={branches.data ?? []} onClose={() => setBatch(null)} onDone={(n, count) => { setBatch(null); refresh(); showToast(`Đã nhân bản sang ${n} chi nhánh: ${count} bàn với mã QR mới. Hãy in mã của từng chi nhánh.`, "success") }} />}
       {batch === "import" && <ImportTablesDialog branchId={branchId} remaining={remaining} onClose={() => setBatch(null)} onDone={batchDone} />}
 
       <Modal open={!!editing} title={editing === "new" ? "Thêm bàn" : "Sửa bàn"} onClose={() => setEditing(null)} footer={<><Button variant="secondary" onClick={() => setEditing(null)}>Hủy</Button><Button loading={save.isPending} onClick={submit}>Lưu</Button></>}>

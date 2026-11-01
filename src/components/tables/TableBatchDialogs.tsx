@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react"
-import { useMutation } from "@tanstack/react-query"
+import { useMutation, useQuery } from "@tanstack/react-query"
 import { Banner, Button, Field, Modal } from "../ui"
 import { ApiError } from "../../lib/api/http"
 import { tableApi, type Area, type TableBatchRow } from "../../lib/api/manage"
@@ -22,6 +22,49 @@ interface Shared {
 }
 
 const NEW_AREA = "__new"
+
+/** One shop set up, the others copied: areas, codes, seats and positions go over, each table with a new QR code. */
+export function CloneFloorPlanDialog({ fromBranchId, tableCount, maxTables, branches, onClose, onDone }: {
+  fromBranchId: string
+  tableCount: number
+  maxTables: number | null
+  branches: { id: string; name: string }[]
+  onClose: () => void
+  onDone: (branches: number, tables: number) => void
+}) {
+  const everyTable = useQuery({ queryKey: ["dining-tables", "all"], queryFn: () => tableApi.list() })
+  const [picked, setPicked] = useState<string[]>([])
+  const [problems, setProblems] = useState<string[]>([])
+  const countOf = (id: string) => (everyTable.data ?? []).filter((t) => t.branchId === id).length
+  const clone = useMutation({
+    mutationFn: () => tableApi.cloneFloorPlan(fromBranchId, picked),
+    onSuccess: (r) => onDone(r.branches.length, r.branches.reduce((n, b) => n + b.tables, 0)),
+    onError: (e) => setProblems(problemsOf(e)),
+  })
+  const source = branches.find((b) => b.id === fromBranchId)?.name ?? ""
+  return (
+    <Modal open title="Nhân bản sơ đồ bàn" onClose={onClose}
+      footer={<><Button variant="secondary" onClick={onClose}>Hủy</Button><Button loading={clone.isPending} disabled={picked.length === 0} disabledReason="Chọn ít nhất một chi nhánh" onClick={() => { setProblems([]); clone.mutate() }}>Nhân bản sang {picked.length} chi nhánh</Button></>}>
+      <div className="space-y-4">
+        <p className="text-sm text-text-secondary">Chép <b className="text-text-primary">{tableCount} bàn</b> của <b className="text-text-primary">{source}</b> gồm khu vực, số chỗ và vị trí trên sơ đồ. Mỗi bàn ở chi nhánh mới có mã QR riêng, nên cần in mã cho từng chi nhánh.</p>
+        <Problems items={problems} />
+        {maxTables !== null && tableCount > maxTables && <Banner tone="warn">Sơ đồ này vượt giới hạn {maxTables} bàn mỗi chi nhánh của gói.</Banner>}
+        <fieldset className="space-y-2">
+          <legend className="mb-2 text-sm font-medium text-text-primary">Chép sang</legend>
+          {branches.filter((b) => b.id !== fromBranchId).map((b) => {
+            const has = countOf(b.id)
+            return (
+              <label key={b.id} className={`flex items-center justify-between gap-3 rounded-[10px] border border-border p-3 text-sm ${has ? "opacity-60" : "cursor-pointer"}`}>
+                <span className="flex items-center gap-2"><input type="checkbox" disabled={has > 0} checked={picked.includes(b.id)} onChange={(e) => setPicked(e.target.checked ? [...picked, b.id] : picked.filter((id) => id !== b.id))} /><span className="text-text-primary">{b.name}</span></span>
+                <span className="text-xs text-text-secondary">{has ? `Đã có ${has} bàn` : "Chưa có bàn"}</span>
+              </label>
+            )
+          })}
+        </fieldset>
+      </div>
+    </Modal>
+  )
+}
 
 /** One click for a whole zone: area, prefix and quantity give A01...A20, each with its own QR code. */
 export function GenerateTablesDialog({ areas, existing, branchId, remaining, onClose, onDone }: Shared & { areas: Area[]; existing: string[] }) {

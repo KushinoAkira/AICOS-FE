@@ -23,7 +23,7 @@ export function toProduct(p: Raw, categories: Map<string, string>): Product {
     description: str(p.description),
     imageUrl: str(p.imageUrl) || undefined,
     basePrice: num(p.basePrice),
-    branchPrices: {},
+    branchPrices: Object.fromEntries(recs(p.branchPrices).map((b) => [str(b.branchId), num(b.price)])),
     sizes: groupOf(p, OPTION_KINDS.size).map(choice),
     sugarLevels: groupOf(p, OPTION_KINDS.sugar).map((o) => str(o.name)),
     iceLevels: groupOf(p, OPTION_KINDS.ice).map((o) => str(o.name)),
@@ -68,9 +68,15 @@ export const beMenuApi = {
     const payload = productBody(await categoryId(body.category), body)
     const saved = rec(id ? await http.put<Raw>(`/menu/products/${id}`, payload) : await http.post<Raw>("/menu/products", payload))
     const productId = str(saved.id) || (id ?? "")
-    // Per-branch price overrides are written on the branch publication (the API has no separate "price" call).
-    await Promise.all(Object.entries(body.branchPrices).map(([branchId, price]) =>
-      http.put<Raw>(`/menu/products/${productId}/branches/${branchId}`, { isPublished: true, priceOverride: price })))
+    // A branch price lives on the branch publication, so what the branch sells stays as it is. A price left blank goes back to the base price.
+    const settings = recs(itemsOf(await http.get<Raw[]>(`/menu/products/${productId}/branches`)))
+    const changed = new Set([...Object.keys(body.branchPrices), ...settings.filter((s) => s.priceOverride != null).map((s) => str(s.branchId))])
+    await Promise.all([...changed].map((branchId) => {
+      const current = settings.find((s) => str(s.branchId) === branchId)
+      const price = body.branchPrices[branchId] ?? null
+      if (current && (current.priceOverride == null ? null : num(current.priceOverride)) === price) return null
+      return http.put<Raw>(`/menu/products/${productId}/branches/${branchId}`, { isPublished: current ? bool(current.isPublished) : false, priceOverride: price })
+    }))
     return { ...toProduct(saved, new Map([[str(saved.categoryId), body.category]])), id: productId, branchPrices: body.branchPrices }
   },
   async publish(branchIds: string[]): Promise<{ published: number }> {

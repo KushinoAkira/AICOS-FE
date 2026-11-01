@@ -75,7 +75,7 @@ function BrandMenu({ rows, branches, onChanged }: { rows: Product[]; branches: B
   })
   const publish = useMutation({
     mutationFn: () => brandApi.publish(branches.map((b) => b.id)),
-    onSuccess: (r) => { onChanged(); setConfirmPublish(false); showToast(`Đã publish ${r.published} món tới ${branches.length} chi nhánh`, "success") },
+    onSuccess: (r) => { onChanged(); setConfirmPublish(false); showToast(r.published > 0 ? `Đã thêm ${r.published} món vào thực đơn các chi nhánh.` : `Cả ${branches.length} chi nhánh đã có đủ món.`, "success") },
     onError: (e) => showToast(e.message, "error"),
   })
 
@@ -90,7 +90,7 @@ function BrandMenu({ rows, branches, onChanged }: { rows: Product[]; branches: B
   return (
     <>
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-        {pending > 0 ? <Banner tone="warn" action={<Button className="px-3 py-1.5 text-xs" onClick={() => setConfirmPublish(true)}>Publish</Button>}>Có {pending} thay đổi chưa publish. Khách chưa thấy các thay đổi này.</Banner> : <span className="text-sm text-text-secondary">Tất cả món đã publish.</span>}
+        {pending > 0 ? <Banner tone="warn" action={<Button className="px-3 py-1.5 text-xs" onClick={() => setConfirmPublish(true)}>Publish</Button>}>Có {pending} thay đổi chưa publish. Khách chưa thấy các thay đổi này.</Banner> : <Banner tone="success" action={<Button variant="secondary" className="px-3 py-1.5 text-xs" onClick={() => setConfirmPublish(true)}>Publish tới mọi chi nhánh</Button>}>Thực đơn dùng chung cho {branches.length} chi nhánh. Chi nhánh mới tạo chỉ có món sau khi bấm Publish.</Banner>}
         <Button onClick={() => { setServerError(null); setEditing("new") }}>Thêm món</Button>
       </div>
       <DataTable rows={rows} rowKey={(p) => p.id} columns={columns} pageSize={12} emptyTitle="Chưa có món nào" />
@@ -98,7 +98,7 @@ function BrandMenu({ rows, branches, onChanged }: { rows: Product[]; branches: B
         <MenuEditor key={editing === "new" ? "new" : editing.id} product={editing === "new" ? null : editing} branches={branches} saving={save.isPending} serverError={serverError} onSave={(i) => save.mutate(i)} onClose={() => setEditing(null)} />
       )}
       <ConfirmDialog open={!!removing} danger title={`Xóa món ${removing?.name ?? ""}?`} message="Món sẽ không còn trên thực đơn. Các đơn đã có vẫn giữ nguyên." confirmLabel="Xóa" onCancel={() => setRemoving(null)} onConfirm={() => removing && remove.mutate(removing.id)} />
-      <ConfirmDialog open={confirmPublish} title="Publish thực đơn?" message={`${pending} món sẽ hiển thị cho khách tại ${branches.length} chi nhánh. Giá được backend tính lại khi khách đặt.`} confirmLabel="Publish" onCancel={() => setConfirmPublish(false)} onConfirm={() => publish.mutate()} />
+      <ConfirmDialog open={confirmPublish} title="Publish thực đơn?" message={`${rows.length} món sẽ hiển thị cho khách tại ${branches.length} chi nhánh. Giá được backend tính lại khi khách đặt.`} confirmLabel="Publish" onCancel={() => setConfirmPublish(false)} onConfirm={() => publish.mutate()} />
     </>
   )
 }

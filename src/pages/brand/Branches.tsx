@@ -4,6 +4,7 @@ import type { Page } from "../../App"
 import { PageFrame } from "../../components/PageFrame"
 import { Banner, Button, ConfirmDialog, DataTable, Field, Modal, QueryBoundary, StatusPill, type Column } from "../../components/ui"
 import { useToast } from "../../context/ToastContext"
+import { ApiError } from "../../lib/api/http"
 import { brandApi } from "../../lib/api/brand"
 import { branchesApi, type BranchDto, type BranchInput } from "../../lib/api/identity"
 
@@ -13,7 +14,8 @@ export default function BrandBranches({ navigate }: { navigate: (p: Page) => voi
   const qc = useQueryClient()
   const { showToast } = useToast()
   const branches = useQuery({ queryKey: ["branches", "all"], queryFn: () => branchesApi.list({ pageSize: 100 }) })
-  const sub = useQuery({ queryKey: ["brand", "subscription"], queryFn: brandApi.subscription })
+  const sub = useQuery({ queryKey: ["brand", "subscription"], queryFn: brandApi.subscription, retry: false })
+  const noPlan = sub.error instanceof ApiError && sub.error.status === 404
   const [editing, setEditing] = useState<BranchDto | "new" | null>(null)
   const [toggle, setToggle] = useState<BranchDto | null>(null)
   const [form, setForm] = useState({ name: "", address: "", phone: "", openingTime: "07:00", closingTime: "22:00" })
@@ -32,7 +34,7 @@ export default function BrandBranches({ navigate }: { navigate: (p: Page) => voi
   })
 
   const used = branches.data?.items.length ?? 0
-  const atLimit = sub.data ? used >= sub.data.maxBranches : false
+  const atLimit = sub.data && sub.data.maxBranches > 0 ? used >= sub.data.maxBranches : false
 
   function open(b: BranchDto | "new") {
     setError(null)
@@ -55,8 +57,9 @@ export default function BrandBranches({ navigate }: { navigate: (p: Page) => voi
   ]
 
   return (
-    <PageFrame page="admin-branches" navigate={navigate} uc="UC-12" title="Chi nhánh" subtitle={sub.data ? `Đã dùng ${used}/${sub.data.maxBranches} chi nhánh theo gói ${sub.data.planName}.` : undefined}
-      action={<Button onClick={() => open("new")} disabled={atLimit} disabledReason="Đã đạt giới hạn chi nhánh của gói">Thêm chi nhánh</Button>}>
+    <PageFrame page="admin-branches" navigate={navigate} uc="UC-12" title="Chi nhánh" subtitle={sub.data ? (sub.data.maxBranches > 0 ? `Đã dùng ${used}/${sub.data.maxBranches} chi nhánh theo gói ${sub.data.planName}.` : `Đang có ${used} chi nhánh, gói ${sub.data.planName} không giới hạn.`) : undefined}
+      action={<Button onClick={() => open("new")} disabled={atLimit || noPlan} disabledReason={noPlan ? "Thương hiệu chưa có gói dịch vụ" : "Đã đạt giới hạn chi nhánh của gói"}>Thêm chi nhánh</Button>}>
+      {noPlan && <div className="mb-5"><Banner tone="warn">Thương hiệu chưa có gói dịch vụ nên chưa tạo được chi nhánh. Hãy liên hệ AICOS để được gán gói.</Banner></div>}
       {atLimit && <div className="mb-5"><Banner tone="warn" action={<button onClick={() => navigate("brand-subscription")} className="font-medium underline">Xem gói</button>}>Đã đạt giới hạn chi nhánh của gói. Nâng gói để thêm chi nhánh mới.</Banner></div>}
       <QueryBoundary query={branches}>{(r) => <DataTable rows={r.items} rowKey={(b) => b.id} columns={columns} emptyTitle="Chưa có chi nhánh nào" />}</QueryBoundary>
 

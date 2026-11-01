@@ -60,6 +60,12 @@ function BrandMenu({ rows, branches, onChanged }: { rows: Product[]; branches: B
   const [editing, setEditing] = useState<Product | null | "new">(null)
   const [serverError, setServerError] = useState<string | null>(null)
   const [confirmPublish, setConfirmPublish] = useState(false)
+  const [removing, setRemoving] = useState<Product | null>(null)
+  const remove = useMutation({
+    mutationFn: (id: string) => brandApi.removeProduct(id),
+    onSuccess: () => { void qc.invalidateQueries({ queryKey: ["brand", "products"] }); setRemoving(null); showToast("Đã xóa món", "success") },
+    onError: (e) => { setRemoving(null); showToast(e.message, "error") },
+  })
   const pending = rows.filter((p) => p.dirty || !p.published).length
 
   const save = useMutation({
@@ -78,7 +84,7 @@ function BrandMenu({ rows, branches, onChanged }: { rows: Product[]; branches: B
     { key: "cat", header: "Danh mục", sort: (p) => p.category, render: (p) => p.category },
     { key: "price", header: "Giá gốc", sort: (p) => p.basePrice, render: (p) => <span>{formatVND(p.basePrice)}{Object.keys(p.branchPrices).length > 0 && <span className="ml-1 text-xs text-text-secondary">(+{Object.keys(p.branchPrices).length} giá riêng)</span>}</span> },
     { key: "state", header: "Trạng thái", render: (p) => (!p.published ? <StatusPill tone="neutral">Bản nháp</StatusPill> : p.dirty ? <StatusPill tone="pending">Có thay đổi chưa publish</StatusPill> : <StatusPill tone="success">Đã publish</StatusPill>) },
-    { key: "act", header: "", className: "text-right", render: (p) => <Button variant="ghost" className="px-3 py-1.5 text-xs" onClick={() => { setServerError(null); setEditing(p) }}>Sửa</Button> },
+    { key: "act", header: "", className: "text-right", render: (p) => <div className="flex justify-end gap-2"><Button variant="ghost" className="px-3 py-1.5 text-xs" onClick={() => { setServerError(null); setEditing(p) }}>Sửa</Button><Button variant="danger" className="px-3 py-1.5 text-xs" onClick={() => setRemoving(p)}>Xóa</Button></div> },
   ]
 
   return (
@@ -91,6 +97,7 @@ function BrandMenu({ rows, branches, onChanged }: { rows: Product[]; branches: B
       {editing && (
         <MenuEditor key={editing === "new" ? "new" : editing.id} product={editing === "new" ? null : editing} branches={branches} saving={save.isPending} serverError={serverError} onSave={(i) => save.mutate(i)} onClose={() => setEditing(null)} />
       )}
+      <ConfirmDialog open={!!removing} danger title={`Xóa món ${removing?.name ?? ""}?`} message="Món sẽ không còn trên thực đơn. Các đơn đã có vẫn giữ nguyên." confirmLabel="Xóa" onCancel={() => setRemoving(null)} onConfirm={() => removing && remove.mutate(removing.id)} />
       <ConfirmDialog open={confirmPublish} title="Publish thực đơn?" message={`${pending} món sẽ hiển thị cho khách tại ${branches.length} chi nhánh. Giá được backend tính lại khi khách đặt.`} confirmLabel="Publish" onCancel={() => setConfirmPublish(false)} onConfirm={() => publish.mutate()} />
     </>
   )

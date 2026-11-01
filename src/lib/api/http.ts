@@ -41,6 +41,8 @@ export interface RequestOptions {
   /** Extra request headers (for example the table-session header of the QR ordering endpoints). */
   headers?: Record<string, string>
   signal?: AbortSignal
+  /** Hand back the response itself (a file to download) instead of its JSON. */
+  raw?: boolean
 }
 
 function buildUrl(path: string, query?: Query): string {
@@ -58,7 +60,10 @@ async function toApiError(res: Response): Promise<ApiError> {
   } catch {
     /* non-JSON body */
   }
+  // A validation answer says what is wrong in `errors`; its title only says that something is.
+  const firstFieldError = Object.values((data?.errors as Record<string, string[]> | undefined) ?? {})[0]?.[0]
   const message =
+    firstFieldError ??
     (data?.detail as string | undefined) ?? (data?.title as string | undefined) ?? `Yêu cầu thất bại (${res.status})`
   return new ApiError(
     res.status,
@@ -160,6 +165,7 @@ export async function request<T>(method: string, path: string, opts: RequestOpti
   }
 
   if (!res.ok) throw await toApiError(res)
+  if (opts.raw) return res as T
   if (res.status === 204) return undefined as T
   return (await res.json()) as T
 }
@@ -177,4 +183,15 @@ export interface PagedResponse<T> {
   page: number
   pageSize: number
   totalCount: number
+}
+
+/** Saves a file the API produces (CSV, Excel). A link cannot carry the token, so it is fetched and handed to the browser. */
+export async function downloadFile(path: string, query: Query, filename: string): Promise<void> {
+  const res = await request<Response>("GET", path, { query, raw: true })
+  const url = URL.createObjectURL(await res.blob())
+  const link = document.createElement("a")
+  link.href = url
+  link.download = filename
+  link.click()
+  URL.revokeObjectURL(url)
 }

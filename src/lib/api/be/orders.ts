@@ -52,8 +52,8 @@ export function toOrder(o: Raw): Order {
 }
 
 const detail = async (id: string) => toOrder(rec(await http.get<Raw>(`/orders/${id}`)))
-/** The list API returns summaries (no lines): open each one so the screens can show the items. */
-const withLines = (rows: Raw[]) => Promise.all(rows.map((r) => detail(str(r.id))))
+/** The list answers with the items of every order, so no extra request per order is needed. */
+const withLines = (rows: Raw[]) => rows.map(toOrder)
 const listOrders = async (query: Record<string, string | number> = {}) => withLines(recs(itemsOf(await http.get<Raw[]>("/orders", { query: { limit: 100, ...query } }))))
 
 const lineNote = (l: LineInput) => [l.size && `Size ${l.size}`, l.sugar && `Đường ${l.sugar}`, l.ice && `Đá ${l.ice}`, l.note].filter(Boolean).join(" · ")
@@ -98,6 +98,7 @@ export const beOrdersApi = {
     return { id: str(t.tableCode) || b.code, code: b.code, seats: b.seats, qrToken: str(t.qrToken), billRequested: false, orders: [] }
   },
   orders: () => listOrders(),
+  ordersBetween: (from: string, to: string) => listOrders({ from, to, includePaid: "true", limit: 200 }),
   async cupLabels(id: string): Promise<CupLabel[]> {
     const r = rec(await http.get<Raw>(`/kitchen/tickets/${await ticketOf(id)}/stickers`))
     return recs(r.stickers).map((s) => ({

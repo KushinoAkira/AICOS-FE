@@ -1,10 +1,12 @@
 ﻿import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import type { Page } from "../../App"
 import { PageFrame } from "../../components/PageFrame"
-import { Banner, Button, Card, QueryBoundary, StatusPill } from "../../components/ui"
+import { Banner, Button, Card, DataTable, QueryBoundary, StatusPill } from "../../components/ui"
 import { featureFlags } from "../../config/featureFlags"
 import { useToast } from "../../context/ToastContext"
 import { brandApi } from "../../lib/api/brand"
+import { ApiError } from "../../lib/api/http"
+import { invoiceApi } from "../../lib/api/manage"
 import { formatDate, formatVND } from "../../lib/format"
 
 function Meter({ label, used, max }: { label: string; used: number; max: number }) {
@@ -22,15 +24,17 @@ function Meter({ label, used, max }: { label: string; used: number; max: number 
 export default function BrandSubscription({ navigate }: { navigate: (p: Page) => void }) {
   const qc = useQueryClient()
   const { showToast } = useToast()
-  const sub = useQuery({ queryKey: ["brand", "subscription"], queryFn: brandApi.subscription })
+  const sub = useQuery({ queryKey: ["brand", "subscription"], queryFn: brandApi.subscription, retry: false })
+  const noPlan = sub.error instanceof ApiError && sub.error.status === 404
+  const invoices = useQuery({ queryKey: ["brand", "invoices"], queryFn: invoiceApi.list })
   const renew = useMutation({
     mutationFn: brandApi.renew,
-    onSuccess: (data) => { qc.setQueryData(["brand", "subscription"], data); showToast("Đã gia hạn (mô phỏng)", "success") },
+    onSuccess: (data) => { qc.setQueryData(["brand", "subscription"], data); void qc.invalidateQueries({ queryKey: ["brand", "invoices"] }); showToast("Đã gia hạn (mô phỏng)", "success") },
     onError: (e) => showToast(e.message, "error"),
   })
   return (
     <PageFrame page="brand-subscription" navigate={navigate} uc="UC-22" title="Gói đăng ký" subtitle="Gói hiện tại, mức sử dụng và ngày gia hạn.">
-      <QueryBoundary query={sub}>
+      {noPlan ? <Banner tone="warn">Thương hiệu chưa có gói dịch vụ. Hãy liên hệ AICOS để được gán gói.</Banner> : <QueryBoundary query={sub}>
         {(s) => (
           <Card className="max-w-2xl">
             {s.status !== "Active" && <div className="mb-5"><Banner tone="warn">Gói đang {s.status === "PastDue" ? "quá hạn" : "bị tạm ngưng"}. Gia hạn để tiếp tục sử dụng đầy đủ.</Banner></div>}
@@ -42,6 +46,23 @@ export default function BrandSubscription({ navigate }: { navigate: (p: Page) =>
             <p className="mt-6 text-sm text-text-secondary">Gia hạn tiếp theo: <b className="text-text-primary">{formatDate(s.renewsAtUtc)}</b></p>
             {featureFlags.renewSimulated && <Button className="mt-4" loading={renew.isPending} onClick={() => renew.mutate()}>Gia hạn thêm 30 ngày (mô phỏng)</Button>}
           </Card>
+        )}
+      </QueryBoundary>}
+      <h2 className="mb-3 mt-8 font-serif text-lg text-text-primary">Lịch sử hóa đơn</h2>
+      <QueryBoundary query={invoices}>
+        {(rows) => (
+          <DataTable
+            rows={rows}
+            rowKey={(i) => i.id}
+            emptyTitle="Chưa có hóa đơn nào"
+            columns={[
+              { key: "d", header: "Ngày trả", sort: (i) => i.paidAtUtc, render: (i) => formatDate(i.paidAtUtc) },
+              { key: "p", header: "Kỳ bắt đầu", render: (i) => formatDate(i.periodStartUtc) },
+              { key: "a", header: "Số tiền", sort: (i) => i.amount, render: (i) => formatVND(i.amount) },
+              { key: "m", header: "Hình thức", render: (i) => i.method },
+              { key: "r", header: "Mã tham chiếu", render: (i) => i.reference ?? "-" },
+            ]}
+          />
         )}
       </QueryBoundary>
     </PageFrame>

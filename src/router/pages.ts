@@ -52,6 +52,8 @@ export const PAGE_PATHS = {
   "branch-tables": "/branch/tables",
   "branch-pickup": "/branch/pickup-settings",
   "branch-orders": "/branch/orders",
+  "branch-attendance": "/branch/attendance",
+  "branch-cash-closings": "/branch/cash-closings",
 
   // Shared Brand Admin + Branch Manager (scope follows the role)
   "manager-menu": "/menu-management",
@@ -71,6 +73,7 @@ export const PAGE_PATHS = {
   "brand-pay-rules": "/brand/pay-rules",
   "brand-merchant": "/brand/merchant",
   "admin-logs": "/brand/audit",
+  "brand-reconciliation": "/brand/reconciliation",
 
   // Super Admin (platform)
   "platform-tenants": "/platform/tenants",

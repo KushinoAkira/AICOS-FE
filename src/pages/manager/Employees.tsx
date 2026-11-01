@@ -1,203 +1,138 @@
 import { useState } from "react"
-import InternalLayout from "../../components/InternalLayout"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import type { Page } from "../../App"
+import { PageFrame } from "../../components/PageFrame"
+import { Banner, Button, ConfirmDialog, DataTable, Field, Modal, QueryBoundary, StatusPill, type Column } from "../../components/ui"
+import { useAuth } from "../../context/AuthContext"
+import { useToast } from "../../context/ToastContext"
+import { usersApi, type ApiRole, type UserDto } from "../../lib/api/identity"
+import { employeeApi, type ContractType, type Employee } from "../../lib/api/manage"
+import { formatDate } from "../../lib/format"
 
-interface Props {
-  navigate: (p: Page) => void
-}
+const ROLE_TEXT: Record<string, string> = { Barista: "Pha chế", Cashier: "Thu ngân" }
+const CONTRACT_TEXT: Record<ContractType, string> = { FullTime: "Toàn thời gian", PartTime: "Bán thời gian" }
 
-const STAFF = [
-  { id: "1", name: "Nguyễn Anh Minh", role: "Quản lý", branch: "Cơ sở Quận 1", status: "active", shift: "Sáng", avatar: "M", avatarBg: "#C97B4A" },
-  { id: "2", name: "Trần Thị Lan", role: "Thu ngân", branch: "Cơ sở Quận 1", status: "active", shift: "Sáng", avatar: "L", avatarBg: "#8B5E3C" },
-  { id: "3", name: "Lê Văn Hùng", role: "Thu ngân", branch: "Cơ sở Quận 1", status: "active", shift: "Chiều", avatar: "H", avatarBg: "#6F4E37" },
-  { id: "4", name: "Phạm Thị Mai", role: "Kho", branch: "Cơ sở Quận 1", status: "active", shift: "Sáng", avatar: "M", avatarBg: "#7A8450" },
-  { id: "5", name: "Võ Quốc Bảo", role: "Kho", branch: "Cơ sở Quận 1", status: "off", shift: "—", avatar: "B", avatarBg: "#A6534B" },
-  { id: "6", name: "Đặng Thu Hà", role: "Quản lý", branch: "Cơ sở Quận 1", status: "active", shift: "Chiều", avatar: "H", avatarBg: "#C97B4A" },
-  { id: "7", name: "Ngô Minh Tuấn", role: "Thu ngân", branch: "Cơ sở Quận 1", status: "locked", shift: "—", avatar: "T", avatarBg: "#8A7A6C" },
-]
+/** One person of the branch: the login account, and the HR record once it exists. */
+interface Row { user: UserDto; employee: Employee | null }
 
-const DAYS = ["T2\n09/09", "T3\n10/09", "T4\n11/09", "T5\n12/09", "T6\n13/09", "T7\n14/09", "CN\n15/09"]
+interface Form { fullName: string; email: string; phone: string; password: string; role: ApiRole; position: string; hireDate: string; contractType: ContractType }
+const EMPTY: Form = { fullName: "", email: "", phone: "", password: "", role: "Barista", position: "", hireDate: "", contractType: "FullTime" }
 
-const SCHEDULE: Record<string, (string | null)[][]> = {
-  "Sáng": [
-    ["Lan", "Lan", "Lan", "Lan", "Lan", null, null],
-    ["Hùng", null, "Hùng", null, "Hùng", "Hùng", "Hùng"],
-    ["Mai", "Mai", "Mai", "Mai", "Mai", null, null],
-    [null, "Minh", null, "Minh", null, "Minh", "Minh"],
-  ],
-  "Chiều": [
-    [null, "Tuấn*", null, "Tuấn*", null, null, null],
-    ["Hùng", "Hùng", null, null, "Hùng", "Hùng", null],
-    [null, null, "Hà", null, "Hà", "Hà", "Hà"],
-    ["Bảo*", null, "Bảo*", null, null, null, null],
-  ],
-}
+/** UC-27 Manage Branch Staff: the manager creates, edits, locks and removes the baristas and cashiers of their own branch. */
+export default function ManagerEmployees({ navigate }: { navigate: (p: Page) => void }) {
+  const qc = useQueryClient()
+  const { showToast } = useToast()
+  const { user: me } = useAuth()
+  const users = useQuery({ queryKey: ["users", "branch"], queryFn: () => usersApi.list({ pageSize: 200 }) })
+  const employees = useQuery({ queryKey: ["employees"], queryFn: employeeApi.list })
+  const [editing, setEditing] = useState<Row | "new" | null>(null)
+  const [form, setForm] = useState<Form>(EMPTY)
+  const [error, setError] = useState<string | null>(null)
+  const [removing, setRemoving] = useState<Row | null>(null)
+  const refresh = () => { void qc.invalidateQueries({ queryKey: ["users"] }); void qc.invalidateQueries({ queryKey: ["employees"] }) }
 
-const STATUS_CONFIG: Record<string, { label: string; bg: string; text: string }> = {
-  active: { label: "Đang làm việc", bg: "#EAEDE0", text: "#5C7A52" },
-  off:    { label: "Nghỉ hôm nay",  bg: "#F5EFE6", text: "#8A7A6C" },
-  locked: { label: "Đã khóa",       bg: "#FAE8E6", text: "#A6534B" },
-}
+  const open = (row: Row | "new") => {
+    setError(null)
+    setEditing(row)
+    setForm(row === "new" ? EMPTY : {
+      fullName: row.employee?.fullName ?? row.user.fullName, email: row.user.email, phone: row.user.phone ?? "", password: "", role: row.user.role,
+      position: row.employee?.position ?? "", hireDate: row.employee?.hireDate ?? "", contractType: row.employee?.contractType ?? "FullTime",
+    })
+  }
 
-const ROLE_CONFIG: Record<string, { bg: string; text: string }> = {
-  "Quản lý": { bg: "#FDF0E6", text: "#C97B4A" },
-  "Thu ngân": { bg: "#F5EFE6", text: "#8B5E3C" },
-  "Kho":     { bg: "#EAEDE0", text: "#7A8450" },
-}
+  const profile = () => ({ fullName: form.fullName.trim(), position: form.position.trim() || null, hireDate: form.hireDate || null, contractType: form.contractType })
 
-export default function ManagerEmployees({ navigate }: Props) {
-  const [tab, setTab] = useState<"list" | "schedule">("list")
+  const save = useMutation({
+    mutationFn: async () => {
+      if (editing === "new") {
+        const created = await usersApi.create({ fullName: form.fullName.trim(), email: form.email.trim(), phone: form.phone.trim() || undefined, password: form.password, role: form.role, branchId: me?.branchId ?? null })
+        await employeeApi.create({ userId: created.id, branchId: me?.branchId ?? null, ...profile() })
+        return
+      }
+      if (!editing) return
+      await usersApi.update(editing.user.id, { fullName: form.fullName.trim(), email: form.email.trim(), phone: form.phone.trim() || undefined, username: editing.user.username ?? undefined, role: form.role, branchId: me?.branchId ?? null })
+      if (editing.employee) await employeeApi.update(editing.employee.id, profile())
+      else await employeeApi.create({ userId: editing.user.id, branchId: me?.branchId ?? null, ...profile() })
+    },
+    onSuccess: () => { refresh(); setEditing(null); showToast("Đã lưu nhân sự.", "success") },
+    onError: (e) => setError(e.message),
+  })
+  const toggle = useMutation({
+    mutationFn: (u: UserDto) => usersApi.changeStatus(u.id, u.status === "Active" ? "Locked" : "Active"),
+    onSuccess: () => { refresh(); showToast("Đã cập nhật tài khoản.", "success") },
+    onError: (e) => showToast(e.message, "error"),
+  })
+  const remove = useMutation({
+    mutationFn: async (r: Row) => {
+      if (r.employee) await employeeApi.setStatus(r.employee.id, "Inactive")
+      await usersApi.remove(r.user.id)
+    },
+    onSuccess: () => { refresh(); setRemoving(null); showToast("Đã xóa nhân sự. Lịch sử ca và lương vẫn được giữ.", "success") },
+    onError: (e) => showToast(e.message, "error"),
+  })
 
-  const activeCount = STAFF.filter((s) => s.status === "active").length
-  const onShiftCount = STAFF.filter((s) => s.shift !== "—").length
-  const emptyShifts = 2
+  const submit = () => {
+    if (form.fullName.trim().length < 2) return setError("Nhập họ tên")
+    if (!/^\S+@\S+\.\S+$/.test(form.email.trim())) return setError("Email không hợp lệ")
+    if (form.phone.trim() && !/^0\d{9}$/.test(form.phone.trim())) return setError("Số điện thoại gồm 10 số, bắt đầu bằng 0")
+    if (editing === "new" && (form.password.length < 8 || !/[A-Za-z]/.test(form.password) || !/\d/.test(form.password))) return setError("Mật khẩu tạm từ 8 ký tự, có chữ cái và chữ số")
+    setError(null)
+    save.mutate()
+  }
+
+  const rows: Row[] = (users.data?.items ?? []).map((u) => ({ user: u, employee: (employees.data ?? []).find((e) => e.userId === u.id) ?? null }))
+  const columns: Column<Row>[] = [
+    { key: "n", header: "Nhân sự", sort: (r) => r.user.fullName, render: (r) => <div><p className="font-medium text-text-primary">{r.employee?.fullName ?? r.user.fullName}</p><p className="text-xs text-text-secondary">{r.user.email}</p></div> },
+    { key: "r", header: "Vai trò", render: (r) => ROLE_TEXT[r.user.role] ?? r.user.role },
+    { key: "p", header: "Vị trí", render: (r) => r.employee?.position ?? "-" },
+    { key: "c", header: "Hợp đồng", render: (r) => (r.employee ? CONTRACT_TEXT[r.employee.contractType] : <span className="text-state-warning">Chưa có hồ sơ</span>) },
+    { key: "h", header: "Ngày vào làm", sort: (r) => r.employee?.hireDate ?? "", render: (r) => (r.employee?.hireDate ? formatDate(r.employee.hireDate) : "-") },
+    { key: "s", header: "Trạng thái", render: (r) => <StatusPill tone={r.user.status === "Active" ? "success" : "danger"}>{r.user.status === "Active" ? "Hoạt động" : "Đã khóa"}</StatusPill> },
+    {
+      key: "a", header: "", className: "text-right", render: (r) => (
+        <div className="flex justify-end gap-2">
+          <Button variant="secondary" className="px-3 py-1.5 text-xs" onClick={() => open(r)}>Sửa</Button>
+          <Button variant="secondary" className="px-3 py-1.5 text-xs" loading={toggle.isPending && toggle.variables?.id === r.user.id} onClick={() => toggle.mutate(r.user)}>{r.user.status === "Active" ? "Khóa" : "Mở khóa"}</Button>
+          <Button variant="danger" className="px-3 py-1.5 text-xs" onClick={() => setRemoving(r)}>Xóa</Button>
+        </div>
+      ),
+    },
+  ]
 
   return (
-    <InternalLayout
-      role="manager"
-      activePage="manager-staff"
-      navigate={(id) => navigate(id as Page)}
-      headerRight={
-        <button
-          className="flex items-center gap-2 px-5 py-2.5 text-sm font-medium transition-colors"
-          style={{ backgroundColor: "#C97B4A", color: "#FAF6F0", borderRadius: "10px", border: "none", cursor: "pointer" }}
-          onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "#8B5E3C" }}
-          onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "#C97B4A" }}
-        >
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M7 1v12M1 7h12"/></svg>
-          Thêm nhân viên
-        </button>
-      }
-    >
-      <div className="mb-6">
-        <h1 className="font-serif text-2xl font-medium" style={{ color: "#3A2E22", fontFamily: "'Fraunces', Georgia, serif" }}>
-          Nhân sự
-        </h1>
-        <p className="text-sm mt-1" style={{ color: "#8A7A6C" }}>{STAFF.length} nhân viên · Cơ sở Quận 1</p>
-      </div>
+    <PageFrame page="manager-staff" navigate={navigate} uc="UC-27" title="Nhân sự" subtitle="Tài khoản và hồ sơ pha chế, thu ngân của chi nhánh." action={<Button onClick={() => open("new")}>Thêm nhân sự</Button>}>
+      <QueryBoundary query={users}>{() => <DataTable rows={rows} rowKey={(r) => r.user.id} columns={columns} emptyTitle="Chi nhánh chưa có nhân sự" />}</QueryBoundary>
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-3 gap-4 mb-8">
-        {[
-          { label: "Tổng nhân viên", value: String(STAFF.length), sub: `${activeCount} đang hoạt động`, subColor: "#8A7A6C" },
-          { label: "Đang trong ca", value: String(onShiftCount), sub: "ca sáng + chiều hôm nay", subColor: "#8A7A6C" },
-          { label: "Ca trống hôm nay", value: String(emptyShifts), sub: "cần xếp ca thêm", subColor: "#B98A3D" },
-        ].map((card) => (
-          <div key={card.label} className="p-5 rounded-2xl" style={{ backgroundColor: "#FFFFFF", border: "1px solid #E6DCCB" }}>
-            <p className="text-xs mb-2" style={{ color: "#8A7A6C" }}>{card.label}</p>
-            <p className="font-serif text-3xl font-medium mb-1" style={{ color: "#3A2E22", fontFamily: "'Fraunces', Georgia, serif" }}>{card.value}</p>
-            <p className="text-xs" style={{ color: card.subColor }}>{card.sub}</p>
+      <Modal open={!!editing} title={editing === "new" ? "Thêm nhân sự" : "Sửa nhân sự"} onClose={() => setEditing(null)} footer={<><Button variant="secondary" onClick={() => setEditing(null)}>Hủy</Button><Button loading={save.isPending} onClick={submit}>Lưu</Button></>}>
+        <div className="space-y-4">
+          {error && <Banner>{error}</Banner>}
+          <Field label="Họ tên" value={form.fullName} onChange={(e) => setForm({ ...form, fullName: e.target.value })} />
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Field label="Email" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+            <Field label="Số điện thoại" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
           </div>
-        ))}
-      </div>
-
-      {/* Tabs */}
-      <div className="flex gap-1 mb-6 p-1 rounded-xl self-start inline-flex" style={{ backgroundColor: "#F5EFE6" }}>
-        {(["list", "schedule"] as const).map((t) => (
-          <button
-            key={t}
-            onClick={() => setTab(t)}
-            className="px-5 py-2 text-sm font-medium rounded-lg transition-all duration-150"
-            style={{
-              backgroundColor: tab === t ? "#FFFFFF" : "transparent",
-              color: tab === t ? "#3A2E22" : "#8A7A6C",
-              border: "none",
-              cursor: "pointer",
-              boxShadow: tab === t ? "0 1px 4px rgba(111,78,55,0.1)" : "none",
-            }}
-          >
-            {t === "list" ? "Danh sách nhân viên" : "Lịch làm việc tuần"}
-          </button>
-        ))}
-      </div>
-
-      {/* Staff list */}
-      {tab === "list" && (
-        <div className="rounded-2xl overflow-hidden" style={{ backgroundColor: "#FFFFFF", border: "1px solid #E6DCCB" }}>
-          {STAFF.map((s, idx) => (
-            <div
-              key={s.id}
-              className="flex items-center gap-4 px-6 py-4 transition-colors"
-              style={{ borderBottom: idx < STAFF.length - 1 ? "1px solid #E6DCCB" : "none" }}
-              onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.backgroundColor = "#FAF6F0" }}
-              onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.backgroundColor = "transparent" }}
-            >
-              <div
-                className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-medium flex-shrink-0"
-                style={{ backgroundColor: s.avatarBg, color: "#FAF6F0", fontFamily: "'Fraunces', Georgia, serif" }}
-              >
-                {s.avatar}
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium" style={{ color: "#3A2E22" }}>{s.name}</p>
-                <p className="text-xs" style={{ color: "#8A7A6C" }}>{s.branch}</p>
-              </div>
-              <span className="px-2.5 py-1 rounded-full text-xs font-medium flex-shrink-0" style={{ backgroundColor: ROLE_CONFIG[s.role]?.bg ?? "#F5EFE6", color: ROLE_CONFIG[s.role]?.text ?? "#8B5E3C" }}>
-                {s.role}
-              </span>
-              <span className="text-xs" style={{ color: "#8A7A6C", minWidth: "60px" }}>Ca {s.shift}</span>
-              <span className="px-2.5 py-1 rounded-full text-xs font-medium flex-shrink-0" style={{ backgroundColor: STATUS_CONFIG[s.status].bg, color: STATUS_CONFIG[s.status].text }}>
-                {STATUS_CONFIG[s.status].label}
-              </span>
-              <button className="text-sm font-medium flex-shrink-0 transition-colors" style={{ color: "#8B5E3C", background: "none", border: "none", cursor: "pointer" }}>
-                Xem
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Weekly schedule */}
-      {tab === "schedule" && (
-        <div className="rounded-2xl overflow-hidden" style={{ backgroundColor: "#FFFFFF", border: "1px solid #E6DCCB" }}>
-          {/* Day headers */}
-          <div className="grid grid-cols-8 border-b" style={{ borderColor: "#E6DCCB" }}>
-            <div className="px-4 py-3 text-xs font-medium" style={{ color: "#8A7A6C" }}>Ca / Ngày</div>
-            {DAYS.map((d) => (
-              <div key={d} className="px-2 py-3 text-center">
-                {d.split("\n").map((line, i) => (
-                  <div key={i} className={`text-xs ${i === 0 ? "font-medium" : ""}`} style={{ color: i === 0 ? "#3A2E22" : "#8A7A6C" }}>{line}</div>
-                ))}
-              </div>
-            ))}
+          {editing === "new" && <Field label="Mật khẩu tạm" type="password" autoComplete="new-password" hint="Nhân viên đổi mật khẩu khi đăng nhập lần đầu." value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />}
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="block text-sm font-medium text-text-primary">Vai trò
+              <select value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value as ApiRole })} className="mt-1.5 w-full rounded-[10px] border border-border bg-surface px-3 py-3 text-sm">
+                <option value="Barista">Pha chế</option>
+                <option value="Cashier">Thu ngân</option>
+              </select>
+            </label>
+            <label className="block text-sm font-medium text-text-primary">Hợp đồng
+              <select value={form.contractType} onChange={(e) => setForm({ ...form, contractType: e.target.value as ContractType })} className="mt-1.5 w-full rounded-[10px] border border-border bg-surface px-3 py-3 text-sm">
+                <option value="FullTime">Toàn thời gian (tính theo ngày)</option>
+                <option value="PartTime">Bán thời gian (tính theo giờ)</option>
+              </select>
+            </label>
           </div>
-          {/* Shift rows */}
-          {(["Sáng", "Chiều"] as const).map((shift) => (
-            <div key={shift}>
-              <div className="px-4 py-2 text-xs font-medium uppercase tracking-widest" style={{ color: "#8A7A6C", fontSize: "10px", letterSpacing: "0.08em", backgroundColor: "#FAF6F0", borderBottom: "1px solid #E6DCCB" }}>
-                Ca {shift}
-              </div>
-              {SCHEDULE[shift].map((row, rowIdx) => (
-                <div key={rowIdx} className="grid grid-cols-8" style={{ borderBottom: "1px solid #E6DCCB" }}>
-                  <div className="px-4 py-3" />
-                  {row.map((cell, dayIdx) => (
-                    <div key={dayIdx} className="px-2 py-3 text-center">
-                      {cell ? (
-                        <span
-                          className="inline-block px-2 py-1 rounded-full text-xs font-medium"
-                          style={{
-                            backgroundColor: cell.includes("*") ? "#FAE8E6" : "#F5EFE6",
-                            color: cell.includes("*") ? "#A6534B" : "#8B5E3C",
-                          }}
-                        >
-                          {cell.replace("*", "")}
-                        </span>
-                      ) : (
-                        <span
-                          className="inline-block px-2 py-1 rounded-full text-xs border"
-                          style={{ borderStyle: "dashed", borderColor: "#E6DCCB", color: "rgba(138,122,108,0.5)" }}
-                        >
-                          Trống
-                        </span>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              ))}
-            </div>
-          ))}
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Field label="Vị trí" value={form.position} onChange={(e) => setForm({ ...form, position: e.target.value })} />
+            <Field label="Ngày vào làm" type="date" value={form.hireDate} onChange={(e) => setForm({ ...form, hireDate: e.target.value })} />
+          </div>
         </div>
-      )}
-    </InternalLayout>
+      </Modal>
+      <ConfirmDialog open={!!removing} danger title={`Xóa ${removing?.user.fullName ?? ""}?`} message="Tài khoản không đăng nhập được nữa và hồ sơ chuyển sang ngừng làm. Lịch sử ca và lương vẫn được giữ." confirmLabel="Xóa" onCancel={() => setRemoving(null)} onConfirm={() => removing && remove.mutate(removing)} />
+    </PageFrame>
   )
 }

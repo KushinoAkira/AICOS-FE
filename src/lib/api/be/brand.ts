@@ -1,4 +1,3 @@
-import { currentBrandSlug } from "../../brand"
 import type {
   BrandProfile, BrandSubscription, CancelPolicy, LoyaltySettings, MerchantSettings, OptionChoice, PayRules,
   PickupSettings, Product, ProductInput, Topping, Voucher, VoucherInput,
@@ -64,6 +63,7 @@ function productBody(catId: string, b: ProductInput) {
 
 export const beMenuApi = {
   products: listProducts,
+  removeProduct: (id: string) => http.delete<void>(`/menu/products/${id}`),
   async saveProduct(id: string | null, body: ProductInput): Promise<Product> {
     const payload = productBody(await categoryId(body.category), body)
     const saved = rec(id ? await http.put<Raw>(`/menu/products/${id}`, payload) : await http.post<Raw>("/menu/products", payload))
@@ -201,8 +201,11 @@ function toBrandSubscription(s: Raw): BrandSubscription {
   }
 }
 
-// ---------- profile (no endpoint: logo and colour are not stored by the backend) ----------
+// ---------- profile ----------
+const toProfile = (p: Raw): BrandProfile => ({ name: str(p.name), slug: str(p.code), logoUrl: str(p.logoUrl) || undefined, brandColor: str(p.primaryColor) || undefined, description: str(p.description) || undefined })
+
 export const beProfileApi = {
-  profile: async (): Promise<BrandProfile> => ({ name: currentBrandSlug() ?? "", slug: currentBrandSlug() ?? "" }),
-  saveProfile: (): Promise<BrandProfile> => unsupported("lưu logo và màu thương hiệu"),
+  profile: async (): Promise<BrandProfile> => toProfile(rec(await http.get<Raw>("/identity/brand/profile"))),
+  saveProfile: async (v: { logoUrl?: string; brandColor?: string; description?: string }): Promise<BrandProfile> =>
+    toProfile(rec(await http.put<Raw>("/identity/brand/profile", { description: v.description ?? null, logoUrl: v.logoUrl ?? null, primaryColor: v.brandColor ?? null, secondaryColor: null }))),
 }

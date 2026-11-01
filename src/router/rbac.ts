@@ -61,6 +61,8 @@ export const PAGE_ACCESS: Record<Page, Access> = {
   "branch-tables": BM,
   "branch-pickup": BM,
   "branch-orders": BM,
+  "branch-attendance": BM,
+  "branch-cash-closings": BM,
 
   "manager-menu": BRAND_AND_BRANCH,
   "manager-reports": BRAND_AND_BRANCH,
@@ -78,6 +80,7 @@ export const PAGE_ACCESS: Record<Page, Access> = {
   "brand-pay-rules": BA,
   "brand-merchant": BA,
   "admin-logs": BA,
+  "brand-reconciliation": BA,
 
   "platform-tenants": SA,
   "platform-plans": SA,

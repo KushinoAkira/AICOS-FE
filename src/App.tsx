@@ -71,6 +71,9 @@ const ManagerFeedback = lazy(() => import("./pages/manager/Feedback"))
 const ManagerEmployees = lazy(() => import("./pages/manager/Employees"))
 const ManagerPayroll = lazy(() => import("./pages/manager/Payroll"))
 const ManagerPayrollDetail = lazy(() => import("./pages/manager/PayrollDetail"))
+const ManagerAttendance = lazy(() => import("./pages/manager/Attendance"))
+const ManagerCashClosings = lazy(() => import("./pages/manager/CashClosings"))
+const BrandReconciliation = lazy(() => import("./pages/brand/Reconciliation"))
 
 const AdminSystemLogs = lazy(() => import("./pages/admin/SystemLogs"))
 
@@ -159,6 +162,8 @@ export default function App() {
     "branch-tables": <BranchTables navigate={navigate} />,
     "branch-pickup": <BranchPickupPage navigate={navigate} />,
     "branch-orders": <BranchOrders navigate={navigate} />,
+    "branch-attendance": <ManagerAttendance navigate={navigate} />,
+    "branch-cash-closings": <ManagerCashClosings navigate={navigate} />,
 
     "manager-menu": <ManagerMenuManagement navigate={navigate} />,
     "manager-reports": <ManagerReports navigate={navigate} />,
@@ -176,6 +181,7 @@ export default function App() {
     "brand-pay-rules": <BrandPayRules navigate={navigate} />,
     "brand-merchant": <BrandMerchant navigate={navigate} />,
     "admin-logs": <AdminSystemLogs navigate={navigate} />,
+    "brand-reconciliation": <BrandReconciliation navigate={navigate} />,
     "platform-tenants": <PlatformTenants navigate={navigate} />,
     "platform-plans": <PlatformPlans navigate={navigate} />,
     "platform-subscriptions": <PlatformSubscriptions navigate={navigate} />,

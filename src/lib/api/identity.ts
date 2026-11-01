@@ -102,6 +102,13 @@ const mockAuthApi = {
     return session
   },
   resendRegistration: (email: string) => http.post<SignUpPending>(`${BASE}/auth/register/resend`, { email }, { anonymous: true }),
+  /** A signed-in customer picks the brand to order from, by code or (from a table QR) by id. */
+  async selectBrand(target: { code?: string; tenantId?: string }): Promise<StoredSession> {
+    const current = tokenStore.get()
+    const session = await http.post<StoredSession>(`${BASE}/auth/select-brand`, { refreshToken: current?.refreshToken, tenantCode: target.code, tenantId: target.tenantId })
+    tokenStore.set(session)
+    return session
+  },
   /** Signs in with a Google credential (ID token); creates the customer account the first time. */
   async loginWithGoogle(idToken: string): Promise<StoredSession> {
     const session = await http.post<StoredSession>(`${BASE}/auth/google`, { idToken }, { anonymous: true })

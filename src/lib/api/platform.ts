@@ -32,6 +32,29 @@ export interface BrandPublic {
   brandColor?: string
 }
 
+/** A card of the brand picker customers see after signing in. */
+export interface BrandCard {
+  id: string
+  slug: string
+  name: string
+  description?: string
+  logoUrl?: string
+  brandColor?: string
+  branchCount: number
+}
+
+/** A shop owner registering a brand; a Super Admin approves it before the owner can sign in. */
+export interface RegisterBrandInput {
+  brandName: string
+  code: string
+  ownerFullName: string
+  email: string
+  phone: string
+  password: string
+  confirmPassword: string
+  description: string
+}
+
 export interface TenantInput {
   name: string
   slug: string
@@ -109,7 +132,9 @@ export interface ContactInput {
 const mockPublicApi = {
   plans: () => http.get<Plan[]>(`${PUB}/plans`, { anonymous: true }),
   brand: (slug: string) => http.get<BrandPublic>(`${PUB}/brands/${slug}`, { anonymous: true }),
+  brands: () => http.get<BrandCard[]>(`${PUB}/brands`, { anonymous: true }),
   contact: (body: ContactInput) => http.post<{ received: true }>(`${PUB}/contact`, body, { anonymous: true }),
+  registerBrand: (body: RegisterBrandInput) => http.post<{ code: string; message: string }>(`${PUB}/register-brand`, body, { anonymous: true }),
 }
 
 const mockPlatformApi = {

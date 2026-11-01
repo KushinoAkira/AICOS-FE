@@ -134,7 +134,8 @@ export const beOrdersApi = {
   async guest(token: string): Promise<GuestMenu> {
     const t = rec(await http.get<Raw>(`/tables/public/qr/${token}`, { anonymous: true }))
     const branchId = str(t.branchId)
-    return { ...(await publicMenu(branchId, str(t.branchName) || (await branchName(branchId)))), tableCode: str(t.tableCode) }
+    const tenantId = str(t.tenantId)
+    return { ...(await publicMenu(branchId, str(t.branchName) || (await branchName(branchId, tenantId)))), tableCode: str(t.tableCode), tenantId }
   },
   async guestPlace(token: string, lines: LineInput[]): Promise<Order> {
     const items = lines.map((l) => ({ productId: l.productId, quantity: l.qty, note: l.note.trim() || null, optionIds: optionIdsOf(l) }))
@@ -244,11 +245,12 @@ async function publicMenu(branchId: string, name: string): Promise<GuestMenu> {
   return { branchName: name || str(menu.branchName), tableCode: "", products }
 }
 
-/** The public lookup of a table has no branch name; the list of active branches has it when the address names the brand. */
-async function branchName(branchId: string): Promise<string> {
-  const code = currentBrandSlug()
-  if (!code) return ""
+/** The public lookup of a table has no branch name; the public branches of the table's brand have it. */
+async function branchName(branchId: string, tenantId: string): Promise<string> {
   try {
+    const brands = recs(itemsOf(await http.get<Raw[]>("/identity/public/brands", { anonymous: true })))
+    const code = str(brands.find((b) => str(b.id) === tenantId)?.code) || currentBrandSlug()
+    if (!code) return ""
     const rows = recs(itemsOf(await http.get<Raw[]>("/identity/branches/active", { anonymous: true, query: { tenantCode: code } })))
     return str(rows.find((b) => str(b.id) === branchId)?.name)
   } catch { return "" }

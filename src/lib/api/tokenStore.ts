@@ -6,6 +6,8 @@ export interface StoredSession {
   refreshToken: string
   refreshTokenExpiresAtUtc: string
   user: UserDto
+  /** Customers: the brand chosen for this session. The account itself belongs to no brand. */
+  activeBrandCode?: string | null
 }
 
 const KEY = "aicos.session"

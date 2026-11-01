@@ -23,6 +23,7 @@ export const PAGE_ACCESS: Record<Page, Access> = {
   terms: "public",
   privacy: "public",
   contact: "public",
+  "register-brand": "public",
   login: "public",
   "auth-customer-register": "public",
   "auth-customer-login": "public",
@@ -34,6 +35,7 @@ export const PAGE_ACCESS: Record<Page, Access> = {
 
   "account-settings": "authenticated",
 
+  "customer-brands": CUSTOMER,
   "customer-menu": CUSTOMER,
   "customer-tracking": CUSTOMER,
   "customer-loyalty": CUSTOMER,

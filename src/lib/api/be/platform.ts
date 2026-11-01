@@ -1,5 +1,5 @@
 import { http } from "../http"
-import type { BrandPublic, HealthItem, PaymentProvider, Plan, PlatformAuditEntry, RevenuePoint, Subscription, Tenant, TenantInput, TenantStatus } from "../platform"
+import type { BrandCard, BrandPublic, ContactInput, RegisterBrandInput, HealthItem, PaymentProvider, Plan, PlatformAuditEntry, RevenuePoint, Subscription, Tenant, TenantInput, TenantStatus } from "../platform"
 import { bool, itemsOf, num, randomPassword, rec, recs, str, unsupported, type Raw } from "./util"
 
 /** Real backend, SuperAdmin side (reference section 1 "Nền tảng", section 6 providers). Ids of subscriptions are tenant ids. */
@@ -77,10 +77,27 @@ export const bePlatformApi = {
   },
 }
 
-/** Anonymous endpoints: the backend has no public brand profile, self-registration or contact form yet. */
+const TOPIC_LABEL: Record<ContactInput["topic"], string> = { demo: "Xem demo", pricing: "Bảng giá", support: "Hỗ trợ", other: "Khác" }
+
+/** Anonymous endpoints. */
 export const bePublicApi = {
-  plans: () => bePlatformApi.plans(),
-  /** No public lookup exists: trust the address and let login/register (`tenantCode`) reject an unknown brand. */
-  brand: async (slug: string): Promise<BrandPublic> => ({ name: slug, slug, status: "Active" }),
-  contact: (): Promise<{ received: true }> => unsupported("form liên hệ"),
+  plans: async () => recs(itemsOf(await http.get<Raw[]>(`${ID}/public/subscription-plans`, { anonymous: true }))).map(toPlan),
+  async brand(slug: string): Promise<BrandPublic> {
+    const b = rec(await http.get<Raw>(`${ID}/public/brands/${encodeURIComponent(slug)}`, { anonymous: true }))
+    return { name: str(b.name), slug: str(b.code), status: "Active", logoUrl: str(b.logoUrl) || undefined, brandColor: str(b.primaryColor) || undefined }
+  },
+  async brands(): Promise<BrandCard[]> {
+    return recs(itemsOf(await http.get<Raw[]>(`${ID}/public/brands`, { anonymous: true }))).map((b) => ({
+      id: str(b.id), slug: str(b.code), name: str(b.name), description: str(b.description) || undefined,
+      logoUrl: str(b.logoUrl) || undefined, brandColor: str(b.primaryColor) || undefined, branchCount: num(b.branchCount),
+    }))
+  },
+  async contact(b: ContactInput): Promise<{ received: true }> {
+    await http.post<Raw>(`${ID}/public/contact`, { fullName: b.name, email: b.email, phone: b.phone || null, subject: TOPIC_LABEL[b.topic], message: b.message }, { anonymous: true })
+    return { received: true }
+  },
+  async registerBrand(b: RegisterBrandInput): Promise<{ code: string; message: string }> {
+    const r = rec(await http.post<Raw>(`${ID}/auth/register-brand`, { ...b, phone: b.phone || null, description: b.description || null }, { anonymous: true }))
+    return { code: str(r.code), message: str(r.message) }
+  },
 }

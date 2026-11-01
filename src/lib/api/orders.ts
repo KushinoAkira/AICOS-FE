@@ -54,6 +54,8 @@ export interface TableRow {
 }
 
 export interface GuestMenu {
+  /** The brand of the table, so a signed-in customer's points go to the right shop. */
+  tenantId?: string
   branchName: string
   tableCode: string
   products: (Product & { soldOut: boolean; price: number })[]

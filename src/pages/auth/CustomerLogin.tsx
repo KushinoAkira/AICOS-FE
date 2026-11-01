@@ -1,6 +1,5 @@
 import AuthHero from "../../components/AuthHero"
 import { Logo } from "../../components/AuthShell"
-import { BrandGate } from "../../components/BrandGate"
 import { GoogleButton } from "../../components/GoogleButton"
 import { useState } from "react"
 import { useNavigate } from "react-router"
@@ -15,11 +14,7 @@ interface Props {
   navigate: (p: Page) => void
 }
 
-export default function CustomerLogin(props: Props) {
-  return <BrandGate><CustomerLoginForm {...props} /></BrandGate>
-}
-
-function CustomerLoginForm({ navigate }: Props) {
+export default function CustomerLogin({ navigate }: Props) {
   const [email, setEmail] = useState("")
   const [submitting, setSubmitting] = useState(false)
   const routerNavigate = useNavigate()

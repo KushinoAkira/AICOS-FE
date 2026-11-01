@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useParams } from "react-router"
 import type { Page } from "../../App"
@@ -17,13 +17,18 @@ import { rememberGuestOrder } from "../../lib/guestHistory"
 /** Table QR ordering: cart, what the table already ordered, and history. Guests need no account; payment is at the counter. */
 export default function GuestMenu({ navigate }: { navigate: (p: Page, params?: Record<string, string>) => void }) {
   const { token = "" } = useParams()
-  const { role } = useAuth()
+  const { role, selectBrand } = useAuth()
   const qc = useQueryClient()
   const live = useGuestRealtime(token)
   const { showToast } = useToast()
   const menu = useQuery({ queryKey: ["guest", token], queryFn: () => ordersApi.guest(token), retry: false })
   const orderedCount = useQuery({ queryKey: ["guest", token, "orders"], queryFn: () => ordersApi.guestOrders(token), refetchInterval: pollWhile(live, 5000), retry: false })
   const [error, setError] = useState<string | null>(null)
+  // A signed-in customer scanning a table is now at that table's brand, so the order and its points go there.
+  const tableTenant = menu.data?.tenantId
+  useEffect(() => {
+    if (role === "customer" && tableTenant) void selectBrand({ tenantId: tableTenant }).catch(() => undefined)
+  }, [role, tableTenant, selectBrand])
   /** Remember the table so signing in brings the customer straight back to this menu (points are earned on this order). */
   const goAuth = (p: Page) => { sessionStorage.setItem("aicos.returnTo", `/q/${token}`); navigate(p) }
   const [sent, setSent] = useState(0)

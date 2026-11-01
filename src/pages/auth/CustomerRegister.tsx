@@ -2,7 +2,6 @@ import { useState } from "react"
 import { useNavigate } from "react-router"
 import type { Page } from "../../App"
 import { Logo } from "../../components/AuthShell"
-import { BrandGate } from "../../components/BrandGate"
 import { GoogleButton } from "../../components/GoogleButton"
 import { homePageOf, useAuth } from "../../context/AuthContext"
 import { useToast } from "../../context/ToastContext"
@@ -12,10 +11,6 @@ import { pendingSignUp } from "../../lib/signUp"
 
 interface Props {
   navigate: (p: Page) => void
-}
-
-export default function CustomerRegister(props: Props) {
-  return <BrandGate><CustomerRegisterForm {...props} /></BrandGate>
 }
 
 type FieldName = "fullName" | "email" | "password" | "confirmPassword"
@@ -34,7 +29,8 @@ function validate(v: Record<FieldName, string>): FieldErrors {
   return errors
 }
 
-function CustomerRegisterForm({ navigate }: Props) {
+/** One account for every shop on AICOS; the customer picks a brand after signing in. */
+export default function CustomerRegister({ navigate }: Props) {
   const [fullName, setFullName] = useState("")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
@@ -95,10 +91,10 @@ function CustomerRegisterForm({ navigate }: Props) {
           className="font-serif text-2xl font-medium mb-2 leading-snug"
           style={{ color: "#3A2E22", fontFamily: "'Fraunces', Georgia, serif" }}
         >
-          Tạo tài khoản để tích điểm mỗi lần ghé quán
+          Một tài khoản, gọi món ở mọi quán trên AICOS
         </h1>
         <p className="text-sm mb-7" style={{ color: "#8A7A6C", lineHeight: 1.6 }}>
-          Chỉ mất một phút — và mỗi tách cà phê sẽ có thêm ý nghĩa.
+          Đăng ký một lần, rồi chọn quán bạn muốn để đặt mang đi, gọi món tại bàn và tích điểm.
         </p>
 
         <form onSubmit={handleSubmit} className="space-y-4" noValidate>

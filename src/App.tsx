@@ -4,6 +4,7 @@ import { ToastProvider } from "./context/ToastContext"
 import { ToastContainer } from "./components/ToastContainer"
 import { ErrorBoundary } from "./components/ErrorBoundary"
 import { homePageOf, useAuth } from "./context/AuthContext"
+import { tokenStore } from "./lib/api/tokenStore"
 import { GUEST_ONLY_PAGES, canAccess } from "./router/rbac"
 import {
   PAGE_PATHS,
@@ -24,6 +25,8 @@ const Login = lazy(() => import("./pages/auth/Login"))
 const CustomerRegister = lazy(() => import("./pages/auth/CustomerRegister"))
 const CustomerLogin = lazy(() => import("./pages/auth/CustomerLogin"))
 const OTPVerification = lazy(() => import("./pages/auth/OTPVerification"))
+const RegisterBrand = lazy(() => import("./pages/public/RegisterBrand"))
+const CustomerBrands = lazy(() => import("./pages/customer/Brands"))
 const ForgotPassword = lazy(() => import("./pages/auth/ForgotPassword"))
 const ResetPassword = lazy(() => import("./pages/auth/ResetPassword"))
 const AccountSettings = lazy(() => import("./pages/shared/AccountSettings"))
@@ -117,6 +120,7 @@ export default function App() {
     terms: <Terms navigate={navigate} />,
     privacy: <Privacy navigate={navigate} />,
     contact: <Contact navigate={navigate} />,
+    "register-brand": <RegisterBrand navigate={navigate} />,
     login: <Login navigate={navigate} />,
     "auth-customer-register": <CustomerRegister navigate={navigate} />,
     "auth-customer-login": <CustomerLogin navigate={navigate} />,
@@ -128,6 +132,7 @@ export default function App() {
     "guest-menu": <GuestMenu navigate={navigate} />,
     "guest-order-status": <GuestStatus navigate={navigate} />,
 
+    "customer-brands": <CustomerBrands navigate={navigate} />,
     "customer-menu": <CustomerMenu navigate={navigate} />,
     "customer-tracking": <CustomerOrderTracking navigate={navigate} />,
     "customer-loyalty": <CustomerLoyalty navigate={navigate} />,
@@ -180,6 +185,10 @@ export default function App() {
   /** RBAC gate: anonymous -> login, wrong role -> own home page, signed-in user on a login page -> own home page. */
   function guard(page: Page): ReactElement {
     if (user && GUEST_ONLY_PAGES.includes(page)) return <Navigate to={PAGE_PATHS[homePageOf(user)]} replace />
+    // Everything a customer does happens at one brand, so without a chosen brand the picker comes first.
+    if (role === "customer" && page.startsWith("customer-") && page !== "customer-brands" && !tokenStore.get()?.activeBrandCode) {
+      return <Navigate to={PAGE_PATHS["customer-brands"]} replace />
+    }
     if (canAccess(page, role)) return screens[page]
     if (!user) {
       const loginPage: Page = page.startsWith("customer-") || page.startsWith("guest-") ? "auth-customer-login" : "login"

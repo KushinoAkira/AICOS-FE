@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, type ReactNode } from "react"
+import { createContext, useContext, useEffect, useState, type ReactNode } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { ApiError } from "../lib/api/http"
 import { publicApi, type BrandPublic } from "../lib/api/platform"
@@ -15,7 +15,12 @@ const Ctx = createContext<BrandState>({ kind: "platform" })
 
 /** Resolves the brand from the host name (or ?brand=) and applies its colour. The platform site has no brand. */
 export function BrandProvider({ children }: { children: ReactNode }) {
-  const slug = useMemo(() => currentBrandSlug(), [])
+  const [slug, setSlug] = useState(() => currentBrandSlug())
+  useEffect(() => {
+    const onChange = () => setSlug(currentBrandSlug())
+    window.addEventListener("aicos:brand-changed", onChange)
+    return () => window.removeEventListener("aicos:brand-changed", onChange)
+  }, [])
   const q = useQuery({
     queryKey: ["public", "brand", slug],
     queryFn: () => publicApi.brand(slug ?? ""),

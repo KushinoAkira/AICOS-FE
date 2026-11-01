@@ -7,6 +7,7 @@ export const PAGE_PATHS = {
   terms: "/terms",
   privacy: "/privacy",
   contact: "/contact",
+  "register-brand": "/register-brand",
   login: "/login",
 
   "auth-customer-register": "/sign-up",
@@ -22,6 +23,7 @@ export const PAGE_PATHS = {
   "guest-order-status": "/q/:token/status",
 
   // Customer
+  "customer-brands": "/brands",
   "customer-menu": "/menu",
   "customer-tracking": "/orders",
   "customer-loyalty": "/loyalty",

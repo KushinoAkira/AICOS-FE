@@ -18,7 +18,7 @@ export function PublicHeader({ navigate }: { navigate: (p: Page) => void }) {
           <Link to="/#bang-gia" className={`hidden md:block ${linkCls}`}>Bảng giá</Link>
           <Link to="/#hoi-dap" className={`hidden lg:block ${linkCls}`}>Hỏi đáp</Link>
           <button onClick={() => navigate("login")} className={`min-h-10 ${linkCls}`}>Đăng nhập quán</button>
-          <Button className="min-h-10 px-4 py-2" onClick={() => navigate("contact")}>Liên hệ tư vấn</Button>
+          <Button className="min-h-10 px-4 py-2" onClick={() => navigate("register-brand")}>Đăng ký quán</Button>
         </nav>
       </div>
     </header>
@@ -60,7 +60,7 @@ export function PublicFooter({ navigate }: { navigate: (p: Page) => void }) {
           <li><Link to="/#hoi-dap" className={fl}>Câu hỏi thường gặp</Link></li>
         </Col>
         <Col title="Bắt đầu">
-          {btn("Liên hệ để được cấp quán", "contact")}
+          {btn("Đăng ký quán", "register-brand")}
           {btn("Đăng nhập quản lý và nhân viên", "login")}
           {btn("Đăng nhập khách hàng", "auth-customer-login")}
           {btn("Đăng ký khách hàng", "auth-customer-register")}

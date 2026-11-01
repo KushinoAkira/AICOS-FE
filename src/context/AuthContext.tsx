@@ -3,6 +3,7 @@ import { authApi, type UserDto } from "../lib/api/identity"
 import { tokenStore } from "../lib/api/tokenStore"
 import { HOME_PAGE } from "../router/rbac"
 import { normalizeRole, type Role } from "../router/roles"
+import { brandChanged, clearRememberedBrand } from "../lib/brand"
 import type { Page } from "../router/pages"
 
 export function webRoleOf(user: UserDto | null): Role | null {
@@ -11,6 +12,8 @@ export function webRoleOf(user: UserDto | null): Role | null {
 
 export function homePageOf(user: UserDto): Page {
   const role = normalizeRole(user)
+  // A customer account belongs to no brand: the first thing to do is pick one.
+  if (role === "customer" && !tokenStore.get()?.activeBrandCode) return "customer-brands"
   return role ? HOME_PAGE[role] : "login"
 }
 interface AuthContextValue {
@@ -20,6 +23,8 @@ interface AuthContextValue {
   login: (login: string, password: string) => Promise<UserDto>
   /** Sign-up step 2: the emailed code activates the account and signs the customer in. */
   verifySignUp: (email: string, code: string) => Promise<UserDto>
+  /** A customer picks the brand to order from (by code from the list, by id from a table QR). */
+  selectBrand: (target: { code?: string; tenantId?: string }) => Promise<UserDto>
   /** Sign in (or sign up) with the credential Google hands to the page. */
   googleLogin: (idToken: string) => Promise<UserDto>
   logout: () => Promise<void>
@@ -54,14 +59,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return session.user
   }, [])
 
+  const selectBrand = useCallback(async (target: { code?: string; tenantId?: string }) => {
+    const session = await authApi.selectBrand(target)
+    setUser(session.user)
+    brandChanged()
+    return session.user
+  }, [])
+
   const logout = useCallback(async () => {
     await authApi.logout()
+    clearRememberedBrand()
     setUser(null)
   }, [])
 
   const value = useMemo<AuthContextValue>(
-    () => ({ user, role: webRoleOf(user), isAuthenticated: user !== null, login, verifySignUp, googleLogin, logout }),
-    [user, login, verifySignUp, googleLogin, logout],
+    () => ({ user, role: webRoleOf(user), isAuthenticated: user !== null, login, verifySignUp, selectBrand, googleLogin, logout }),
+    [user, login, verifySignUp, selectBrand, googleLogin, logout],
   )
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }

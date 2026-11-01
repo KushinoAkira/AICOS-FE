@@ -106,6 +106,19 @@ export const handlers = [
     const b = (await request.json()) as { email: string }
     return HttpResponse.json({ email: b.email.trim().toLowerCase(), expiresInSeconds: 600, resendAfterSeconds: 60 }, { status: 202 })
   }),
+  http.post("*/api/v1/identity/auth/select-brand", async ({ request }) => {
+    const b = (await request.json()) as { tenantCode?: string; tenantId?: string }
+    const brand = db.tenants.find((t) => t.slug === b.tenantCode || t.id === b.tenantId)
+    if (!brand) return problem(404, "Không tìm thấy quán")
+    const email = request.headers.get("authorization")?.replace("Bearer mock-", "")
+    const user = db.users.find((u) => u.id === email) ?? db.users[5]
+    return ok({ ...session(user), activeBrandCode: brand.slug })
+  }),
+  http.get("*/api/v1/public/brands", () => ok(db.tenants.filter((t) => t.status === "Active").map((t) => ({ id: t.id, slug: t.slug, name: t.name, logoUrl: t.logoUrl, brandColor: t.brandColor, branchCount: t.branchCount })))),
+  http.post("*/api/v1/public/register-brand", async ({ request }) => {
+    const b = (await request.json()) as { code: string }
+    return HttpResponse.json({ code: b.code, message: "Đang chờ duyệt" }, { status: 202 })
+  }),
   http.post("*/api/v1/identity/auth/google", () => problem(422, "Đăng nhập Google không có trong bản demo.", { code: "auth.google_not_configured" })),
 
   http.get("*/api/v1/identity/branches/active", () => ok(db.branches.filter((b) => b.status === "Active"))),

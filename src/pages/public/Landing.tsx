@@ -34,7 +34,7 @@ export default function Landing({ navigate }: { navigate: (p: Page) => void }) {
             <h1 className="rise-in max-w-3xl font-serif text-4xl leading-tight sm:text-6xl" style={{ "--reveal-delay": "100ms" } as CSSProperties}>Bán hàng, pha chế và quản lý chuỗi cà phê trên một nền tảng</h1>
             <p className="rise-in mt-5 max-w-2xl text-lg text-white/80" style={{ "--reveal-delay": "200ms" } as CSSProperties}>Khách gọi món bằng điện thoại, quầy pha chế nhận đơn tức thì, thu ngân đối soát gọn gàng và chủ quán nắm số liệu của mọi chi nhánh.</p>
             <div className="rise-in mt-8 flex flex-wrap gap-3" style={{ "--reveal-delay": "300ms" } as CSSProperties}>
-              <Button className="min-h-12 px-6" onClick={() => navigate("contact")}>Liên hệ để dùng thử</Button>
+              <Button className="min-h-12 px-6" onClick={() => navigate("register-brand")}>Đăng ký quán của bạn</Button>
               <Button variant="secondary" className="min-h-12 px-6" onClick={() => navigate("login")}>Tôi đã có tài khoản</Button>
             </div>
             <p className="rise-in mt-4 text-sm text-white/70" style={{ "--reveal-delay": "400ms" } as CSSProperties}>AICOS tạo tài khoản quản trị cho thương hiệu của bạn sau khi tư vấn. Dùng thử 14 ngày, không cần thẻ thanh toán.</p>
@@ -97,13 +97,13 @@ export default function Landing({ navigate }: { navigate: (p: Page) => void }) {
         </section>
 
         <FaqSection plans={plans.data ?? []} />
-        <FinalCta onContact={() => navigate("contact")} />
+        <FinalCta onContact={() => navigate("register-brand")} />
 
         <section className="mx-auto max-w-6xl px-4 pb-14 sm:px-8">
           <div className="rounded-[20px] bg-sand p-6 sm:flex sm:items-center sm:justify-between sm:p-8">
             <div>
               <h2 className="font-serif text-2xl">Bạn là khách hàng?</h2>
-              <p className="mt-1 text-sm text-text-secondary">Quét mã QR trên bàn để gọi món ngay. Đăng nhập để tích điểm và xem lịch sử mua hàng.</p>
+              <p className="mt-1 text-sm text-text-secondary">Một tài khoản dùng cho mọi quán trên AICOS: chọn quán, đặt mang đi, quét QR tại bàn và tích điểm.</p>
             </div>
             <div className="mt-4 flex gap-3 sm:mt-0">
               <Button variant="secondary" className="min-h-11" onClick={() => navigate("auth-customer-register")}>Đăng ký</Button>

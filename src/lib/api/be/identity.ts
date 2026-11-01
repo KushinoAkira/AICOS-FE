@@ -13,18 +13,22 @@ export const beAuthApi = {
     tokenStore.set(session)
     return session
   },
-  /** A customer belongs to one brand: the brand comes from the address the customer is on (`tenantCode`). */
-  register: (body: SignUpInput) =>
-    http.post<SignUpPending>(`${BASE}/auth/register`, { ...body, tenantCode: currentBrandSlug() ?? "" }, { anonymous: true }),
+  /** One customer account works at every brand; the brand is chosen after signing in (`selectBrand`). */
+  register: (body: SignUpInput) => http.post<SignUpPending>(`${BASE}/auth/register`, body, { anonymous: true }),
   async verifyRegistration(email: string, code: string): Promise<StoredSession> {
-    const session = await http.post<StoredSession>(`${BASE}/auth/register/verify`, { tenantCode: currentBrandSlug() ?? "", email, code }, { anonymous: true })
+    const session = await http.post<StoredSession>(`${BASE}/auth/register/verify`, { email, code }, { anonymous: true })
     tokenStore.set(session)
     return session
   },
   resendRegistration: (email: string) =>
-    http.post<SignUpPending>(`${BASE}/auth/register/resend`, { tenantCode: currentBrandSlug() ?? "", email }, { anonymous: true }),
+    http.post<SignUpPending>(`${BASE}/auth/register/resend`, { email }, { anonymous: true }),
+  async selectBrand(target: { code?: string; tenantId?: string }): Promise<StoredSession> {
+    const session = await http.post<StoredSession>(`${BASE}/auth/select-brand`, { refreshToken: tokenStore.get()?.refreshToken, tenantCode: target.code, tenantId: target.tenantId })
+    tokenStore.set(session)
+    return session
+  },
   async loginWithGoogle(idToken: string): Promise<StoredSession> {
-    const session = await http.post<StoredSession>(`${BASE}/auth/google`, { tenantCode: currentBrandSlug() ?? "", idToken }, { anonymous: true })
+    const session = await http.post<StoredSession>(`${BASE}/auth/google`, { idToken }, { anonymous: true })
     tokenStore.set(session)
     return session
   },

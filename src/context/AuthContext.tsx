@@ -23,6 +23,10 @@ interface AuthContextValue {
   login: (login: string, password: string) => Promise<UserDto>
   /** Sign-up step 2: the emailed code activates the account and signs the customer in. */
   verifySignUp: (email: string, code: string) => Promise<UserDto>
+  /** Saves the signed-in user's own name and phone. */
+  updateProfile: (body: { fullName: string; phone: string | null; username: string | null }) => Promise<UserDto>
+  /** A customer deletes their personal data: the account is anonymized and the session ends. */
+  deleteMyData: (password: string) => Promise<void>
   /** A customer picks the brand to order from (by code from the list, by id from a table QR). */
   selectBrand: (target: { code?: string; tenantId?: string }) => Promise<UserDto>
   /** Sign in (or sign up) with the credential Google hands to the page. */
@@ -59,6 +63,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return session.user
   }, [])
 
+  const updateProfile = useCallback(async (body: { fullName: string; phone: string | null; username: string | null }) => {
+    const next = await authApi.updateProfile(body)
+    const session = tokenStore.get()
+    if (session) tokenStore.set({ ...session, user: next })
+    setUser(next)
+    return next
+  }, [])
+
+  const deleteMyData = useCallback(async (password: string) => {
+    await authApi.deleteMyData(password)
+    tokenStore.clear()
+    clearRememberedBrand()
+    setUser(null)
+  }, [])
+
   const selectBrand = useCallback(async (target: { code?: string; tenantId?: string }) => {
     const session = await authApi.selectBrand(target)
     setUser(session.user)
@@ -73,8 +92,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const value = useMemo<AuthContextValue>(
-    () => ({ user, role: webRoleOf(user), isAuthenticated: user !== null, login, verifySignUp, selectBrand, googleLogin, logout }),
-    [user, login, verifySignUp, selectBrand, googleLogin, logout],
+    () => ({ user, role: webRoleOf(user), isAuthenticated: user !== null, login, verifySignUp, selectBrand, updateProfile, deleteMyData, googleLogin, logout }),
+    [user, login, verifySignUp, selectBrand, updateProfile, deleteMyData, googleLogin, logout],
   )
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }

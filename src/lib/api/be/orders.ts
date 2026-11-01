@@ -1,7 +1,7 @@
 import type { OrderStatus, PaymentStatus } from "../../orderStateMachine"
 import { currentBrandSlug } from "../../brand"
 import { ApiError, http } from "../http"
-import type { GuestMenu, LineInput, Order, PayOutcome, PickupCheck, PickupInfo, ProviderStatus, TableRow } from "../orders"
+import type { CupLabel, GuestMenu, LineInput, Order, PayOutcome, PickupCheck, PickupInfo, ProviderStatus, TableRow } from "../orders"
 import { tokenStore } from "../tokenStore"
 import { toProduct } from "./brand"
 import { itemsOf, num, rec, recs, str, unsupported, type Raw } from "./util"
@@ -97,6 +97,13 @@ export const beOrdersApi = {
     return { id: str(t.tableCode) || b.code, code: b.code, seats: b.seats, qrToken: str(t.qrToken), billRequested: false, orders: [] }
   },
   orders: () => listOrders(),
+  async cupLabels(id: string): Promise<CupLabel[]> {
+    const r = rec(await http.get<Raw>(`/kitchen/tickets/${await ticketOf(id)}/stickers`))
+    return recs(r.stickers).map((s) => ({
+      id: str(s.stickerId), code: str(s.orderCode), table: str(s.tableNumber), product: str(s.productName),
+      cup: `${num(s.cupIndex)}/${num(s.totalCupsInOrder)}`, details: str(s.customizations),
+    }))
+  },
   async transition(id: string, b: { status: OrderStatus; reason?: string }): Promise<Order> {
     const current = await detail(id)
     if (b.status === "Preparing" && current.status === "Pending") await http.put<Raw>(`/kitchen/tickets/${await ticketOf(id)}/status`, { status: "Brewing" })

@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import type { Page } from "../../App"
 import { OrderStatusPill } from "../../components/OrderStatusPill"
 import { PageFrame } from "../../components/PageFrame"
-import { Button, ConfirmDialog, EmptyState, QueryBoundary } from "../../components/ui"
+import { Button, ConfirmDialog, Modal, EmptyState, QueryBoundary } from "../../components/ui"
 import { useToast } from "../../context/ToastContext"
 import { ordersApi, type Order } from "../../lib/api/orders"
 import { pollWhile, useBranchRealtime } from "../../lib/realtime"
@@ -30,6 +30,7 @@ export default function BaristaQueue({ navigate }: { navigate: (p: Page) => void
     onError: (e) => { showToast(e.message, "error"); void qc.invalidateQueries({ queryKey: ["orders"] }) },
   })
   const busy = (id: string) => move.isPending && move.variables?.id === id
+  const labels = useMutation({ mutationFn: (id: string) => ordersApi.cupLabels(id), onError: (e) => showToast(e.message, "error") })
 
   return (
     <PageFrame page="barista-queue" navigate={navigate} uc="UC-30" title="Hàng chờ pha chế" subtitle="Tự cập nhật mỗi 5 giây.">
@@ -53,6 +54,7 @@ export default function BaristaQueue({ navigate }: { navigate: (p: Page) => void
                             {c.status === "Pending" && <Button className="flex-1 py-3" loading={busy(o.id)} onClick={() => move.mutate({ id: o.id, status: "Preparing" })}>Bắt đầu pha</Button>}
                             {c.status === "Preparing" && <Button className="flex-1 py-3" loading={busy(o.id)} onClick={() => move.mutate({ id: o.id, status: "Ready" })}>Xong</Button>}
                             {c.status === "Ready" && <><Button className="flex-1 py-3" loading={busy(o.id)} onClick={() => move.mutate({ id: o.id, status: o.channel === "takeaway" ? "PickedUp" : "Served" })}>{o.channel === "takeaway" ? "Khách đã nhận" : "Đã phục vụ"}</Button>{o.channel === "takeaway" && <Button variant="danger" disabled={busy(o.id)} onClick={() => move.mutate({ id: o.id, status: "NoShow" })}>Không đến nhận</Button>}<Button variant="secondary" disabled={busy(o.id)} onClick={() => move.mutate({ id: o.id, status: "Preparing" })}>Pha lại</Button></>}
+                            <Button variant="secondary" loading={labels.isPending && labels.variables === o.id} onClick={() => labels.mutate(o.id)}>Nhãn ly</Button>
                             {c.status !== "Ready" && <Button variant="danger" disabled={busy(o.id)} onClick={() => setFailing(o)}>Không làm được</Button>}
                           </div>
                           {c.status === "Ready" && <div className="mt-2"><OrderStatusPill status="Ready" /></div>}
@@ -66,6 +68,23 @@ export default function BaristaQueue({ navigate }: { navigate: (p: Page) => void
           </div>
         )}
       </QueryBoundary>
+      <Modal
+        open={!!labels.data}
+        title="Nhãn ly"
+        onClose={() => labels.reset()}
+        footer={<><Button variant="secondary" onClick={() => labels.reset()}>Đóng</Button><Button onClick={() => window.print()}>In nhãn</Button></>}
+      >
+        <ul className="grid gap-3 sm:grid-cols-2">
+          {(labels.data ?? []).map((l) => (
+            <li key={l.id} className="rounded-[12px] border border-border p-3 text-sm">
+              <p className="flex justify-between font-semibold text-text-primary"><span>{l.code}</span><span>{l.cup}</span></p>
+              <p className="mt-1 font-medium text-text-primary">{l.product}</p>
+              {l.details && <p className="text-text-secondary">{l.details}</p>}
+              <p className="mt-1 text-xs text-text-secondary">{l.table ? `Bàn ${l.table}` : "Mang đi"}</p>
+            </li>
+          ))}
+        </ul>
+      </Modal>
       <ConfirmDialog open={!!failing} danger requireReason reason={reason} onReason={setReason} title={`Không thực hiện được ${failing?.code ?? ""}?`} message="Khách sẽ được báo và không bị tính tiền đơn này. Ghi rõ lý do, ví dụ hết nguyên liệu." confirmLabel="Xác nhận" onCancel={() => { setFailing(null); setReason("") }} onConfirm={() => failing && move.mutate({ id: failing.id, status: "Unfulfillable", reason })} />
     </PageFrame>
   )

@@ -121,6 +121,8 @@ const mockAuthApi = {
     if (session) await http.post<void>(`${BASE}/auth/logout`, { refreshToken: session.refreshToken }, { anonymous: true }).catch(() => undefined)
   },
   me: () => http.get<UserDto>(`${BASE}/auth/me`),
+  updateProfile: (body: { fullName: string; phone: string | null; username: string | null }) => http.put<UserDto>(`${BASE}/auth/me`, body),
+  deleteMyData: (password: string) => http.post<void>(`${BASE}/auth/me/delete`, { password }),
   changePassword: (body: { currentPassword: string; newPassword: string; confirmNewPassword: string }) =>
     http.post<void>(`${BASE}/auth/change-password`, body),
   forgotPassword: (email: string) => http.post<{ message: string; devToken?: string }>(`${BASE}/auth/forgot-password`, { email }, { anonymous: true }),

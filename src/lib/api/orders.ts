@@ -53,6 +53,9 @@ export interface TableRow {
   orders: Order[]
 }
 
+/** One cup's label (printing may be simulated for the MVP). */
+export interface CupLabel { id: string; code: string; table: string; product: string; cup: string; details: string }
+
 export interface GuestMenu {
   /** The brand of the table, so a signed-in customer's points go to the right shop. */
   tenantId?: string
@@ -66,6 +69,7 @@ const mockOrdersApi = {
   tables: () => http.get<TableRow[]>(`${B}/tables`),
   addTable: (b: { code: string; seats: number }) => http.post<TableRow>(`${B}/tables`, b),
   orders: () => http.get<Order[]>(`${B}/orders`),
+  cupLabels: (id: string) => http.get<CupLabel[]>(`${B}/orders/${id}/cup-labels`),
   transition: (id: string, b: { status: OrderStatus; reason?: string }) => http.post<Order>(`${B}/orders/${id}/status`, b),
   place: (tableId: string, lines: LineInput[]) => http.post<Order>(`${B}/orders`, { tableId, lines }),
   completeTable: (tableId: string) => http.post<{ completed: number }>(`${B}/tables/${tableId}/complete`),

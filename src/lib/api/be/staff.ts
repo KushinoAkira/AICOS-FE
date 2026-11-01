@@ -138,8 +138,15 @@ export const beLoyaltyApi = {
   },
 }
 
-/** The backend has no notification inbox: show an empty one rather than an error. */
+/** The customer's inbox at the chosen brand. */
 export const beNoticeApi = {
-  mine: async (): Promise<Notice[]> => [],
-  readAll: async (): Promise<{ ok: true }> => ({ ok: true }),
+  async mine(): Promise<Notice[]> {
+    return recs(itemsOf(await http.get<Raw[]>("/customers/me/notifications", { query: { pageSize: 50 } }))).map((n) => ({
+      id: str(n.id), title: str(n.title), body: str(n.body), atUtc: str(n.createdAtUtc), read: !!str(n.readAtUtc),
+    } as Notice))
+  },
+  async readAll(): Promise<{ ok: true }> {
+    await http.post<Raw>("/customers/me/notifications/read-all", {})
+    return { ok: true }
+  },
 }

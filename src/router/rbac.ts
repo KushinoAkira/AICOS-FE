@@ -49,7 +49,7 @@ export const PAGE_ACCESS: Record<Page, Access> = {
   "cashier-pos": CASHIER,
   "cashier-payments": CASHIER,
   "cashier-tables": CASHIER,
-  "cashier-shift": CASHIER,
+  "cashier-shift": [...CASHIER, ...BARISTA],
 
   "manager-dashboard": BM,
   "manager-staff": BM,

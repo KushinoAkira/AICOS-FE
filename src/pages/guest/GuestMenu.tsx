@@ -85,7 +85,7 @@ export default function GuestMenu({ navigate }: { navigate: (p: Page, params?: R
             }}
           />
         )}
-        <p className="mt-6 text-center text-sm text-text-secondary">Thanh toán tại quầy sau khi dùng xong.</p>
+        <p className="mt-6 text-center text-sm text-text-secondary">Thanh toán QR ngay trên điện thoại hoặc gọi nhân viên.</p>
       </main>
       <AiChat />
     </div>

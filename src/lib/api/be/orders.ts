@@ -1,7 +1,7 @@
 import type { OrderStatus, PaymentStatus } from "../../orderStateMachine"
 import { currentBrandSlug } from "../../brand"
 import { ApiError, http } from "../http"
-import type { CupLabel, GuestMenu, LineInput, Order, PayOutcome, PickupCheck, PickupInfo, ProviderStatus, TableRow } from "../orders"
+import type { CupLabel, DigitalCharge, GuestMenu, PayMethod, LineInput, Order, PayOutcome, PickupCheck, PickupInfo, ProviderStatus, TableRow } from "../orders"
 import { tokenStore } from "../tokenStore"
 import { toProduct } from "./brand"
 import { itemsOf, num, rec, recs, str, unsupported, type Raw } from "./util"
@@ -82,10 +82,11 @@ const openTableOrders = async (code: string) =>
 
 export const beOrdersApi = {
   async tables(): Promise<TableRow[]> {
-    const [tables, orders] = await Promise.all([floorTables(), listOrders({ paymentStatus: "Unpaid" })])
+    const [tables, orders, sessions] = await Promise.all([floorTables(), listOrders({ paymentStatus: "Unpaid" }), http.get<Raw[]>("/orders/qr/sessions").catch(() => [] as Raw[])])
+    const asked = new Map(recs(itemsOf(sessions)).filter((s) => str(s.billRequestedAtUtc)).map((s) => [str(s.tableCode), str(s.billRequestedMethod)]))
     return tables.map(({ t }) => {
       const code = str(t.tableCode)
-      return { id: code, code, seats: num(t.capacity), qrToken: str(t.qrToken), billRequested: false, orders: orders.filter((o) => o.tableCode === code && o.status !== "Cancelled") }
+      return { id: code, code, seats: num(t.capacity), qrToken: str(t.qrToken), billRequested: asked.has(code), billMethod: (asked.get(code) as "Cash" | "Transfer" | undefined), orders: orders.filter((o) => o.tableCode === code && o.status !== "Cancelled") }
     })
   },
   async addTable(b: { code: string; seats: number }): Promise<TableRow> {
@@ -168,9 +169,60 @@ export const beOrdersApi = {
   },
   async guestOrders(token: string): Promise<Order[]> {
     const bill = rec(await withSession(token, (headers) => http.get<Raw>("/orders/qr/session/bill", { anonymous: true, headers })))
-    return recs(bill.orders).map((o) => toQrOrder({ ...o, id: o.orderId }, str(bill.tableCode)))
+    const past = await Promise.all(pastSessions(token).map((session) =>
+      http.get<Raw>("/orders/qr/session/bill", { anonymous: true, headers: { "X-Table-Session": session } }).then(rec).catch(() => ({} as Raw))))
+    return [...past.reverse(), bill].flatMap((b) => recs(b.orders).map((o) => toQrOrder({ ...o, id: o.orderId }, str(b.tableCode))))
   },
-  requestBill: (): Promise<{ ok: true }> => unsupported("gọi thu ngân từ màn hình khách (hãy ra quầy để thanh toán)"),
+  async requestBill(token: string, method: "Cash" | "Transfer"): Promise<{ ok: true }> {
+    await withSession(token, (headers) => http.post<Raw>("/orders/qr/session/bill-request", { method }, { anonymous: true, headers }))
+    return { ok: true }
+  },
+  async guestPayMethods(token: string): Promise<PayMethod[]> {
+    const access = await tableAccess(token)
+    return toMethods(await http.get<Raw[]>("/payments/merchant-settings/available", { anonymous: true, headers: access.auth, query: { branchId: access.branchId } }))
+  },
+  /** One payment for each unpaid order of the table, made with the table's short-lived token. */
+  async guestPayStart(token: string, provider: string): Promise<DigitalCharge[]> {
+    const access = await tableAccess(token)
+    const bill = rec(await withSession(token, (headers) => http.get<Raw>("/orders/qr/session/bill", { anonymous: true, headers })))
+    const unpaid = recs(bill.orders).filter((o) => str(o.paymentStatus) === "Unpaid" && !["Cancelled", "NoShow", "Unfulfillable"].includes(str(o.status)))
+    const charges: DigitalCharge[] = []
+    for (const o of unpaid) {
+      const tx = await http.post<Raw>("/payments/transactions", { orderId: str(o.orderId), branchId: access.branchId, amount: num(o.finalAmount), providerCode: provider }, { anonymous: true, headers: access.auth })
+      charges.push(toCharge(rec(tx), str(o.orderCode)))
+    }
+    return charges
+  },
+  async guestPayCheck(token: string, c: DigitalCharge): Promise<DigitalCharge> {
+    const access = await tableAccess(token)
+    return toCharge(rec(await http.post<Raw>(`/payments/transactions/${c.id}/query`, {}, { anonymous: true, headers: access.auth })), c.orderCode)
+  },
+  async guestPaySimulate(token: string, c: DigitalCharge): Promise<DigitalCharge> {
+    const access = await tableAccess(token)
+    return toCharge(rec(await http.post<Raw>(`/payments/transactions/${c.id}/simulate`, { outcome: "success", notify: true }, { anonymous: true, headers: access.auth })), c.orderCode)
+  },
+  counterPayMethods: async (): Promise<PayMethod[]> => toMethods(await http.get<Raw[]>("/payments/merchant-settings/available")),
+  async tablePayStart(tableId: string, provider: string): Promise<DigitalCharge[]> {
+    const charges: DigitalCharge[] = []
+    for (const o of await openTableOrders(tableId)) charges.push(...(await beOrdersApi.orderPayStart(o, provider)))
+    return charges
+  },
+  async orderPayStart(order: Order, provider: string): Promise<DigitalCharge[]> {
+    return [toCharge(rec(await http.post<Raw>("/payments/transactions", { orderId: order.id, amount: order.total, providerCode: provider })), order.code)]
+  },
+  chargeCheck: async (c: DigitalCharge): Promise<DigitalCharge> => toCharge(rec(await http.post<Raw>(`/payments/transactions/${c.id}/query`, {})), c.orderCode),
+  chargeSimulate: async (c: DigitalCharge): Promise<DigitalCharge> =>
+    toCharge(rec(await http.post<Raw>(`/payments/transactions/${c.id}/simulate`, { outcome: "success", notify: true })), c.orderCode),
+  /** A walk-in at the counter: no table, paid before the bar starts. */
+  async placeCounter(lines: LineInput[]): Promise<Order> {
+    return toOrder(rec(await http.post<Raw>("/orders", orderBody("Takeaway", null, lines))))
+  },
+  async payOrderCash(id: string, received: number): Promise<{ change: number }> {
+    const order = await detail(id)
+    if (received < order.total) throw new ApiError(422, "Số tiền khách đưa chưa đủ.", "payment.not_enough")
+    await http.post<Raw>("/payments/transactions/cash", { orderId: id, amount: order.total, amountTendered: received })
+    return { change: received - order.total }
+  },
   takeawayMenu: (branchId: string) => publicMenu(branchId, ""),
   async pickupInfo(branchId: string): Promise<PickupInfo> {
     const day = await pickupDay(branchId, new Date())
@@ -212,7 +264,13 @@ export const beOrdersApi = {
     await http.post<Raw>(`/orders/${id}/cancel`, { reason: "Khách tự hủy đơn" })
     return detail(id)
   },
-  payments: () => listOrders(),
+  /** Orders whose online payment is waiting or failed: the ones the counter may have to ask the provider about. */
+  async payments(): Promise<Order[]> {
+    const [pending, failed] = await Promise.all(["Pending", "Failed"].map((status) => http.get<Raw[]>("/payments/transactions", { query: { status, limit: 50 } })))
+    const ids = [...new Set([...recs(itemsOf(pending)), ...recs(itemsOf(failed))].filter((t) => str(t.method) !== "Cash").map((t) => str(t.orderId)))]
+    const orders = await Promise.all(ids.map((id) => detail(id)))
+    return orders.filter((o) => o.paymentStatus === "Unpaid" && o.status !== "Cancelled")
+  },
   async lookup(id: string): Promise<{ providerStatus: ProviderStatus; order: Order }> {
     const tx = await transactionOf(id)
     const queried = tx ? rec(await http.post<Raw>(`/payments/transactions/${str(tx.id)}/query`, {})) : {}
@@ -289,13 +347,39 @@ function optionIdsOf(l: LineInput): string[] {
   })
 }
 
+const toMethods = (list: unknown): PayMethod[] => recs(itemsOf(list as Raw[])).map((m) => ({ code: str(m.providerCode), name: str(m.displayName) || str(m.providerCode) }))
+
+function toCharge(t: Raw, orderCode: string): DigitalCharge {
+  const s = str(t.status)
+  return {
+    id: str(t.id), orderId: str(t.orderId), orderCode, amount: num(t.amount), checkoutUrl: str(t.checkoutUrl), reference: str(t.transactionRef),
+    state: s === "Succeeded" || s === "PartiallyRefunded" || s === "Refunded" ? "Paid" : s === "Failed" || s === "Expired" || s === "Cancelled" ? "Failed" : "Pending",
+  }
+}
+
+/** The short-lived token that lets this table pay its own orders; asked for each time, so an expired one is never used. */
+async function tableAccess(token: string): Promise<{ auth: Record<string, string>; branchId: string }> {
+  const a = rec(await withSession(token, (headers) => http.post<Raw>("/orders/qr/session/payment-access", {}, { anonymous: true, headers })))
+  return { auth: { Authorization: `Bearer ${str(a.accessToken)}` }, branchId: str(a.branchId) }
+}
+
 const sessionKey = (token: string) => `aicos.qr.session.${token}`
+const pastKey = (token: string) => `aicos.qr.past.${token}`
+
+function pastSessions(token: string): string[] {
+  try { return JSON.parse(sessionStorage.getItem(pastKey(token)) ?? "[]") as string[] } catch { return [] }
+}
 
 /** Scanning the table code gives the token that identifies the table's sitting; every guest call sends it in `X-Table-Session`. */
 async function scanTable(token: string): Promise<string> {
   const scanned = rec(await http.post<Raw>("/orders/qr/scan", { qrToken: token }, { anonymous: true }))
   const session = str(scanned.sessionToken)
-  try { sessionStorage.setItem(sessionKey(token), session) } catch { /* private mode: the table is scanned again on the next call */ }
+  try {
+    // A paid sitting closes by itself. This phone keeps its token, so the guest still sees the e-bill and how far the drinks are.
+    const before = sessionStorage.getItem(sessionKey(token))
+    if (before && before !== session) sessionStorage.setItem(pastKey(token), JSON.stringify([before, ...pastSessions(token)].slice(0, 2)))
+    sessionStorage.setItem(sessionKey(token), session)
+  } catch { /* private mode: the table is scanned again on the next call */ }
   return session
 }
 

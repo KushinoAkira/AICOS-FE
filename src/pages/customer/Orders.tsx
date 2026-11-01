@@ -40,7 +40,7 @@ export default function CustomerOrders({ navigate }: { navigate: (p: Page) => vo
                   <p className="font-medium text-text-primary">{o.code} <span className="text-sm font-normal text-text-secondary">· {formatDateTime(o.createdAtUtc)}</span></p>
                   <span className="flex gap-2"><OrderStatusPill status={o.status} /><PaymentPill status={o.paymentStatus} /></span>
                 </div>
-                <ul className="mt-3 text-sm text-text-secondary">{o.lines.map((l, i) => <li key={i}>{l.qty}× {l.name} ({l.size})</li>)}</ul>
+                <ul className="mt-3 text-sm text-text-secondary">{o.lines.map((l, i) => <li key={i}>{l.qty}× {l.name}{l.size ? ` (${l.size})` : ""}</li>)}</ul>
                 <p className="mt-3 text-sm text-text-secondary">{o.pickupSlot && <>Nhận lúc <b className="text-text-primary">{formatTime(o.pickupSlot)}</b> · </>}Tổng <b className="text-text-primary">{formatVND(o.total)}</b></p>
                 {o.paymentStatus === "RefundPending" && <div className="mt-3"><Banner tone="warn">Đang hoàn {formatVND(o.refundedAmount)}. Sẽ báo đã hoàn khi cổng thanh toán xác nhận.</Banner></div>}
                 {o.paymentStatus === "Refunded" && <p className="mt-3 text-sm text-state-success">Đã hoàn {formatVND(o.refundedAmount)}.</p>}

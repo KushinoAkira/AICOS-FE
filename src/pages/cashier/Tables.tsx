@@ -1,6 +1,7 @@
 import { useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import type { Page } from "../../App"
+import { CounterDigitalPay } from "../../components/CounterDigitalPay"
 import { OrderStatusPill } from "../../components/OrderStatusPill"
 import { PageFrame } from "../../components/PageFrame"
 import { Banner, Button, Field, Modal, QueryBoundary, StatusPill } from "../../components/ui"
@@ -25,6 +26,7 @@ export default function CashierTables({ navigate }: { navigate: (p: Page) => voi
   const [selected, setSelected] = useState<string | null>(null)
   const [received, setReceived] = useState("")
   const [error, setError] = useState<string | null>(null)
+  const [digital, setDigital] = useState<TableRow | null>(null)
   const pay = useMutation({
     mutationFn: (t: TableRow) => ordersApi.payTable(t.id, { method: "cash", received: Number(received) }),
     onSuccess: (r) => { void qc.invalidateQueries({ queryKey: ["tables"] }); void qc.invalidateQueries({ queryKey: ["orders"] }); setSelected(null); setReceived(""); showToast(r.change > 0 ? `Đã thanh toán. Thối lại ${formatVND(r.change)}` : "Đã thanh toán", "success") },
@@ -68,17 +70,26 @@ export default function CashierTables({ navigate }: { navigate: (p: Page) => voi
                     <ul className="divide-y divide-border text-sm">
                       {current.orders.map((o) => (
                         <li key={o.id} className="py-2"><div className="flex items-center justify-between"><b className="text-text-primary">{o.code}</b><OrderStatusPill status={o.status} /></div>
-                          {o.lines.map((l, i) => <p key={i} className="text-text-secondary">{l.qty}× {l.name} ({l.size}) · {formatVND(l.unitPrice * l.qty)}</p>)}
+                          {o.lines.map((l, i) => <p key={i} className="text-text-secondary">{l.qty}× {l.name}{l.size ? ` (${l.size})` : ""} · {formatVND(l.unitPrice * l.qty)}</p>)}
                         </li>
                       ))}
                     </ul>
+                    {current.billRequested && !isSettled(current) && <Banner tone="warn">Khách gọi thanh toán {current.billMethod === "Transfer" ? "bằng chuyển khoản" : "bằng tiền mặt"}.</Banner>}
                     {isSettled(current)
                       ? <Banner tone="success">Bàn đã thanh toán. Bấm "Hoàn thành bàn" để trả bàn và lưu đơn vào lịch sử khách hàng.</Banner>
                       : <p className="flex justify-between font-serif text-lg text-text-primary"><span>Tổng</span><span>{formatVND(billOf(current))}</span></p>}
                     {!isSettled(current) && <Field label="Khách đưa (₫)" inputMode="numeric" value={received} onChange={(e) => setReceived(e.target.value.replace(/\D/g, ""))} hint={Number(received) >= billOf(current) && received ? `Thối lại ${formatVND(Number(received) - billOf(current))}` : "Nhập số tiền mặt nhận được"} />}
+                    {!isSettled(current) && <Button variant="secondary" className="min-h-11 w-full" onClick={() => { setDigital(current); setSelected(null) }}>Khách chuyển khoản QR</Button>}
                   </div>
                 )}
               </Modal>
+              <CounterDigitalPay
+                open={!!digital}
+                amount={digital ? billOf(digital) : 0}
+                start={(provider) => ordersApi.tablePayStart(digital?.id ?? "", provider)}
+                onClose={() => setDigital(null)}
+                onSettled={() => { void qc.invalidateQueries({ queryKey: ["tables"] }); void qc.invalidateQueries({ queryKey: ["orders"] }) }}
+              />
             </>
           )
         }}

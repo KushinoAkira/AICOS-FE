@@ -1,7 +1,9 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { useQuery } from "@tanstack/react-query"
 import { useParams } from "react-router"
 import type { Page } from "../../App"
 import { Logo } from "../../components/AuthShell"
+import { GuestPay } from "../../components/GuestPay"
+import { paidAndStillMaking } from "../../components/GuestOrderTabs"
 import { OrderStatusPill } from "../../components/OrderStatusPill"
 import { Banner, Button, EmptyState, ErrorState, LoadingState } from "../../components/ui"
 import { ordersApi } from "../../lib/api/orders"
@@ -11,11 +13,11 @@ import { formatTime, formatVND } from "../../lib/format"
 /** Live status of the table's open orders. Pushed over SignalR; polls every 5s while the channel is down. */
 export default function GuestStatus({ navigate }: { navigate: (p: Page, params?: Record<string, string>) => void }) {
   const { token = "" } = useParams()
-  const qc = useQueryClient()
   const live = useGuestRealtime(token)
-  const orders = useQuery({ queryKey: ["guest", token, "orders"], queryFn: () => ordersApi.guestOrders(token), refetchInterval: pollWhile(live, 5000), retry: false })
-  const bill = useMutation({ mutationFn: () => ordersApi.requestBill(token), onSuccess: () => void qc.invalidateQueries({ queryKey: ["guest", token] }) })
-  const total = (orders.data ?? []).filter((o) => o.status !== "Cancelled" && o.status !== "Unfulfillable").reduce((s, o) => s + o.total, 0)
+  const orders = useQuery({ queryKey: ["guest", token, "orders"], queryFn: () => ordersApi.guestOrders(token), refetchInterval: (q) => (q.state.data?.some(paidAndStillMaking) ? 5000 : pollWhile(live, 5000)), retry: false })
+  const counted = (orders.data ?? []).filter((o) => o.status !== "Cancelled" && o.status !== "Unfulfillable")
+  const total = counted.reduce((s, o) => s + o.total, 0)
+  const due = counted.filter((o) => o.paymentStatus === "Unpaid").reduce((s, o) => s + o.total, 0)
 
   return (
     <div data-uc="UC-QR" className="min-h-screen bg-bg-base px-4 py-6 sm:px-8">
@@ -28,17 +30,16 @@ export default function GuestStatus({ navigate }: { navigate: (p: Page, params?:
         {orders.data?.map((o) => (
           <section key={o.id} className="rounded-[16px] border border-border bg-surface p-5">
             <div className="flex items-center justify-between"><p className="font-medium text-text-primary">{o.code} <span className="text-xs text-text-secondary">{formatTime(o.createdAtUtc)}</span></p><OrderStatusPill status={o.status} /></div>
-            <ul className="mt-3 text-sm text-text-secondary">{o.lines.map((l, i) => <li key={i}>{l.qty}× {l.name} ({l.size})</li>)}</ul>
+            <ul className="mt-3 text-sm text-text-secondary">{o.lines.map((l, i) => <li key={i}>{l.qty}× {l.name}{l.size ? ` (${l.size})` : ""}</li>)}</ul>
             {o.status === "Unfulfillable" && <div className="mt-3"><Banner>Quán không thực hiện được đơn này{o.reason ? `: ${o.reason}` : ""}. Bạn không bị tính tiền.</Banner></div>}
           </section>
         ))}
         {!!orders.data?.length && (
           <div className="flex items-center justify-between rounded-[16px] bg-sand p-5">
-            <div><p className="text-sm text-text-secondary">Tạm tính</p><p className="font-serif text-xl text-text-primary">{formatVND(total)}</p></div>
-            <Button loading={bill.isPending} disabled={bill.isSuccess} onClick={() => bill.mutate()}>{bill.isSuccess ? "Đã gọi thanh toán" : "Gọi thanh toán"}</Button>
+            <p className="text-sm text-text-secondary">Tổng các đơn</p><p className="font-serif text-xl text-text-primary">{formatVND(total)}</p>
           </div>
         )}
-        {bill.isError && <Banner>{bill.error.message}</Banner>}
+        {due > 0 ? <GuestPay token={token} due={due} /> : !!counted.length && <Banner tone="success">Bàn đã thanh toán đủ. Cảm ơn bạn!</Banner>}
       </main>
     </div>
   )

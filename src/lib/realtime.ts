@@ -122,7 +122,7 @@ export function useBranchRealtime(): boolean {
   ]
   return useChannel({
     path: "/hubs/kitchen",
-    events: ["ReceiveKitchenTicket", "TicketStatusChanged", "OrderReadyForPickup"],
+    events: ["ReceiveKitchenTicket", "TicketStatusChanged", "OrderReadyForPickup", "TableBillRequested", "PaymentSucceeded"],
     onConnected: async (connection) => {
       for (const method of joins) await connection.invoke(method, branchId)
     },

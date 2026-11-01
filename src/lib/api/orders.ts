@@ -49,8 +49,24 @@ export interface TableRow {
   seats: number
   qrToken: string
   billRequested: boolean
+  /** How the guests said they want to pay, when they asked for the bill. */
+  billMethod?: "Cash" | "Transfer"
   /** Unpaid orders of the open table session; empty means the table is empty (derived, never stored). */
   orders: Order[]
+}
+
+/** A way to pay online that this branch offers. */
+export interface PayMethod { code: string; name: string }
+
+/** One online payment for one order. Paid only when the provider says so (BR-26). */
+export interface DigitalCharge {
+  id: string
+  orderId: string
+  orderCode: string
+  amount: number
+  state: "Pending" | "Paid" | "Failed"
+  checkoutUrl: string
+  reference: string
 }
 
 /** One cup's label (printing may be simulated for the MVP). */
@@ -88,7 +104,19 @@ const mockOrdersApi = {
   payments: () => http.get<Order[]>(`${B}/payments`),
   lookup: (id: string) => http.post<{ providerStatus: ProviderStatus; order: Order }>(`${B}/orders/${id}/payment-lookup`, {}),
   refund: (id: string, b: { amount: number; reason: string }) => http.post<Order>(`${B}/orders/${id}/refund`, b),
-  requestBill: (token: string) => http.post<{ ok: true }>(`${B}/guest/${token}/bill`, {}),
+  requestBill: (token: string, method: "Cash" | "Transfer") => http.post<{ ok: true }>(`${B}/guest/${token}/bill`, { method }),
+  // The demo data has no payment provider: the guest asks staff instead.
+  guestPayMethods: async (_token: string): Promise<PayMethod[]> => [],
+  guestPayStart: async (_token: string, _provider: string): Promise<DigitalCharge[]> => [],
+  guestPayCheck: async (_token: string, c: DigitalCharge): Promise<DigitalCharge> => c,
+  guestPaySimulate: async (_token: string, c: DigitalCharge): Promise<DigitalCharge> => c,
+  counterPayMethods: async (): Promise<PayMethod[]> => [],
+  tablePayStart: async (_tableId: string, _provider: string): Promise<DigitalCharge[]> => [],
+  orderPayStart: async (_order: Order, _provider: string): Promise<DigitalCharge[]> => [],
+  chargeCheck: async (c: DigitalCharge): Promise<DigitalCharge> => c,
+  chargeSimulate: async (c: DigitalCharge): Promise<DigitalCharge> => c,
+  placeCounter: (lines: LineInput[]) => http.post<Order>(`${B}/orders`, { tableId: null, lines }),
+  payOrderCash: (id: string, received: number) => http.post<{ change: number }>(`${B}/orders/${id}/pay-cash`, { received }),
 }
 
 /** Mock data in demo mode, the real gateway otherwise. */

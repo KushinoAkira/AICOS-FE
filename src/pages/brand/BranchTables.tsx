@@ -1,13 +1,18 @@
 import { useRef, useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { QRCodeSVG } from "qrcode.react"
+import { useSearchParams } from "react-router"
 import type { Page } from "../../App"
 import { PageFrame } from "../../components/PageFrame"
 import { Banner, Button, ConfirmDialog, EmptyState, Field, Modal, QueryBoundary, StatusPill } from "../../components/ui"
+import { GenerateTablesDialog, ImportTablesDialog } from "../../components/tables/TableBatchDialogs"
+import { useAuth } from "../../context/AuthContext"
 import { useToast } from "../../context/ToastContext"
-import { tableApi, type DiningTable } from "../../lib/api/manage"
+import { branchesApi } from "../../lib/api/identity"
+import { planLimitsApi, tableApi, type DiningTable } from "../../lib/api/manage"
+import { baseIsLocal, byCode, publicBase, qrLink } from "../../lib/tableBatch"
 
-const qrUrl = (t: DiningTable) => `${window.location.origin}/q/${t.qrToken}`
+const qrUrl = (t: DiningTable) => qrLink(t.qrToken)
 const STATUS: Record<DiningTable["status"], { label: string; tone: "neutral" | "pending" | "danger" }> = {
   Available: { label: "Trống", tone: "neutral" }, Occupied: { label: "Có khách", tone: "pending" }, OutOfService: { label: "Ngừng phục vụ", tone: "danger" },
 }
@@ -56,8 +61,20 @@ interface Form { areaId: string; tableCode: string; capacity: string }
 export default function BranchTables({ navigate }: { navigate: (p: Page) => void }) {
   const qc = useQueryClient()
   const { showToast } = useToast()
-  const tables = useQuery({ queryKey: ["dining-tables"], queryFn: tableApi.list })
-  const areas = useQuery({ queryKey: ["areas"], queryFn: tableApi.areas })
+  const { role } = useAuth()
+  const isBrand = role === "brandAdmin"
+  const [params, setParams] = useSearchParams()
+  const branches = useQuery({ queryKey: ["branches", "active"], queryFn: () => branchesApi.listActive(), enabled: isBrand })
+  const branchId = isBrand ? params.get("branch") ?? branches.data?.[0]?.id : undefined
+  const ready = !isBrand || !!branchId
+  const tables = useQuery({ queryKey: ["dining-tables", branchId], queryFn: () => tableApi.list(branchId), enabled: ready })
+  const areas = useQuery({ queryKey: ["areas", branchId], queryFn: () => tableApi.areas(branchId), enabled: ready })
+  const limits = useQuery({ queryKey: ["plan-limits"], queryFn: planLimitsApi.get })
+  const [batch, setBatch] = useState<"generate" | "import" | null>(null)
+  const [areaFilter, setAreaFilter] = useState("")
+  const max = limits.data?.maxTablesPerBranch ?? null
+  const used = tables.data?.length ?? 0
+  const remaining = max === null ? null : Math.max(0, max - used)
   const [editing, setEditing] = useState<DiningTable | "new" | null>(null)
   const [form, setForm] = useState<Form>({ areaId: "", tableCode: "", capacity: "2" })
   const [error, setError] = useState<string | null>(null)
@@ -77,7 +94,7 @@ export default function BranchTables({ navigate }: { navigate: (p: Page) => void
   const save = useMutation({
     mutationFn: () => {
       const body = { areaId: form.areaId, tableCode: form.tableCode.trim(), capacity: Number(form.capacity) }
-      return editing && editing !== "new" ? tableApi.update(editing.id, body) : tableApi.create(body)
+      return editing && editing !== "new" ? tableApi.update(editing.id, body) : tableApi.create({ ...body, branchId })
     },
     onSuccess: () => { refresh(); setEditing(null); showToast("Đã lưu bàn.", "success") },
     onError: (e) => setError(e.message),
@@ -89,7 +106,7 @@ export default function BranchTables({ navigate }: { navigate: (p: Page) => void
     onSuccess: (t) => { refresh(); setRegenerating(null); setQr(t); showToast("Đã đổi mã QR. Mã cũ không dùng được nữa, hãy in và dán lại.", "success") },
     onError: (e) => { setRegenerating(null); fail(e) },
   })
-  const addArea = useMutation({ mutationFn: () => tableApi.addArea(areaName.trim()), onSuccess: () => { refresh(); setAreaName("") }, onError: fail })
+  const addArea = useMutation({ mutationFn: () => tableApi.addArea(areaName.trim(), branchId), onSuccess: () => { refresh(); setAreaName("") }, onError: fail })
   const removeArea = useMutation({ mutationFn: (id: string) => tableApi.removeArea(id), onSuccess: refresh, onError: fail })
 
   const submit = () => {
@@ -100,8 +117,34 @@ export default function BranchTables({ navigate }: { navigate: (p: Page) => void
     save.mutate()
   }
 
+  const batchDone = (created: number) => { setBatch(null); refresh(); showToast(`Đã tạo ${created} bàn, mỗi bàn một mã QR riêng.`, "success") }
+  const printAll = () => window.open(`/branch/tables/print${branchId ? `?branch=${branchId}` : ""}${areaFilter ? `${branchId ? "&" : "?"}area=${areaFilter}` : ""}`, "_blank")
+
   return (
-    <PageFrame page="branch-tables" navigate={navigate} uc="UC-25" title="Bàn và mã QR" subtitle="Mỗi bàn có một mã QR riêng để in và dán tại bàn." action={<Button onClick={() => open("new")}>Thêm bàn</Button>}>
+    <PageFrame
+      page="branch-tables" navigate={navigate} uc="UC-25" title="Bàn và mã QR" subtitle="Mỗi bàn có một mã QR riêng để in và dán tại bàn."
+      action={<div className="flex flex-wrap gap-2">
+        <Button variant="secondary" disabled={!ready || used === 0} disabledReason="Chưa có bàn để in" onClick={printAll}>In QR hàng loạt</Button>
+        <Button variant="secondary" disabled={!ready} onClick={() => setBatch("import")}>Nhập CSV</Button>
+        <Button variant="secondary" disabled={!ready} onClick={() => setBatch("generate")}>Tạo hàng loạt</Button>
+        <Button disabled={!ready} onClick={() => open("new")}>Thêm bàn</Button>
+      </div>}
+    >
+      {isBrand && (
+        <div className="mb-4 max-w-sm">
+          <label htmlFor="tables-branch" className="mb-1.5 block text-sm font-medium text-text-primary">Chi nhánh</label>
+          <select id="tables-branch" value={branchId ?? ""} onChange={(e) => { setAreaFilter(""); setParams({ branch: e.target.value }) }} className="w-full rounded-[10px] border border-border bg-surface px-3 py-3 text-sm">
+            {(branches.data ?? []).map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+          </select>
+        </div>
+      )}
+      {isBrand && branches.isSuccess && branches.data.length === 0 && <div className="mb-4"><Banner tone="warn">Thương hiệu chưa có chi nhánh. Hãy tạo chi nhánh trước.</Banner></div>}
+      {tables.isSuccess && (
+        <p className="mb-4 text-sm text-text-secondary">
+          {max === null ? <>Chi nhánh này có <b className="text-text-primary">{used}</b> bàn.</> : <>Đã dùng <b className={used >= max ? "text-state-danger" : "text-text-primary"}>{used}/{max}</b> bàn của gói {limits.data?.planName}.</>}
+        </p>
+      )}
+      {baseIsLocal() && used > 0 && <div className="mb-4"><Banner tone="warn">Mã QR đang trỏ về {publicBase()}, điện thoại của khách không mở được. Đặt VITE_PUBLIC_APP_URL là địa chỉ thật trước khi in.</Banner></div>}
       <section aria-label="Khu vực" className="mb-8 rounded-[16px] border border-border bg-surface p-5">
         <h2 className="font-serif text-lg text-text-primary">Khu vực</h2>
         <QueryBoundary query={areas}>
@@ -124,9 +167,17 @@ export default function BranchTables({ navigate }: { navigate: (p: Page) => void
       </section>
 
       <QueryBoundary query={tables}>
-        {(rows) => rows.length === 0 ? <EmptyState title="Chưa có bàn nào" description="Thêm bàn để có mã QR." /> : (
+        {(rows) => rows.length === 0 ? <EmptyState title="Chưa có bàn nào" description="Thêm từng bàn, tạo hàng loạt hoặc nhập từ file CSV để có mã QR." /> : (
+          <>
+          {(areas.data?.length ?? 0) > 1 && (
+            <div role="tablist" aria-label="Lọc theo khu vực" className="mb-4 flex flex-wrap gap-2">
+              {[{ id: "", name: `Tất cả (${rows.length})` }, ...(areas.data ?? []).map((a) => ({ id: a.id, name: `${a.name} (${a.tableCount})` }))].map((a) => (
+                <button key={a.id} role="tab" aria-selected={areaFilter === a.id} onClick={() => setAreaFilter(a.id)} className={`min-h-10 rounded-full border px-4 text-sm ${areaFilter === a.id ? "border-espresso bg-espresso text-white" : "border-border bg-surface text-text-primary"}`}>{a.name}</button>
+              ))}
+            </div>
+          )}
           <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {rows.map((t) => (
+            {rows.filter((t) => !areaFilter || t.areaId === areaFilter).sort((a, b) => byCode(a.tableCode, b.tableCode)).map((t) => (
               <li key={t.id} className="flex flex-col rounded-[16px] border border-border bg-surface p-5">
                 <div className="flex items-center justify-between gap-2"><p className="font-serif text-xl text-text-primary">Bàn {t.tableCode}</p><StatusPill tone={STATUS[t.status].tone}>{STATUS[t.status].label}</StatusPill></div>
                 <p className="mt-1 flex-1 text-sm text-text-secondary">{t.capacity} chỗ · {t.areaName}</p>
@@ -139,8 +190,12 @@ export default function BranchTables({ navigate }: { navigate: (p: Page) => void
               </li>
             ))}
           </ul>
+          </>
         )}
       </QueryBoundary>
+
+      {batch === "generate" && <GenerateTablesDialog areas={areas.data ?? []} existing={(tables.data ?? []).map((t) => t.tableCode)} branchId={branchId} remaining={remaining} onClose={() => setBatch(null)} onDone={batchDone} />}
+      {batch === "import" && <ImportTablesDialog branchId={branchId} remaining={remaining} onClose={() => setBatch(null)} onDone={batchDone} />}
 
       <Modal open={!!editing} title={editing === "new" ? "Thêm bàn" : "Sửa bàn"} onClose={() => setEditing(null)} footer={<><Button variant="secondary" onClick={() => setEditing(null)}>Hủy</Button><Button loading={save.isPending} onClick={submit}>Lưu</Button></>}>
         <div className="space-y-4">

@@ -13,12 +13,12 @@ const toTenant = (t: Raw): Tenant => ({
 
 const toPlan = (p: Raw): Plan => ({
   id: str(p.id), name: str(p.name), monthlyFee: num(p.fee), billingCycle: str(p.billingPeriod, "Monthly") as Plan["billingCycle"],
-  maxBranches: num(p.maxBranches), maxUsers: num(p.maxStaffAccounts), tier: str(p.tier) || undefined, description: str(p.description) || undefined,
+  maxBranches: num(p.maxBranches), maxUsers: num(p.maxStaffAccounts), maxTablesPerBranch: num(p.maxTablesPerBranch), tier: str(p.tier) || undefined, description: str(p.description) || undefined,
   isActive: p.isActive === undefined ? undefined : bool(p.isActive), subscribers: num(p.subscribers),
 })
 
 const planBody = (b: Omit<Plan, "id">) => ({
-  name: b.name, tier: b.tier || b.name, fee: b.monthlyFee, billingPeriod: b.billingCycle, maxBranches: b.maxBranches || null, maxStaffAccounts: b.maxUsers || null, description: b.description || null,
+  name: b.name, tier: b.tier || b.name, fee: b.monthlyFee, billingPeriod: b.billingCycle, maxBranches: b.maxBranches || null, maxStaffAccounts: b.maxUsers || null, maxTablesPerBranch: b.maxTablesPerBranch || null, description: b.description || null,
 })
 
 const toProvider = (p: Raw): PaymentProvider => ({

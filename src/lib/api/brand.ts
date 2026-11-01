@@ -56,6 +56,8 @@ export interface BrandSubscription {
   monthlyFee: number
   maxBranches: number
   maxUsers: number
+  /** 0 is unlimited. */
+  maxTablesPerBranch?: number
   usedBranches: number
   usedUsers: number
   renewsAtUtc: string

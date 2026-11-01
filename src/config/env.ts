@@ -2,6 +2,8 @@
   /** Self-hosted AI service (Backend/ai-models): chat, recommendations, feedback analysis. */
   aiBaseUrl: ((import.meta.env.VITE_AI_BASE_URL as string | undefined) ?? "http://localhost:8090/api/v1/ai").replace(/\/+$/, ""),
   useMock: import.meta.env.VITE_USE_MOCK === "true",
+  /** Address printed in table QR codes. Empty: the address of the page, which a guest's phone cannot reach when it is localhost. */
+  publicAppUrl: ((import.meta.env.VITE_PUBLIC_APP_URL as string | undefined) ?? "").trim().replace(/\/+$/, ""),
   /** OAuth client id of the web app for "Continue with Google" (public). Empty: the button explains that Google sign-in is not set up. */
   googleClientId: ((import.meta.env.VITE_GOOGLE_CLIENT_ID as string | undefined) ?? "").trim(),
   /** Quick-login buttons on the login page: dev builds or VITE_DEMO=true only. */

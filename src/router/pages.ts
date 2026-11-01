@@ -51,6 +51,7 @@ export const PAGE_PATHS = {
   "manager-payroll": "/branch/payroll",
   "manager-payroll-detail": "/branch/payroll-detail",
   "branch-tables": "/branch/tables",
+  "branch-tables-print": "/branch/tables/print",
   "branch-pickup": "/branch/pickup-settings",
   "branch-orders": "/branch/orders",
   "branch-attendance": "/branch/attendance",

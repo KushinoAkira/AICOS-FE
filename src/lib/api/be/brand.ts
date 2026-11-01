@@ -195,7 +195,7 @@ export const beSubscriptionApi = {
 function toBrandSubscription(s: Raw): BrandSubscription {
   const health = str(s.health)
   return {
-    planName: str(s.planName), monthlyFee: num(s.fee), maxBranches: num(s.maxBranches), maxUsers: num(s.maxStaffAccounts),
+    planName: str(s.planName), monthlyFee: num(s.fee), maxBranches: num(s.maxBranches), maxUsers: num(s.maxStaffAccounts), maxTablesPerBranch: num(s.maxTablesPerBranch),
     usedBranches: num(s.activeBranches), usedUsers: num(s.staffAccounts), renewsAtUtc: str(s.periodEndUtc),
     status: str(s.status) === "Suspended" ? "Suspended" : health === "Overdue" || health === "GracePeriod" ? "PastDue" : "Active",
   }

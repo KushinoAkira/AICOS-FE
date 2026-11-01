@@ -8,7 +8,7 @@ import { platformApi, type Plan } from "../../lib/api/platform"
 import { PlatformPage } from "./PlatformPage"
 
 const CYCLE: Record<Plan["billingCycle"], string> = { Monthly: "tháng", Quarterly: "quý", Yearly: "năm" }
-const EMPTY = { name: "", monthlyFee: "", billingCycle: "Monthly", maxBranches: "", maxUsers: "", description: "" }
+const EMPTY = { name: "", monthlyFee: "", billingCycle: "Monthly", maxBranches: "", maxUsers: "", maxTables: "", description: "" }
 const limit = (n: number, what: string) => (n > 0 ? <>Tối đa <b className="text-text-primary">{n}</b> {what}</> : <>Không giới hạn {what}</>)
 
 /** UC-06: the plans brands can rent. A plan is taken off sale rather than deleted, because brands may still be on it. */
@@ -26,7 +26,7 @@ export default function PlatformPlans({ navigate }: { navigate: (p: Page) => voi
     mutationFn: () => {
       const body = {
         name: draft.name.trim(), monthlyFee: Number(draft.monthlyFee), billingCycle: draft.billingCycle as Plan["billingCycle"],
-        maxBranches: Number(draft.maxBranches), maxUsers: Number(draft.maxUsers), description: draft.description.trim(), tier: editing?.tier,
+        maxBranches: Number(draft.maxBranches), maxUsers: Number(draft.maxUsers), maxTablesPerBranch: Number(draft.maxTables), description: draft.description.trim(), tier: editing?.tier,
       }
       return editing ? platformApi.updatePlan(editing.id, body) : platformApi.createPlan(body)
     },
@@ -45,7 +45,7 @@ export default function PlatformPlans({ navigate }: { navigate: (p: Page) => voi
     setError(null)
     setDraft({
       name: p.name, monthlyFee: String(p.monthlyFee), billingCycle: p.billingCycle,
-      maxBranches: p.maxBranches ? String(p.maxBranches) : "", maxUsers: p.maxUsers ? String(p.maxUsers) : "", description: p.description ?? "",
+      maxBranches: p.maxBranches ? String(p.maxBranches) : "", maxUsers: p.maxUsers ? String(p.maxUsers) : "", maxTables: p.maxTablesPerBranch ? String(p.maxTablesPerBranch) : "", description: p.description ?? "",
     })
   }
   function openCreate() {
@@ -77,6 +77,7 @@ export default function PlatformPlans({ navigate }: { navigate: (p: Page) => voi
                 <ul className="mt-4 space-y-1 text-sm text-text-secondary">
                   <li>{limit(p.maxBranches, "chi nhánh")}</li>
                   <li>{limit(p.maxUsers, "người dùng")}</li>
+                  <li>{limit(p.maxTablesPerBranch ?? 0, "bàn và mã QR mỗi chi nhánh")}</li>
                   <li><b className="text-text-primary">{p.subscribers ?? 0}</b> thương hiệu đang dùng</li>
                 </ul>
                 <div className="mt-5 flex gap-2">
@@ -105,6 +106,7 @@ export default function PlatformPlans({ navigate }: { navigate: (p: Page) => voi
           </div>
           <Field label="Số chi nhánh tối đa" hint="Để trống là không giới hạn." inputMode="numeric" value={draft.maxBranches} onChange={(e) => setDraft((d) => ({ ...d, maxBranches: e.target.value.replace(/\D/g, "") }))} />
           <Field label="Số người dùng tối đa" hint="Để trống là không giới hạn." inputMode="numeric" value={draft.maxUsers} onChange={(e) => setDraft((d) => ({ ...d, maxUsers: e.target.value.replace(/\D/g, "") }))} />
+          <Field label="Số bàn và mã QR tối đa mỗi chi nhánh" hint="Để trống là không giới hạn. Hạ gói chỉ chặn tạo thêm, không ảnh hưởng bàn đang có." inputMode="numeric" value={draft.maxTables} onChange={(e) => setDraft((d) => ({ ...d, maxTables: e.target.value.replace(/\D/g, "") }))} />
           <Field label="Mô tả" value={draft.description} onChange={(e) => setDraft((d) => ({ ...d, description: e.target.value }))} />
         </div>
       </Modal>

@@ -74,6 +74,8 @@ export interface Plan {
   billingCycle: "Monthly" | "Quarterly" | "Yearly"
   maxBranches: number
   maxUsers: number
+  /** 0 is unlimited. */
+  maxTablesPerBranch?: number
   graceDays?: number
   tier?: string
   description?: string

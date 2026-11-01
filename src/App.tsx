@@ -61,6 +61,7 @@ const GuestMenu = lazy(() => import("./pages/guest/GuestMenu"))
 const GuestStatus = lazy(() => import("./pages/guest/GuestStatus"))
 const BranchOrders = lazy(() => import("./pages/brand/BranchOrders"))
 const BranchTables = lazy(() => import("./pages/brand/BranchTables"))
+const TablesPrint = lazy(() => import("./pages/brand/TablesPrint"))
 const CashierTables = lazy(() => import("./pages/cashier/Tables"))
 const CashierShifts = lazy(() => import("./pages/cashier/Shifts"))
 const CashierServe = lazy(() => import("./pages/cashier/Serve"))
@@ -162,6 +163,7 @@ export default function App() {
     "manager-payroll": <ManagerPayroll navigate={navigate} />,
     "manager-payroll-detail": <ManagerPayrollDetail navigate={navigate} />,
     "branch-tables": <BranchTables navigate={navigate} />,
+    "branch-tables-print": <TablesPrint />,
     "branch-pickup": <BranchPickupPage navigate={navigate} />,
     "branch-orders": <BranchOrders navigate={navigate} />,
     "branch-attendance": <ManagerAttendance navigate={navigate} />,

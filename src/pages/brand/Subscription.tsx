@@ -43,6 +43,7 @@ export default function BrandSubscription({ navigate }: { navigate: (p: Page) =>
               <StatusPill tone={s.status === "Active" ? "success" : "pending"}>{s.status === "Active" ? "Đang hoạt động" : s.status === "PastDue" ? "Quá hạn" : "Tạm ngưng"}</StatusPill>
             </div>
             <div className="mt-6 space-y-4"><Meter label="Chi nhánh" used={s.usedBranches} max={s.maxBranches} /><Meter label="Người dùng" used={s.usedUsers} max={s.maxUsers} /></div>
+            <p className="mt-4 text-sm text-text-secondary">Bàn và mã QR mỗi chi nhánh: <b className="text-text-primary">{s.maxTablesPerBranch ? `tối đa ${s.maxTablesPerBranch}` : "không giới hạn"}</b></p>
             <p className="mt-6 text-sm text-text-secondary">Gia hạn tiếp theo: <b className="text-text-primary">{formatDate(s.renewsAtUtc)}</b></p>
             {featureFlags.renewSimulated && <Button className="mt-4" loading={renew.isPending} onClick={() => renew.mutate()}>Gia hạn thêm 30 ngày (mô phỏng)</Button>}
           </Card>

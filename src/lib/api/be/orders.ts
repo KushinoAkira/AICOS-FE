@@ -164,9 +164,35 @@ export const beOrdersApi = {
   },
   requestBill: (): Promise<{ ok: true }> => unsupported("gọi thu ngân từ màn hình khách (hãy ra quầy để thanh toán)"),
   takeawayMenu: (branchId: string) => publicMenu(branchId, ""),
-  pickupInfo: (): Promise<PickupInfo> => unsupported("đặt món mang đi (SCRUM-80 chưa có API)"),
-  pickupCheck: (): Promise<PickupCheck> => unsupported("kiểm tra khung giờ lấy hàng"),
-  placeTakeaway: (): Promise<Order> => unsupported("đặt món mang đi"),
+  async pickupInfo(branchId: string): Promise<PickupInfo> {
+    const day = await pickupDay(branchId, new Date())
+    const slots = recs(day.slots)
+    const first = slots[0], last = slots[slots.length - 1]
+    return {
+      open: first ? hhmm(new Date(str(first.startUtc))) : "07:00", close: last ? hhmm(new Date(str(last.endUtc))) : "22:00",
+      slotMinutes: num(day.slotMinutes, 15), cutoffMinutes: num(day.cutoffMinutes, 15), capacityPerSlot: num(day.capacityPerSlot, 10),
+    }
+  },
+  async pickupCheck(branchId: string, at: string): Promise<PickupCheck> {
+    const when = new Date(at)
+    if (Number.isNaN(when.getTime())) return { ok: false, remaining: 0, message: "Giờ nhận không hợp lệ" }
+    const day = await pickupDay(branchId, when)
+    const slot = slotOf(day, when)
+    if (!slot) return { ok: false, remaining: 0, message: "Quán không nhận đơn mang đi vào giờ này" }
+    if (slot.available !== true) {
+      return { ok: false, remaining: 0, message: slot.locked === true ? `Cần đặt trước ít nhất ${num(day.cutoffMinutes)} phút` : "Khung giờ này đã đầy, vui lòng chọn giờ khác" }
+    }
+    return { ok: true, remaining: num(slot.remaining), message: null }
+  },
+  async placeTakeaway(b: { branchId: string; slot: string; lines: LineInput[] }): Promise<Order> {
+    const when = new Date(b.slot)
+    const slot = slotOf(await pickupDay(b.branchId, when), when)
+    if (!slot) throw new ApiError(422, "Quán không nhận đơn mang đi vào giờ này.", "pickup.slot_invalid")
+    const items = b.lines.map((l) => ({ productId: l.productId, quantity: l.qty, note: l.note.trim() || null, optionIds: optionIdsOf(l) }))
+    // One key per attempt: a retry after a lost answer returns the same order instead of booking the slot twice.
+    const key = crypto.randomUUID()
+    return toOrder(rec(await http.post<Raw>("/orders/pickup", { branchId: b.branchId, slotStartUtc: str(slot.startUtc), note: null, items }, { headers: { "Idempotency-Key": key } })))
+  },
   async payOnline(id: string, outcome: PayOutcome): Promise<Order> {
     const order = await detail(id)
     const tx = rec(await http.post<Raw>("/payments/transactions", { orderId: id, amount: order.total, providerCode: "Mock", branchId: null }))
@@ -174,7 +200,10 @@ export const beOrdersApi = {
     return detail(id)
   },
   async mine(): Promise<Order[]> { return withLines(recs(itemsOf(await http.get<Raw[]>("/orders/mine")))) },
-  cancelMine: (): Promise<Order> => unsupported("khách tự hủy đơn (backend chỉ cho thu ngân/quản lý hủy)"),
+  async cancelMine(id: string): Promise<Order> {
+    await http.post<Raw>(`/orders/${id}/cancel`, { reason: "Khách tự hủy đơn" })
+    return detail(id)
+  },
   payments: () => listOrders(),
   async lookup(id: string): Promise<{ providerStatus: ProviderStatus; order: Order }> {
     const tx = await transactionOf(id)
@@ -190,6 +219,20 @@ export const beOrdersApi = {
     return detail(id)
   },
 }
+
+const hhmm = (d: Date) => `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`
+const localDay = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
+
+/** The pickup slots of the branch on the local day of `when`. */
+async function pickupDay(branchId: string, when: Date): Promise<Raw> {
+  return rec(await http.get<Raw>("/orders/pickup-slots/available", { query: { branchId, date: localDay(when) } }))
+}
+
+/** The slot that contains `when`: any minute inside opening hours belongs to a slot, and the order is booked on the slot's start. */
+function slotOf(day: Raw, when: Date): Raw | undefined {
+  return recs(day.slots).find((s) => new Date(str(s.startUtc)).getTime() <= when.getTime() && when.getTime() < new Date(str(s.endUtc)).getTime())
+}
+
 
 async function publicMenu(branchId: string, name: string): Promise<GuestMenu> {
   const menu = rec(await http.get<Raw>(`/menu/public/branches/${branchId}/menu`, { anonymous: true }))
@@ -279,8 +322,8 @@ function toQrOrder(o: Raw, tableCode: string): Order {
 }
 
 /** The table-session token of a scanned table, scanning the code first if there is none yet (the real-time channel needs it). */
-export async function guestSessionToken(token: string): Promise<string> {
+export async function guestSessionToken(token: string, renew = false): Promise<string> {
   let stored: string | null = null
-  try { stored = sessionStorage.getItem(sessionKey(token)) } catch { /* see scanTable */ }
+  try { stored = renew ? null : sessionStorage.getItem(sessionKey(token)) } catch { /* see scanTable */ }
   return stored ?? scanTable(token)
 }

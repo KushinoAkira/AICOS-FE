@@ -96,6 +96,15 @@ function refreshSession(): Promise<StoredSession | null> {
   return refreshing
 }
 
+/** The access token for a long-lived connection (SignalR): renewed first when it is about to expire. Empty when signed out. */
+export async function freshAccessToken(): Promise<string> {
+  const current = tokenStore.get()
+  if (!current) return ""
+  const expires = Date.parse(current.accessTokenExpiresAtUtc)
+  if (Number.isFinite(expires) && expires - Date.now() < 60_000) return (await refreshSession())?.accessToken ?? ""
+  return current.accessToken
+}
+
 /**
  * Mock mode only: the API calls are answered by a service worker. If this tab lost it (hard reload, restored tab,
  * cleared site data) the request falls through to a gateway that is not running. One reload brings the worker back.

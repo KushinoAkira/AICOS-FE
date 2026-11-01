@@ -8,8 +8,7 @@ import { HubConnection, HubConnectionBuilder, HttpTransportType, LogLevel } from
 import { useQueryClient, type QueryKey } from "@tanstack/react-query"
 import { useAuth } from "../context/AuthContext"
 import { env } from "../config/env"
-import { API_BASE_URL } from "./api/http"
-import { tokenStore } from "./api/tokenStore"
+import { API_BASE_URL, freshAccessToken } from "./api/http"
 import { guestSessionToken } from "./api/be/orders"
 
 /** Poll interval for a screen: slow while its hub is connected, the given fast interval otherwise. */
@@ -19,8 +18,10 @@ const hubUrl = (path: string) => `${new URL(API_BASE_URL).origin}${path}`
 
 interface ChannelOptions {
   path: string
-  /** Query string parameters of the connection (the guest session token). */
-  query?: () => Promise<Record<string, string>>
+  /** Query string parameters of the connection (the guest session token); `epoch` counts the restarts. */
+  query?: (epoch: number) => Promise<Record<string, string>>
+  /** Server messages after which the connection is rebuilt (the table session it follows has ended). */
+  restartOn?: string[]
   /** Server messages that mean "refetch". */
   events: string[]
   /** Called after every (re)connection, for hubs that need a join call. */
@@ -31,9 +32,10 @@ interface ChannelOptions {
   scope: string
 }
 
-function useChannel({ path, query, events, onConnected, invalidate, enabled, scope }: ChannelOptions): boolean {
+function useChannel({ path, query, restartOn = [], events, onConnected, invalidate, enabled, scope }: ChannelOptions): boolean {
   const qc = useQueryClient()
   const [connected, setConnected] = useState(false)
+  const [epoch, setEpoch] = useState(0)
 
   useEffect(() => {
     if (!enabled || env.useMock) return
@@ -43,11 +45,11 @@ function useChannel({ path, query, events, onConnected, invalidate, enabled, sco
 
     void (async () => {
       try {
-        const params = new URLSearchParams(query ? await query() : {}).toString()
+        const params = new URLSearchParams(query ? await query(epoch) : {}).toString()
         if (disposed) return
         connection = new HubConnectionBuilder()
           .withUrl(`${hubUrl(path)}${params ? `?${params}` : ""}`, {
-            accessTokenFactory: () => tokenStore.get()?.accessToken ?? "",
+            accessTokenFactory: freshAccessToken,
             transport: HttpTransportType.WebSockets,
             skipNegotiation: true,
           })
@@ -55,6 +57,7 @@ function useChannel({ path, query, events, onConnected, invalidate, enabled, sco
           .configureLogging(LogLevel.None)
           .build()
         for (const name of events) connection.on(name, refresh)
+        for (const name of restartOn) connection.on(name, () => setEpoch((n) => n + 1))
         connection.onreconnecting(() => setConnected(false))
         connection.onreconnected(async () => {
           try { await onConnected?.(connection!) } catch { return }
@@ -77,8 +80,7 @@ function useChannel({ path, query, events, onConnected, invalidate, enabled, sco
       setConnected(false)
       void connection?.stop()
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [enabled, scope, path])
+  }, [enabled, scope, path, epoch])
 
   return connected
 }
@@ -87,8 +89,10 @@ function useChannel({ path, query, events, onConnected, invalidate, enabled, sco
 export function useGuestRealtime(qrToken: string): boolean {
   return useChannel({
     path: "/hubs/orders",
-    query: async () => ({ sessionToken: await guestSessionToken(qrToken) }),
+    // After the table session ended, the next connection scans the table again: the old session's group never gets new orders.
+    query: async (epoch) => ({ sessionToken: await guestSessionToken(qrToken, epoch > 0) }),
     events: ["OrderChanged", "SessionClosed"],
+    restartOn: ["SessionClosed"],
     invalidate: [["guest", qrToken, "orders"]],
     enabled: qrToken !== "",
     scope: `guest:${qrToken}`,

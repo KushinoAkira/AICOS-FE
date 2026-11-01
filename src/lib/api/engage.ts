@@ -1,8 +1,8 @@
 ﻿import { env } from "../../config/env"
 import { http } from "./http"
-import { unsupported } from "./be/util"
+import { itemsOf, num, rec, recs, str, type Raw } from "./be/util"
 import { beAiService, type AiRecommendation, type FeedbackAnalysis } from "./be/ai"
-import type { Order } from "./orders"
+import { ordersApi, type Order } from "./orders"
 
 export interface AiSuggestion { productId: string; name: string; price: number; reason: string }
 export interface AiReply { reply: string; suggestions: AiSuggestion[] }
@@ -19,13 +19,22 @@ const mockFeedbackApi = {
   submit: (b: { orderId: string; rating: number; comment: string }) => http.post<Feedback>("/api/v1/feedback", b),
 }
 
-/** Chat goes to the self-hosted AI service; the .NET backend has no feedback API yet (reference section 10): lists are empty, writes explain why. */
+/** Chat goes to the self-hosted AI service; feedback is the ordering service's `/orders/.../feedback` and `/orders/feedbacks*`. */
 const beAiApi: typeof mockAiApi = { chat: (message) => beAiService.chat(message) }
+const toFeedback = (f: Raw): Feedback => ({ id: str(f.id), orderId: str(f.orderId), orderCode: str(f.orderCode), rating: num(f.rating), comment: str(f.comment), createdAtUtc: str(f.createdAtUtc) })
+const feedbackList = async (path: string) => recs(itemsOf(await http.get<Raw[]>(path, { query: { limit: 100 } }))).map(toFeedback)
 const beFeedbackApi: typeof mockFeedbackApi = {
-  pending: async () => [],
-  mine: async () => [],
-  branch: async () => [],
-  submit: () => unsupported("gửi đánh giá đơn hàng"),
+  /** Orders the customer has received and not rated yet. */
+  async pending() {
+    const [orders, given] = await Promise.all([ordersApi.mine(), feedbackList("/orders/feedbacks/mine")])
+    const rated = new Set(given.map((f) => f.orderId))
+    return orders.filter((o) => (o.status === "Served" || o.status === "PickedUp") && !rated.has(o.id))
+  },
+  mine: () => feedbackList("/orders/feedbacks/mine"),
+  branch: () => feedbackList("/orders/feedbacks"),
+  async submit(b) {
+    return toFeedback(rec(await http.post<Raw>(`/orders/${b.orderId}/feedback`, { rating: b.rating, comment: b.comment.trim() || null })))
+  },
 }
 export const aiApi: typeof mockAiApi = env.useMock ? mockAiApi : beAiApi
 export const feedbackApi: typeof mockFeedbackApi = env.useMock ? mockFeedbackApi : beFeedbackApi

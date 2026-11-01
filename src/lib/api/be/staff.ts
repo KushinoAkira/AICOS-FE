@@ -21,15 +21,24 @@ function toShift(a: Raw, users: Map<string, string>): Shift {
   }
 }
 
-function toReplacement(r: Raw, users: Map<string, string>, applied = false): Replacement {
-  const apps = recs(r.applications).map((x) => ({ userId: users.get(str(x.employeeId)) ?? str(x.employeeId), name: str(x.employeeName), branchName: str(x.branchName) }))
+/** A replacement shift as the backend lists it; `applicants` come from the separate applications call (managers only). */
+function toReplacement(r: Raw, users: Map<string, string>, applicants: Raw[] = []): Replacement {
+  const mine = str(r.myApplication)
   return {
-    id: str(r.id), shift: toShift(rec(r.assignment ?? r), users), reason: str(r.reason), status: str(r.status).toLowerCase().includes("fill") || str(r.status) === "Approved" ? "filled" : "open",
-    applicants: apps, filledBy: str(r.filledByName) || undefined, applied,
+    id: str(r.id), reason: str(r.reason), status: str(r.status) === "Filled" ? "filled" : "open",
+    shift: { id: str(r.originalAssignmentId) || str(r.id), date: str(r.workDate).slice(0, 10), period: periodOf(str(r.startTime, "07:00")), userId: "", userName: str(r.originalEmployeeName), branchId: str(r.branchId), checkInAtUtc: null, checkOutAtUtc: null },
+    applicants: applicants.filter((x) => str(x.status) === "Pending").map((x) => ({ userId: users.get(str(x.employeeId)) ?? str(x.employeeId), name: str(x.employeeName), branchName: "" })),
+    filledBy: str(r.approvedEmployeeName) || undefined, applied: mine === "Pending" || mine === "Approved",
   }
 }
 
 const addDays = (from: string, n: number) => { const d = new Date(`${from}T00:00:00`); d.setDate(d.getDate() + n); return ymd(d) }
+
+/** The most recent shift the signed-in employee has checked in to. */
+async function lastWorkedAssignment(): Promise<Raw | undefined> {
+  const mine = recs(itemsOf(await http.get<Raw[]>(`${W}/shift-assignments/mine`)))
+  return mine.filter((a) => str(a.checkInAtUtc)).sort((x, y) => str(y.workDate).localeCompare(str(x.workDate)))[0]
+}
 
 export const beStaffApi = {
   /** Manager roster: the attendance report lists every assignment of the week. */
@@ -46,7 +55,10 @@ export const beStaffApi = {
     const created = rec(await http.post<Raw>(`${W}/shift-assignments`, { employeeId: str(employee.id), workShiftId: str(template.id), workDate: b.date }))
     return toShift(created, new Map([[str(employee.id), b.userId]]))
   },
-  unassign: (): Promise<{ ok: true }> => unsupported("gỡ nhân viên khỏi ca"),
+  async unassign(id: string): Promise<{ ok: true }> {
+    await http.delete<Raw>(`${W}/shift-assignments/${id}`)
+    return { ok: true }
+  },
   async myShifts(): Promise<Shift[]> {
     const users = new Map<string, string>()
     return recs(itemsOf(await http.get<Raw[]>(`${W}/shift-assignments/mine`))).map((a) => ({ ...toShift(a, users), userId: tokenStore.get()?.user.id ?? "" }))
@@ -54,12 +66,21 @@ export const beStaffApi = {
   checkIn: async (id: string) => toShift(rec(await http.post<Raw>(`${W}/attendance/check-in`, { assignmentId: id })), new Map()),
   checkOut: async (id: string) => toShift(rec(await http.post<Raw>(`${W}/attendance/check-out`, { assignmentId: id })), new Map()),
 
-  replacements: (): Promise<Replacement[]> => unsupported("danh sách ca thay đang mở (chưa có API liệt kê)"),
+  /** Staff see the open shifts of their branch; managers see every status, so cancelled ones are dropped here. */
+  async replacements(): Promise<Replacement[]> {
+    const manager = tokenStore.get()?.user.role !== "Cashier" && tokenStore.get()?.user.role !== "Barista"
+    const [list, users] = await Promise.all([http.get<Raw[]>(`${W}/replacement-shifts`), userIdByEmployee().catch(() => new Map<string, string>())])
+    const rows = recs(itemsOf(list)).filter((r) => str(r.status) !== "Cancelled")
+    return Promise.all(rows.map(async (r) => {
+      const applicants = manager && str(r.status) === "Open" && num(r.applications) > 0 ? recs(itemsOf(await http.get<Raw[]>(`${W}/replacement-shifts/${str(r.id)}/applications`))) : []
+      return toReplacement(r, users, applicants)
+    }))
+  },
   async openReplacement(b: { shiftId: string; reason: string }): Promise<Replacement> {
     return toReplacement(rec(await http.post<Raw>(`${W}/replacement-shifts`, { assignmentId: b.shiftId, reason: b.reason })), await userIdByEmployee())
   },
   async apply(id: string): Promise<Replacement> {
-    return toReplacement(rec(await http.post<Raw>(`${W}/replacement-shifts/${id}/register`, { note: "" })), await userIdByEmployee(), true)
+    return { ...toReplacement(rec(await http.post<Raw>(`${W}/replacement-shifts/${id}/register`, { note: "" })), new Map()), applied: true }
   },
   async approve(id: string, userId: string): Promise<Replacement> {
     const users = await userIdByEmployee()
@@ -69,7 +90,15 @@ export const beStaffApi = {
     return toReplacement(rec(await http.post<Raw>(`${W}/replacement-shifts/${id}/approve`, { applicationId: str(hit.id), note: null })), users)
   },
 
-  cashExpected: (): Promise<{ expected: number; closed: boolean }> => unsupported("xem số tiền mặt dự kiến trước khi chốt két (chỉ có sau khi gửi chốt ca)"),
+  /** The cash the system expects in the drawer for the shift the cashier last checked in to, and whether that shift is already closed. */
+  async cashExpected(): Promise<{ expected: number; closed: boolean }> {
+    const open = await lastWorkedAssignment()
+    if (!open) return { expected: 0, closed: false }
+    const closings = recs(itemsOf(await http.get<Raw[]>(`${W}/cash-closings/mine`)))
+    if (closings.some((c) => str(c.assignmentId) === str(open.id))) return { expected: 0, closed: true }
+    const e = rec(await http.get<Raw>(`${W}/cash-closings/expected`, { query: { assignmentId: str(open.id) } }))
+    return { expected: num(e.expectedAmount), closed: false }
+  },
   async cashClosings(): Promise<CashClosing[]> {
     const manager = tokenStore.get()?.user.role !== "Cashier"
     const list = itemsOf(await http.get<Raw[]>(`${W}/cash-closings${manager ? "" : "/mine"}`, manager ? { query: { pageSize: 50 } } : undefined))
@@ -79,8 +108,7 @@ export const beStaffApi = {
     }))
   },
   async closeCash(b: { counted: number; reason: string }): Promise<CashClosing> {
-    const mine = recs(itemsOf(await http.get<Raw[]>(`${W}/shift-assignments/mine`)))
-    const open = mine.filter((a) => str(a.checkInAtUtc)).sort((x, y) => str(y.workDate).localeCompare(str(x.workDate)))[0]
+    const open = await lastWorkedAssignment()
     if (!open) return unsupported("chốt két: bạn chưa check-in ca nào")
     const c = rec(await http.post<Raw>(`${W}/cash-closings`, { assignmentId: str(open.id), countedAmount: b.counted, note: b.reason }))
     return { id: str(c.id), date: str(open.workDate).slice(0, 10), userName: str(open.employeeName), expected: num(c.expectedAmount), counted: num(c.countedAmount), variance: num(c.difference), reason: b.reason }

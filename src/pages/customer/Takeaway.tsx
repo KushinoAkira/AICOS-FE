@@ -8,16 +8,20 @@ import { PayGateway } from "../../components/PayGateway"
 import { ErrorState, LoadingState } from "../../components/ui"
 import { useToast } from "../../context/ToastContext"
 import { addDays, todayKey } from "../../lib/dates"
+import { branchesApi } from "../../lib/api/identity"
 import { ordersApi, type LineInput, type Order, type PayOutcome } from "../../lib/api/orders"
 
-const BRANCH_ID = "00000000-0000-0000-0000-000000000b01"
+/** Demo branch of the mock data; with the real API the first active branch of the brand is used. */
+const MOCK_BRANCH_ID = "00000000-0000-0000-0000-000000000b01"
 
 /** Takeaway ordering with a pickup slot and online payment (UC-33..35). Prices are recomputed by the server. */
 export default function CustomerTakeaway({ navigate }: { navigate: (p: Page) => void }) {
   const qc = useQueryClient()
   const { showToast } = useToast()
-  const menu = useQuery({ queryKey: ["takeaway", "menu"], queryFn: () => ordersApi.takeawayMenu(BRANCH_ID) })
-  const info = useQuery({ queryKey: ["takeaway", "info"], queryFn: () => ordersApi.pickupInfo(BRANCH_ID) })
+  const branches = useQuery({ queryKey: ["takeaway", "branches"], queryFn: () => branchesApi.listActive() })
+  const BRANCH_ID = branches.data?.find((b) => b.id === MOCK_BRANCH_ID)?.id ?? branches.data?.[0]?.id ?? ""
+  const menu = useQuery({ queryKey: ["takeaway", "menu", BRANCH_ID], queryFn: () => ordersApi.takeawayMenu(BRANCH_ID), enabled: !!BRANCH_ID })
+  const info = useQuery({ queryKey: ["takeaway", "info", BRANCH_ID], queryFn: () => ordersApi.pickupInfo(BRANCH_ID), enabled: !!BRANCH_ID })
   const [day, setDay] = useState<"today" | "tomorrow">("today")
   const [time, setTime] = useState("")
   const slot = time ? new Date(`${addDays(todayKey(), day === "today" ? 0 : 1)}T${time}:00`).toISOString() : ""
@@ -27,7 +31,7 @@ export default function CustomerTakeaway({ navigate }: { navigate: (p: Page) => 
     const hhmm = `${String(t.getHours()).padStart(2, "0")}:${String(t.getMinutes()).padStart(2, "0")}`
     if (hhmm > i.close) { setDay("tomorrow"); setTime(i.open) } else { setDay("today"); setTime(hhmm < i.open ? i.open : hhmm) }
   }
-  const check = useQuery({ queryKey: ["takeaway", "check", slot], queryFn: () => ordersApi.pickupCheck(BRANCH_ID, slot), enabled: !!slot })
+  const check = useQuery({ queryKey: ["takeaway", "check", BRANCH_ID, slot], queryFn: () => ordersApi.pickupCheck(BRANCH_ID, slot), enabled: !!slot && !!BRANCH_ID })
   const [error, setError] = useState<string | null>(null)
   const [paying, setPaying] = useState<Order | null>(null)
 
@@ -49,7 +53,9 @@ export default function CustomerTakeaway({ navigate }: { navigate: (p: Page) => 
 
   return (
     <CustomerFrame page="customer-menu" navigate={navigate} uc="UC-33" title="Đặt mang đi">
-      {(menu.isPending || info.isPending) && <LoadingState />}
+      {branches.isError && <ErrorState description={branches.error.message} onRetry={() => void branches.refetch()} />}
+      {branches.data?.length === 0 && <ErrorState description="Thương hiệu chưa có chi nhánh nào nhận đơn mang đi." />}
+      {(branches.isPending || (!!BRANCH_ID && (menu.isPending || info.isPending))) && <LoadingState />}
       {menu.isError && <ErrorState description={menu.error.message} onRetry={() => void menu.refetch()} />}
       {menu.data && info.data && (
         <>

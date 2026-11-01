@@ -72,7 +72,20 @@ export interface DigitalCharge {
 /** One cup's label (printing may be simulated for the MVP). */
 export interface CupLabel { id: string; code: string; table: string; product: string; cup: string; details: string }
 
+/** <code>quantity</code> is how many the shop sold, or how many this customer has ordered. */
+export interface RecommendedItem {
+  productId: string
+  quantity: number
+}
+
+export interface Recommendations {
+  forYou: RecommendedItem[]
+  bestSellers: RecommendedItem[]
+}
+
 export interface GuestMenu {
+  /** The branch of the table, for what the menu recommends. */
+  branchId?: string
   /** The brand of the table, so a signed-in customer's points go to the right shop. */
   tenantId?: string
   branchName: string
@@ -95,6 +108,7 @@ const mockOrdersApi = {
   guestPlace: (token: string, lines: LineInput[]) => http.post<Order>(`${B}/guest/${token}/orders`, { lines }),
   guestOrders: (token: string) => http.get<Order[]>(`${B}/guest/${token}/orders`),
   takeawayMenu: (branchId: string) => http.get<GuestMenu>(`${B}/takeaway/menu?branchId=${branchId}`),
+  recommendations: (branchId: string) => http.get<Recommendations>(`${B}/recommendations?branchId=${branchId}`),
   pickupInfo: (branchId: string) => http.get<PickupInfo>(`${B}/takeaway/info?branchId=${branchId}`),
   pickupCheck: (branchId: string, at: string) => http.get<PickupCheck>(`${B}/takeaway/check?branchId=${branchId}&at=${encodeURIComponent(at)}`),
   placeTakeaway: (b: { branchId: string; slot: string; lines: LineInput[] }) => http.post<Order>(`${B}/takeaway`, b),

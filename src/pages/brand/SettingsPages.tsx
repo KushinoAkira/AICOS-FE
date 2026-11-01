@@ -79,6 +79,8 @@ export function BrandMerchant({ navigate }: P) {
         fields={[
           { key: "merchantName", label: "Tên hiển thị", kind: "text" },
           { key: "merchantId", label: "Mã merchant", kind: "text" },
+          { key: "bankCode", label: "Mã ngân hàng nhận tiền", kind: "text", hint: "Mã BIN dùng để tạo QR VietQR, ví dụ 970436 là Vietcombank." },
+          { key: "accountNumber", label: "Số tài khoản nhận tiền", kind: "text", hint: "Để trống nếu giữ số đã lưu. Số đã lưu không được hiển thị lại." },
           { key: "acceptCash", label: "Nhận tiền mặt", kind: "boolean" },
           { key: "acceptQr", label: "Nhận QR / ví điện tử", kind: "boolean" },
         ]}

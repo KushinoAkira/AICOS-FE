@@ -157,10 +157,10 @@ export const bePolicyApi = {
   },
   async merchant(): Promise<MerchantSettings> {
     const s = recs(itemsOf(await http.get<Raw[]>("/payments/merchant-settings")))[0] ?? {}
-    return { merchantName: str(s.accountName), merchantId: str(s.merchantCode), acceptCash: true, acceptQr: bool(s.isEnabled) }
+    return { merchantName: str(s.accountName), merchantId: str(s.merchantCode), bankCode: str(s.bankCode), accountNumber: "", acceptCash: true, acceptQr: bool(s.isEnabled) }
   },
   async saveMerchant(v: MerchantSettings): Promise<MerchantSettings> {
-    await http.put<Raw>("/payments/merchant-settings", { branchId: null, providerCode: "VietQR", isEnabled: v.acceptQr, accountName: v.merchantName, merchantCode: v.merchantId || null })
+    await http.put<Raw>("/payments/merchant-settings", { branchId: null, providerCode: "VietQR", isEnabled: v.acceptQr, accountName: v.merchantName, merchantCode: v.merchantId || null, bankCode: v.bankCode?.trim() || null, accountNumber: v.accountNumber?.trim() || null })
     return v
   },
 }

@@ -21,6 +21,7 @@ export default function CustomerTakeaway({ navigate }: { navigate: (p: Page) => 
   const branches = useQuery({ queryKey: ["takeaway", "branches"], queryFn: () => branchesApi.listActive() })
   const BRANCH_ID = branches.data?.find((b) => b.id === MOCK_BRANCH_ID)?.id ?? branches.data?.[0]?.id ?? ""
   const menu = useQuery({ queryKey: ["takeaway", "menu", BRANCH_ID], queryFn: () => ordersApi.takeawayMenu(BRANCH_ID), enabled: !!BRANCH_ID })
+  const picks = useQuery({ queryKey: ["recommendations", BRANCH_ID], queryFn: () => ordersApi.recommendations(BRANCH_ID), enabled: !!BRANCH_ID, retry: false })
   const info = useQuery({ queryKey: ["takeaway", "info", BRANCH_ID], queryFn: () => ordersApi.pickupInfo(BRANCH_ID), enabled: !!BRANCH_ID })
   const [day, setDay] = useState<"today" | "tomorrow">("today")
   const [time, setTime] = useState("")
@@ -70,7 +71,7 @@ export default function CustomerTakeaway({ navigate }: { navigate: (p: Page) => 
               <span className="text-sm text-text-secondary">Quán mở {info.data.open} - {info.data.close}, đặt trước tối thiểu {info.data.cutoffMinutes} phút</span>
             </div>
             {slot && check.data && <p role="status" className={`mt-2 text-sm ${check.data.ok ? "text-state-success" : "text-state-danger"}`}>{check.data.ok ? `Còn nhận được ${check.data.remaining} đơn quanh giờ này` : check.data.message}</p>}
-          </fieldset>          <OrderComposer products={menu.data.products} submitLabel="Đặt và thanh toán" submitting={place.isPending} error={!slot ? "Chọn giờ nhận hàng trước khi đặt" : check.data && !check.data.ok ? check.data.message : error} onSubmit={(l) => { if (!slot) return setError("Chọn giờ nhận hàng"); if (check.data && !check.data.ok) return; setError(null); place.mutate(l) }} />
+          </fieldset>          <OrderComposer products={menu.data.products} recommendations={picks.data} submitLabel="Đặt và thanh toán" submitting={place.isPending} error={!slot ? "Chọn giờ nhận hàng trước khi đặt" : check.data && !check.data.ok ? check.data.message : error} onSubmit={(l) => { if (!slot) return setError("Chọn giờ nhận hàng"); if (check.data && !check.data.ok) return; setError(null); place.mutate(l) }} />
         </>
       )}
       <PayGateway open={!!paying} amount={paying?.total ?? 0} code={paying?.code ?? ""} busy={pay.isPending} onOutcome={(o) => pay.mutate(o)} onClose={() => { setPaying(null); navigate("customer-tracking") }} />

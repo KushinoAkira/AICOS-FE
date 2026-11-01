@@ -22,6 +22,8 @@ export default function GuestMenu({ navigate }: { navigate: (p: Page, params?: R
   const live = useGuestRealtime(token)
   const { showToast } = useToast()
   const menu = useQuery({ queryKey: ["guest", token], queryFn: () => ordersApi.guest(token), retry: false })
+  const branchId = menu.data?.branchId ?? ""
+  const picks = useQuery({ queryKey: ["recommendations", branchId, role], queryFn: () => ordersApi.recommendations(branchId), enabled: !!branchId, retry: false })
   const orderedCount = useQuery({ queryKey: ["guest", token, "orders"], queryFn: () => ordersApi.guestOrders(token), refetchInterval: pollWhile(live, 5000), retry: false })
   const [error, setError] = useState<string | null>(null)
   // A signed-in customer scanning a table is now at that table's brand, so the order and its points go there.
@@ -76,7 +78,7 @@ export default function GuestMenu({ navigate }: { navigate: (p: Page, params?: R
         {menu.isError && <ErrorState title="Không mở được thực đơn" description={menu.error.message} onRetry={() => void menu.refetch()} />}
         {menu.data && (
           <OrderComposer
-            products={menu.data.products} submitLabel="Đặt món" submitting={place.isPending} error={error} clearSignal={sent}
+            products={menu.data.products} submitLabel="Đặt món" submitting={place.isPending} error={error} clearSignal={sent} recommendations={picks.data}
             onSubmit={(l) => { setError(null); place.mutate(l) }}
             tabs={{
               orderedCount: orderedCount.data?.length ?? 0,

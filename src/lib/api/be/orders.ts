@@ -1,6 +1,7 @@
 import type { OrderStatus, PaymentStatus } from "../../orderStateMachine"
 import { currentBrandSlug } from "../../brand"
 import { ApiError, http } from "../http"
+import type { Recommendations } from "../orders"
 import type { CupLabel, DigitalCharge, GuestMenu, PayMethod, LineInput, Order, PayOutcome, PickupCheck, PickupInfo, ProviderStatus, TableRow } from "../orders"
 import { tokenStore } from "../tokenStore"
 import { toProduct } from "./brand"
@@ -144,7 +145,7 @@ export const beOrdersApi = {
     const t = rec(await http.get<Raw>(`/tables/public/qr/${token}`, { anonymous: true }))
     const branchId = str(t.branchId)
     const tenantId = str(t.tenantId)
-    return { ...(await publicMenu(branchId, str(t.branchName) || (await branchName(branchId, tenantId)))), tableCode: str(t.tableCode), tenantId }
+    return { ...(await publicMenu(branchId, str(t.branchName) || (await branchName(branchId, tenantId)))), tableCode: str(t.tableCode), tenantId, branchId }
   },
   async guestPlace(token: string, lines: LineInput[]): Promise<Order> {
     const items = lines.map((l) => ({ productId: l.productId, quantity: l.qty, note: l.note.trim() || null, optionIds: optionIdsOf(l) }))
@@ -225,6 +226,12 @@ export const beOrdersApi = {
     return { change: received - order.total }
   },
   takeawayMenu: (branchId: string) => publicMenu(branchId, ""),
+  /** A signed-in customer also gets what they ordered before, so the token goes along when there is one. */
+  async recommendations(branchId: string): Promise<Recommendations> {
+    const r = rec(await http.get<Raw>("/orders/recommendations", { query: { branchId, limit: 12 }, anonymous: !tokenStore.get() }))
+    const items = (v: unknown) => recs(v).map((p) => ({ productId: str(p.productId), quantity: num(p.quantity) }))
+    return { forYou: items(r.forYou), bestSellers: items(r.bestSellers) }
+  },
   async pickupInfo(branchId: string): Promise<PickupInfo> {
     const day = await pickupDay(branchId, new Date())
     const slots = recs(day.slots)
@@ -256,7 +263,10 @@ export const beOrdersApi = {
   },
   async payOnline(id: string, outcome: PayOutcome): Promise<Order> {
     const order = await detail(id)
-    const tx = rec(await http.post<Raw>("/payments/transactions", { orderId: id, amount: order.total, providerCode: "Mock", branchId: null }))
+    // The gateway the platform and the brand have switched on, not a fixed one.
+    const method = toMethods(await http.get<Raw[]>("/payments/merchant-settings/available"))[0]
+    if (!method) throw new ApiError(422, "Quán chưa bật cổng thanh toán online.", "payment.no_method")
+    const tx = rec(await http.post<Raw>("/payments/transactions", { orderId: id, amount: order.total, providerCode: method.code, branchId: null }))
     await http.post<Raw>(`/payments/transactions/${str(tx.id)}/simulate`, { outcome: outcome === "failed" ? "failed" : "success", notify: outcome !== "lost" })
     return detail(id)
   },

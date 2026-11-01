@@ -143,3 +143,37 @@ export interface Invoice { id: string; amount: number; paidAtUtc: string; method
 export const invoiceApi = {
   list: async () => itemsOf(await http.get<Invoice[]>("/identity/subscription/payments")),
 }
+
+/** One device a person is signed in on. Only the person's own sessions are ever returned. */
+export interface DeviceSession {
+  id: string
+  device: string | null
+  ipAddress: string | null
+  createdAtUtc: string
+  lastActiveAtUtc: string
+  isCurrent: boolean
+}
+
+export const sessionApi = {
+  list: () => http.get<DeviceSession[]>("/identity/auth/sessions"),
+  revoke: (id: string) => http.delete<void>(`/identity/auth/sessions/${id}`),
+  revokeOthers: () => http.post<{ revoked: number }>("/identity/auth/sessions/revoke-others", {}),
+}
+
+export interface StaffNotice {
+  id: string
+  kind: string
+  title: string
+  body: string
+  createdAtUtc: string
+  isRead: boolean
+}
+
+const STAFF_NOTICES = "/customers/staff/notifications"
+
+export const staffNoticeApi = {
+  list: async (unreadOnly: boolean) => itemsOf(await http.get<StaffNotice[]>(STAFF_NOTICES, { query: { pageSize: 50, unreadOnly: unreadOnly || undefined } })) as StaffNotice[],
+  unread: async () => (await http.get<{ unread: number }>(`${STAFF_NOTICES}/unread-count`)).unread,
+  read: (id: string) => http.post<void>(`${STAFF_NOTICES}/${id}/read`, {}),
+  readAll: () => http.post<{ unread: number }>(`${STAFF_NOTICES}/read-all`, {}),
+}

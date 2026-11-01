@@ -34,6 +34,7 @@ export const PAGE_ACCESS: Record<Page, Access> = {
   "guest-order-status": "public",
 
   "account-settings": "authenticated",
+  "staff-notifications": ["superAdmin", "brandAdmin", "branchManager", "barista", "cashier"],
 
   "customer-brands": CUSTOMER,
   "customer-menu": CUSTOMER,

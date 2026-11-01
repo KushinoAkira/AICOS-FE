@@ -30,6 +30,7 @@ const CustomerBrands = lazy(() => import("./pages/customer/Brands"))
 const ForgotPassword = lazy(() => import("./pages/auth/ForgotPassword"))
 const ResetPassword = lazy(() => import("./pages/auth/ResetPassword"))
 const AccountSettings = lazy(() => import("./pages/shared/AccountSettings"))
+const StaffNotifications = lazy(() => import("./pages/shared/StaffNotifications"))
 
 const CustomerMenu = lazy(() => import("./pages/customer/Takeaway"))
 const CustomerFeedback = lazy(() => import("./pages/customer/Feedback"))
@@ -132,6 +133,7 @@ export default function App() {
     "auth-forgot-password": <ForgotPassword navigate={navigate} />,
     "auth-reset-password": <ResetPassword navigate={navigate} />,
     "account-settings": <AccountSettings navigate={navigate} returnPage={returnPage} />,
+    "staff-notifications": <StaffNotifications navigate={navigate} />,
 
     "guest-menu": <GuestMenu navigate={navigate} />,
     "guest-order-status": <GuestStatus navigate={navigate} />,

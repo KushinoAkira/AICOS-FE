@@ -208,7 +208,13 @@ export const handlers = [
   http.put("*/api/v1/platform/payment-providers/:id", async ({ params, request }) => {
     const p = db.providers.find((x) => x.id === params.id)
     if (!p) return problem(404, "Không tìm thấy cổng thanh toán")
-    Object.assign(p, (await request.json()) as Pick<PaymentProvider, "mode" | "enabled">)
+    Object.assign(p, (await request.json()) as Pick<PaymentProvider, "mode">)
+    return ok(p)
+  }),
+  http.patch("*/api/v1/platform/payment-providers/:id/status", async ({ params, request }) => {
+    const p = db.providers.find((x) => x.id === params.id)
+    if (!p) return problem(404, "Không tìm thấy cổng thanh toán")
+    Object.assign(p, (await request.json()) as Pick<PaymentProvider, "enabled">)
     return ok(p)
   }),
   http.get("*/api/v1/platform/health", async () => { await delay(150); return ok(db.health()) }),

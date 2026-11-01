@@ -35,7 +35,7 @@ export interface BranchPickup { inherited: boolean; values: PickupSettings; defa
 export interface LoyaltySettings { earnPer10k: number; redeemPoints: number; voucherValue: number; expiryMonths: number }
 export interface CancelPolicy { freeCancelBeforeMinutes: number; refundPercentAfterLock: number; autoRefund: boolean; exceptionNeedsApproval: boolean }
 export interface PayRules { fullTimeDailyRate: number; partTimeHourlyRate: number; replacementMultiplier: number; lateDeductPerHour: number }
-export interface MerchantSettings { merchantName: string; merchantId: string; acceptCash: boolean; acceptQr: boolean }
+export interface MerchantSettings { merchantName: string; merchantId: string; bankCode?: string; accountNumber?: string; acceptCash: boolean; acceptQr: boolean }
 
 export interface Voucher {
   id: string

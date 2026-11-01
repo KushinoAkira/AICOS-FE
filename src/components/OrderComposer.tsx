@@ -2,7 +2,7 @@ import { useMemo, useState } from "react"
 import { Button, EmptyState, StatusPill } from "./ui"
 import { CartPanel, type CartLine, type CartTab, type ExtraTabs } from "./CartPanel"
 import type { Product } from "../lib/api/brand"
-import type { LineInput } from "../lib/api/orders"
+import type { LineInput, Recommendations, RecommendedItem } from "../lib/api/orders"
 import { formatVND } from "../lib/format"
 
 /** Photo with a lettered fallback so a broken URL never leaves a hole in the grid. */
@@ -15,7 +15,7 @@ export function ProductImage({ src, name, className = "h-16 w-16" }: { src?: str
 export type MenuItem = Product & { soldOut: boolean; price: number }
 
 /** Shared by the guest QR menu, takeaway and the cashier POS. Prices shown here are estimates; the server recomputes (BR). */
-export function OrderComposer({ products, submitLabel, submitting, error, onSubmit, tabs, clearSignal = 0 }: {
+export function OrderComposer({ products, submitLabel, submitting, error, onSubmit, tabs, clearSignal = 0, recommendations }: {
   products: MenuItem[]
   submitLabel: string
   submitting: boolean
@@ -24,6 +24,8 @@ export function OrderComposer({ products, submitLabel, submitting, error, onSubm
   tabs?: ExtraTabs
   /** Increment after a successful submit: empties the cart and jumps to the "Đã gọi" tab. */
   clearSignal?: number
+  /** What the shop sells most and what this customer has ordered; shown above the full menu. */
+  recommendations?: Recommendations
 }) {
   const [cart, setCart] = useState<CartLine[]>([])
   const [tab, setTab] = useState<CartTab>("cart")
@@ -40,6 +42,29 @@ export function OrderComposer({ products, submitLabel, submitting, error, onSubm
 
   const categories = useMemo(() => ["Tất cả", ...Array.from(new Set(products.map((p) => p.category)))], [products])
   const shown = products.filter((p) => category === "Tất cả" || p.category === category)
+  const onMenu = (rows: RecommendedItem[] = []) => rows.flatMap((r) => {
+    const product = products.find((p) => p.id === r.productId && !p.soldOut)
+    return product ? [{ product, quantity: r.quantity }] : []
+  })
+  const forYou = onMenu(recommendations?.forYou).slice(0, 4)
+  const bestSellers = onMenu(recommendations?.bestSellers).filter((s) => !forYou.some((f) => f.product.id === s.product.id)).slice(0, 4)
+  const strip = (title: string, rows: typeof forYou, hint: (quantity: number) => string) => rows.length > 0 && (
+    <section aria-label={title} className="mb-5">
+      <h2 className="mb-2 font-serif text-lg text-text-primary">{title}</h2>
+      <ul className="-mx-1 flex gap-3 overflow-x-auto px-1 pb-1">
+        {rows.map(({ product, quantity }) => (
+          <li key={product.id} className="w-40 shrink-0">
+            <button onClick={() => pick(product)} className="flex h-full w-full flex-col gap-2 rounded-[16px] border border-border bg-surface p-3 text-left">
+              <ProductImage src={product.imageUrl} name={product.name} className="h-16 w-16" />
+              <span className="font-medium leading-snug text-text-primary">{product.name}</span>
+              <span className="text-xs text-text-secondary">{hint(quantity)}</span>
+              <span className="mt-auto text-sm text-text-primary">{formatVND(product.price)}</span>
+            </button>
+          </li>
+        ))}
+      </ul>
+    </section>
+  )
   const total = cart.reduce((s, l) => s + l.unit * l.qty, 0)
   const count = cart.reduce((n, l) => n + l.qty, 0)
 
@@ -92,6 +117,10 @@ export function OrderComposer({ products, submitLabel, submitting, error, onSubm
             <button key={c} role="tab" aria-selected={c === category} onClick={() => setCategory(c)} className={`min-h-11 whitespace-nowrap rounded-full px-5 py-2 text-sm ${c === category ? "bg-espresso text-white" : "bg-sand text-text-secondary"}`}>{c}</button>
           ))}
         </div>
+        {category === "Tất cả" && <>
+          {strip("Gợi ý cho bạn", forYou, (q) => `Bạn đã gọi ${q} lần`)}
+          {strip("Món bán chạy", bestSellers, (q) => `Đã bán ${q} ly`)}
+        </>}
         {shown.length === 0 ? <EmptyState title="Chưa có món nào" /> : (
           <ul className="grid gap-3 sm:grid-cols-2">
             {shown.map((p) => (

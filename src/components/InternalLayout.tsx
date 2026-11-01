@@ -1,6 +1,7 @@
 import { type ReactNode, useRef, useLayoutEffect, useState } from "react"
 import { useAuth } from "../context/AuthContext"
 import UserMenu from "./CustomerUserMenu"
+import NotificationBell from "./NotificationBell"
 import type { Page } from "../router/pages"
 import type { Role } from "../router/roles"
 
@@ -255,6 +256,7 @@ export default function InternalLayout({ activePage, navigate, children, headerR
           <div />
           <div className="flex items-center gap-4">
             {headerRight}
+            <NotificationBell navigate={navigate} />
             <UserMenu variant="staff" navigate={navigate} />
           </div>
         </header>

@@ -37,15 +37,31 @@ export default function PlatformTenants({ navigate }: { navigate: (p: Page) => v
   const [reason, setReason] = useState("")
 
   const setStatus = useMutation({
-    mutationFn: (v: { id: string; status: TenantStatus; reason?: string }) => platformApi.setTenantStatus(v.id, v.status, v.reason),
+    mutationFn: (v: { id: string; from: TenantStatus; status: TenantStatus; reason?: string }) => {
+      if (v.from === "Pending") return v.status === "Active" ? platformApi.approveTenant(v.id) : platformApi.rejectTenant(v.id, v.reason ?? "")
+      return platformApi.setTenantStatus(v.id, v.status, v.reason)
+    },
     onSuccess: () => { void qc.invalidateQueries({ queryKey: ["platform"] }); showToast("Đã cập nhật tenant", "success"); setAction(null); setReason("") },
+    onError: (e) => showToast(e.message, "error"),
+  })
+
+  const assign = useMutation({
+    mutationFn: (v: { id: string; planId: string }) => platformApi.changeSubscription(v.id, { planId: v.planId }),
+    onSuccess: () => { void qc.invalidateQueries({ queryKey: ["platform"] }); showToast("Đã gán gói", "success") },
     onError: (e) => showToast(e.message, "error"),
   })
 
   const planList = plans.data ?? []
   const columns: Column<Tenant>[] = [
-    { key: "name", header: "Thương hiệu", sort: (t) => t.name, render: (t) => <div className="flex items-center gap-3">{t.logoUrl ? <img src={t.logoUrl} alt="" className="h-9 w-9 shrink-0 rounded-[10px] border border-border object-contain" /> : <span aria-hidden className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-sand font-serif text-clay">{t.name.charAt(0)}</span>}<div><p className="font-medium text-text-primary">{t.name}</p><p className="text-xs text-text-secondary">{t.slug}.aicos.app</p>{t.applicantEmail && <p className="text-xs text-text-secondary">{t.applicantName} · {t.applicantEmail}{t.applicantPhone ? ` · ${t.applicantPhone}` : ""}</p>}{t.rejectReason && <p className="text-xs text-state-danger">Lý do từ chối: {t.rejectReason}</p>}</div></div> },
-    { key: "plan", header: "Gói", sort: (t) => t.planId, render: (t) => PLAN_NAME(planList, t.planId) },
+    { key: "name", header: "Thương hiệu", sort: (t) => t.name, render: (t) => <div className="flex items-center gap-3">{t.logoUrl ? <img src={t.logoUrl} alt="" className="h-9 w-9 shrink-0 rounded-[10px] border border-border object-contain" /> : <span aria-hidden className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-sand font-serif text-clay">{t.name.charAt(0)}</span>}<div><p className="font-medium text-text-primary">{t.name}</p><p className="text-xs text-text-secondary">Mã: {t.slug}</p>{t.applicantEmail && <p className="text-xs text-text-secondary">{t.applicantName} · {t.applicantEmail}{t.applicantPhone ? ` · ${t.applicantPhone}` : ""}</p>}{t.rejectReason && <p className="text-xs text-state-danger">Lý do từ chối: {t.rejectReason}</p>}</div></div> },
+    {
+      key: "plan", header: "Gói", sort: (t) => t.planName ?? "",
+      render: (t) => t.planId
+        ? t.planName ?? PLAN_NAME(planList, t.planId)
+        : t.status === "Active"
+          ? <select aria-label={`Gán gói cho ${t.name}`} value="" disabled={assign.isPending} onChange={(e) => assign.mutate({ id: t.id, planId: e.target.value })} className="rounded-[8px] border border-border bg-surface px-2 py-1.5 text-sm"><option value="" disabled>Gán gói…</option>{planList.filter((p) => p.isActive !== false).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select>
+          : <span className="text-text-secondary">Chưa có</span>,
+    },
     { key: "branches", header: "Chi nhánh", sort: (t) => t.branchCount, render: (t) => t.branchCount },
     { key: "status", header: "Trạng thái", render: (t) => <StatusPill tone={STATUS_TONE[t.status]}>{STATUS_LABEL[t.status]}</StatusPill> },
     { key: "created", header: "Tạo ngày", sort: (t) => t.createdAtUtc, render: (t) => formatDate(t.createdAtUtc) },
@@ -56,7 +72,6 @@ export default function PlatformTenants({ navigate }: { navigate: (p: Page) => v
           {t.status === "Pending" && <><Button className="px-3 py-1.5 text-xs" onClick={() => setAction({ tenant: t, status: "Active" })}>Duyệt</Button><Button variant="ghost" className="px-3 py-1.5 text-xs text-state-danger" onClick={() => setAction({ tenant: t, status: "Rejected" })}>Từ chối</Button></>}
           {t.status === "Active" && <Button variant="secondary" className="px-3 py-1.5 text-xs" onClick={() => setAction({ tenant: t, status: "Suspended" })}>Tạm ngưng</Button>}
           {t.status === "Suspended" && <Button variant="secondary" className="px-3 py-1.5 text-xs" onClick={() => setAction({ tenant: t, status: "Active" })}>Kích hoạt lại</Button>}
-          {(t.status === "Active" || t.status === "Suspended") && <Button variant="ghost" className="px-3 py-1.5 text-xs text-state-danger" onClick={() => setAction({ tenant: t, status: "Closed" })}>Đóng</Button>}
         </span>
       ),
     },
@@ -64,7 +79,7 @@ export default function PlatformTenants({ navigate }: { navigate: (p: Page) => v
 
   const suspending = action?.status === "Suspended"
   const approving = action?.status === "Active" && action.tenant.status === "Pending"
-  const verb = (a: { tenant: Tenant; status: TenantStatus }) => a.status === "Active" ? (a.tenant.status === "Pending" ? "Duyệt đăng ký của" : "Kích hoạt lại") : a.status === "Suspended" ? "Tạm ngưng" : a.status === "Rejected" ? "Từ chối đăng ký của" : "Đóng"
+  const verb = (a: { tenant: Tenant; status: TenantStatus }) => a.status === "Active" ? (a.tenant.status === "Pending" ? "Duyệt đăng ký của" : "Kích hoạt lại") : a.status === "Suspended" ? "Tạm ngưng" : "Từ chối đăng ký của"
   return (
     <PlatformPage page="platform-tenants" navigate={navigate} uc="UC-05" title="Quản lý tenant" subtitle="Các thương hiệu đang dùng nền tảng." action={<Button onClick={() => setWizard(true)}>Tạo tenant</Button>}>
       <QueryBoundary query={tenants}>{(rows) => {
@@ -84,13 +99,13 @@ export default function PlatformTenants({ navigate }: { navigate: (p: Page) => v
         open={!!action}
         danger={action?.status !== "Active"}
         title={action ? `${verb(action)} ${action.tenant.name}?` : ""}
-        message={approving ? "Thương hiệu sẽ được kích hoạt với thời gian dùng thử 14 ngày. Chủ quán nhận email mời đặt mật khẩu." : action?.status === "Rejected" ? "Lý do sẽ được gửi tới email của chủ quán." : suspending ? "Tạm ngưng sẽ chặn đăng nhập, API, QR bàn và đặt takeaway của toàn bộ thương hiệu này (BR-07)." : action?.status === "Closed" ? "Đóng tenant là hành động khó hoàn tác." : "Thương hiệu sẽ hoạt động trở lại."}
-        requireReason={action?.status !== "Active"}
+        message={approving ? "Chủ quán nhận email thông báo và đăng nhập được bằng mật khẩu đã đăng ký. Sau đó hãy gán gói dịch vụ cho thương hiệu." : action?.status === "Rejected" ? "Lý do sẽ được gửi tới email của chủ quán." : suspending ? "Tạm ngưng sẽ chặn đăng nhập, API, QR bàn và đặt takeaway của toàn bộ thương hiệu này (BR-07)." : "Thương hiệu sẽ hoạt động trở lại."}
+        requireReason={action?.status === "Rejected"}
         reason={reason}
         onReason={setReason}
         confirmLabel="Xác nhận"
         onCancel={() => { setAction(null); setReason("") }}
-        onConfirm={() => action && setStatus.mutate({ id: action.tenant.id, status: action.status, reason })}
+        onConfirm={() => action && setStatus.mutate({ id: action.tenant.id, from: action.tenant.status, status: action.status, reason })}
       />
     </PlatformPage>
   )
@@ -145,7 +160,7 @@ function TenantWizard({ open, plans, onClose, onCreated }: { open: boolean; plan
       {step === 0 && (
         <div className="space-y-4">
           <Field label="Tên thương hiệu" value={form.name} onChange={(e) => set("name", e.target.value)} error={errors.name} />
-          <Field label="Mã định danh (subdomain)" value={form.slug} onChange={(e) => set("slug", e.target.value.toLowerCase())} error={errors.slug} hint={`${form.slug || "ten-brand"}.aicos.app`} />
+          <Field label="Mã thương hiệu" value={form.slug} onChange={(e) => set("slug", e.target.value.toLowerCase())} error={errors.slug} hint="Chữ thường, số và dấu gạch ngang." />
         </div>
       )}
       {step === 1 && (
@@ -175,7 +190,7 @@ function TenantWizard({ open, plans, onClose, onCreated }: { open: boolean; plan
       )}
       {step === 3 && (
         <dl className="space-y-2 text-sm">
-          {[["Thương hiệu", form.name], ["Subdomain", `${form.slug}.aicos.app`], ["Gói", plan ? `${plan.name} · ${formatVND(plan.monthlyFee)}/tháng` : ""], ["Brand Admin", `${form.adminName} (${form.adminEmail})`]].map(([k, v]) => (
+          {[["Thương hiệu", form.name], ["Mã thương hiệu", form.slug], ["Gói", plan ? `${plan.name} · ${formatVND(plan.monthlyFee)}/tháng` : ""], ["Brand Admin", `${form.adminName} (${form.adminEmail})`]].map(([k, v]) => (
             <div key={k} className="flex justify-between gap-4"><dt className="text-text-secondary">{k}</dt><dd className="text-right text-text-primary">{v}</dd></div>
           ))}
         </dl>

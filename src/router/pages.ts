@@ -17,6 +17,7 @@ export const PAGE_PATHS = {
   "auth-reset-password": "/reset-password/:token",
 
   "account-settings": "/account-settings",
+  "staff-notifications": "/staff/notifications",
 
   // Guest (no account, table QR) - UC-23/24/26/27
   "guest-menu": "/q/:token",

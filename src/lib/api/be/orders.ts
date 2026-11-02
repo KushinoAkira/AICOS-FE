@@ -110,8 +110,11 @@ export const beOrdersApi = {
   async transition(id: string, b: { status: OrderStatus; reason?: string }): Promise<Order> {
     const current = await detail(id)
     if (b.status === "Preparing" && current.status === "Pending") await http.put<Raw>(`/kitchen/tickets/${await ticketOf(id)}/status`, { status: "Brewing" })
+    else if (b.status === "Preparing" && current.status === "Ready") await http.post<Raw>(`/kitchen/tickets/${await ticketOf(id)}/remake`, { reason: b.reason ?? "Pha lại" })
     else if (b.status === "Ready") await http.put<Raw>(`/kitchen/tickets/${await ticketOf(id)}/status`, { status: "ReadyForPickup" })
     else if (b.status === "Served" || b.status === "PickedUp") await http.post<Raw>(`/orders/${id}/deliver`, {})
+    else if (b.status === "Unfulfillable") await http.post<Raw>(`/orders/${id}/unfulfillable`, { reason: b.reason })
+    else if (b.status === "NoShow") await http.post<Raw>(`/orders/${id}/no-show`, { reason: b.reason ?? "Khách không đến nhận" })
     else if (b.status === "Cancelled") {
       const reason = b.reason ?? "Hủy đơn"
       if (current.paymentStatus === "Unpaid") await http.post<Raw>(`/orders/${id}/cancel`, { reason })
@@ -262,12 +265,21 @@ export const beOrdersApi = {
     return toOrder(rec(await http.post<Raw>("/orders/pickup", { branchId: b.branchId, slotStartUtc: str(slot.startUtc), note: null, items }, { headers: { "Idempotency-Key": key } })))
   },
   async payOnline(id: string, outcome: PayOutcome): Promise<Order> {
-    const order = await detail(id)
+    const raw = rec(await http.get<Raw>(`/orders/${id}`))
+    const order = toOrder(raw)
+    // A customer's account belongs to no branch, so the payment names the branch of the order.
+    const branchId = str(raw.branchId)
     // The gateway the platform and the brand have switched on, not a fixed one.
-    const method = toMethods(await http.get<Raw[]>("/payments/merchant-settings/available"))[0]
+    const method = toMethods(await http.get<Raw[]>("/payments/merchant-settings/available", { query: { branchId } }))[0]
     if (!method) throw new ApiError(422, "Quán chưa bật cổng thanh toán online.", "payment.no_method")
-    const tx = rec(await http.post<Raw>("/payments/transactions", { orderId: id, amount: order.total, providerCode: method.code, branchId: null }))
-    await http.post<Raw>(`/payments/transactions/${str(tx.id)}/simulate`, { outcome: outcome === "failed" ? "failed" : "success", notify: outcome !== "lost" })
+    const tx = rec(await http.post<Raw>("/payments/transactions", { orderId: id, amount: order.total, providerCode: method.code, branchId }))
+    const paid = rec(await http.post<Raw>(`/payments/transactions/${str(tx.id)}/simulate`, { outcome: outcome === "failed" ? "failed" : "success", notify: outcome !== "lost" }))
+    // The order hears about the payment through an event, a moment after the gateway answered.
+    for (let i = 0; i < 6 && outcome !== "lost" && str(paid.status) === "Succeeded"; i++) {
+      const now = await detail(id)
+      if (now.paymentStatus === "Paid") return now
+      await new Promise((r) => setTimeout(r, 500))
+    }
     return detail(id)
   },
   async mine(): Promise<Order[]> { return withLines(recs(itemsOf(await http.get<Raw[]>("/orders/mine")))) },

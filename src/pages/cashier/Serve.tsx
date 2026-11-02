@@ -24,6 +24,11 @@ export default function CashierServe({ navigate }: { navigate: (p: Page) => void
     onSuccess: (o) => { done(); showToast(`Đã giao ${o.code}.`, "success") },
     onError: (e) => showToast(e.message, "error"),
   })
+  const noShow = useMutation({
+    mutationFn: (o: Order) => ordersApi.transition(o.id, { status: "NoShow" }),
+    onSuccess: (o) => { done(); showToast(`Đã ghi nhận khách không đến nhận ${o.code}.`, "success") },
+    onError: (e) => showToast(e.message, "error"),
+  })
   const voidOrder = useMutation({
     mutationFn: (v: { o: Order; reason: string }) => ordersApi.transition(v.o.id, { status: "Cancelled", reason: v.reason }),
     onSuccess: (o) => { done(); setVoiding(null); setReason(""); showToast(`Đã hủy ${o.code}.`, "success") },
@@ -51,6 +56,7 @@ export default function CashierServe({ navigate }: { navigate: (p: Page) => void
                         <p className="mt-1 text-sm text-text-secondary">{o.channel === "takeaway" ? "Mang đi" : `Bàn ${o.tableCode}`} · {formatTime(o.createdAtUtc)}</p>
                         <ul className="mt-2 flex-1 text-sm text-text-primary">{o.lines.map((l, i) => <li key={i}>{l.qty}× {l.name}</li>)}</ul>
                         <Button className="mt-3 min-h-11 w-full" loading={hand.isPending && hand.variables?.id === o.id} onClick={() => hand.mutate(o)}>{o.channel === "takeaway" ? "Đã giao cho khách" : "Đã mang ra bàn"}</Button>
+                        {o.channel === "takeaway" && <Button variant="danger" className="mt-2 w-full" loading={noShow.isPending && noShow.variables?.id === o.id} onClick={() => noShow.mutate(o)}>Không đến nhận</Button>}
                       </li>
                     ))}
                   </ul>
@@ -66,7 +72,7 @@ export default function CashierServe({ navigate }: { navigate: (p: Page) => void
                           <p className="font-medium text-text-primary">{o.code} · {o.channel === "takeaway" ? "Mang đi" : `Bàn ${o.tableCode}`}</p>
                           <p className="text-text-secondary">{o.lines.map((l) => `${l.qty}× ${l.name}`).join(", ")}</p>
                         </div>
-                        <div className="flex items-center gap-2"><OrderStatusPill status={o.status} /><Button variant="danger" className="px-3 py-1.5 text-xs" onClick={() => setVoiding(o)}>Hủy đơn</Button></div>
+                        <div className="flex items-center gap-2"><OrderStatusPill status={o.status} />{o.paymentStatus === "Unpaid" ? <Button variant="danger" className="px-3 py-1.5 text-xs" onClick={() => setVoiding(o)}>Hủy đơn</Button> : <span className="text-xs text-text-secondary">Đã trả tiền, quản lý mới hủy được</span>}</div>
                       </li>
                     ))}
                   </ul>

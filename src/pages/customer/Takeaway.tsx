@@ -10,6 +10,7 @@ import { useToast } from "../../context/ToastContext"
 import { addDays, todayKey } from "../../lib/dates"
 import { branchesApi } from "../../lib/api/identity"
 import { ordersApi, type LineInput, type Order, type PayOutcome } from "../../lib/api/orders"
+import { earliestPickup, type PickupHours } from "../../lib/earliestPickup"
 
 /** Demo branch of the mock data; with the real API the first active branch of the brand is used. */
 const MOCK_BRANCH_ID = "00000000-0000-0000-0000-000000000b01"
@@ -26,11 +27,10 @@ export default function CustomerTakeaway({ navigate }: { navigate: (p: Page) => 
   const [day, setDay] = useState<"today" | "tomorrow">("today")
   const [time, setTime] = useState("")
   const slot = time ? new Date(`${addDays(todayKey(), day === "today" ? 0 : 1)}T${time}:00`).toISOString() : ""
-  function earliest(i: { open: string; close: string; cutoffMinutes: number }) {
-    const t = new Date(Date.now() + (i.cutoffMinutes + 5) * 60_000)
-    t.setMinutes(Math.ceil(t.getMinutes() / 5) * 5, 0, 0)
-    const hhmm = `${String(t.getHours()).padStart(2, "0")}:${String(t.getMinutes()).padStart(2, "0")}`
-    if (hhmm > i.close) { setDay("tomorrow"); setTime(i.open) } else { setDay("today"); setTime(hhmm < i.open ? i.open : hhmm) }
+  function earliest(i: PickupHours) {
+    const first = earliestPickup(new Date(), i)
+    setDay(first.day)
+    setTime(first.time)
   }
   const check = useQuery({ queryKey: ["takeaway", "check", BRANCH_ID, slot], queryFn: () => ordersApi.pickupCheck(BRANCH_ID, slot), enabled: !!slot && !!BRANCH_ID })
   const [error, setError] = useState<string | null>(null)

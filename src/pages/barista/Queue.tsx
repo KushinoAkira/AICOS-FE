@@ -53,11 +53,11 @@ export default function BaristaQueue({ navigate }: { navigate: (p: Page) => void
                           <div className="mt-3 flex flex-wrap gap-2">
                             {c.status === "Pending" && <Button className="flex-1 py-3" loading={busy(o.id)} onClick={() => move.mutate({ id: o.id, status: "Preparing" })}>Bắt đầu pha</Button>}
                             {c.status === "Preparing" && <Button className="flex-1 py-3" loading={busy(o.id)} onClick={() => move.mutate({ id: o.id, status: "Ready" })}>Xong</Button>}
-                            {c.status === "Ready" && <><Button className="flex-1 py-3" loading={busy(o.id)} onClick={() => move.mutate({ id: o.id, status: o.channel === "takeaway" ? "PickedUp" : "Served" })}>{o.channel === "takeaway" ? "Khách đã nhận" : "Đã phục vụ"}</Button>{o.channel === "takeaway" && <Button variant="danger" disabled={busy(o.id)} onClick={() => move.mutate({ id: o.id, status: "NoShow" })}>Không đến nhận</Button>}<Button variant="secondary" disabled={busy(o.id)} onClick={() => move.mutate({ id: o.id, status: "Preparing" })}>Pha lại</Button></>}
+                            {c.status === "Ready" && <Button variant="secondary" loading={busy(o.id)} onClick={() => move.mutate({ id: o.id, status: "Preparing" })}>Pha lại</Button>}
                             <Button variant="secondary" loading={labels.isPending && labels.variables === o.id} onClick={() => labels.mutate(o.id)}>Nhãn ly</Button>
                             {c.status !== "Ready" && <Button variant="danger" disabled={busy(o.id)} onClick={() => setFailing(o)}>Không làm được</Button>}
                           </div>
-                          {c.status === "Ready" && <div className="mt-2"><OrderStatusPill status="Ready" /></div>}
+                          {c.status === "Ready" && <div className="mt-2 flex flex-wrap items-center gap-2"><OrderStatusPill status="Ready" /><span className="text-xs text-text-secondary">Thu ngân giao món cho khách.</span></div>}
                         </li>
                       ))}
                     </ul>

@@ -124,24 +124,23 @@ export const beStaffApi = {
 }
 
 async function loyaltyMe(): Promise<LoyaltyMe> {
-  const [me, rules, vouchers] = await Promise.all([
-    http.get<Raw>("/customers/me/loyalty"), http.get<Raw>("/customers/loyalty/rules").catch(() => ({} as Raw)), http.get<Raw[]>("/customers/me/vouchers", { query: { status: "Active", pageSize: 50 } }),
+  const [me, vouchers] = await Promise.all([
+    http.get<Raw>("/customers/me/loyalty"), http.get<Raw[]>("/customers/me/vouchers", { query: { status: "Active", pageSize: 50 } }),
   ])
-  const m = rec(me), r = rec(rules)
-  const points = num(m.pointsBalance ?? m.points), silver = num(r.silverThreshold, 100), gold = num(r.goldThreshold, 500)
-  const next = points < silver ? { name: "Silver", at: silver } : points < gold ? { name: "Gold", at: gold } : null
+  const m = rec(me)
+  const points = num(m.pointsBalance), tier = str(m.tier, "Member")
   return {
-    points, tier: str(m.tier, "Member"), nextTier: next?.name ?? null, pointsToNext: next ? next.at - points : 0, redeemPoints: num(r.minPointsToRedeem, 10),
+    points, tier, nextTier: m.nextTierAt == null ? null : tier === "Member" ? "Silver" : "Gold", pointsToNext: num(m.pointsToNextTier), redeemPoints: num(m.minPointsToRedeem, 10),
     vouchers: recs(itemsOf(vouchers)).map((v) => ({ id: str(v.id), code: str(v.code), title: `Voucher ${str(v.code)}`, value: num(v.value), expiresAtUtc: str(v.expiresAtUtc) })),
-    history: recs(m.history ?? m.transactions).map((h) => ({ id: str(h.id), delta: num(h.points ?? h.delta), reason: str(h.note) || str(h.type), atUtc: str(h.createdAtUtc) || str(h.atUtc) })),
+    history: recs(rec(m.history).items).map((h) => ({ id: str(h.id), delta: num(h.points), reason: str(h.note) || str(h.type), atUtc: str(h.createdAtUtc) })),
   }
 }
 
 export const beLoyaltyApi = {
   me: loyaltyMe,
   async redeem(): Promise<LoyaltyMe> {
-    const rules = rec(await http.get<Raw>("/customers/loyalty/rules"))
-    await http.post<Raw>("/customers/me/redemptions", { points: num(rules.minPointsToRedeem, 10) })
+    const me = rec(await http.get<Raw>("/customers/me/loyalty"))
+    await http.post<Raw>("/customers/me/redemptions", { points: num(me.minPointsToRedeem, 10) })
     return loyaltyMe()
   },
 }

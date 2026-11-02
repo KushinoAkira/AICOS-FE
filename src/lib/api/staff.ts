@@ -5,7 +5,7 @@ import { http } from "./http"
 export type Period = "morning" | "afternoon"
 export const PERIOD_LABEL: Record<Period, string> = { morning: "Ca sáng (07:00-14:30)", afternoon: "Ca chiều (14:30-22:00)" }
 
-export interface Shift { id: string; date: string; period: Period; workShiftId?: string; shiftName?: string; startTime?: string; endTime?: string; userId: string; userName: string; branchId: string; checkInAtUtc: string | null; checkOutAtUtc: string | null }
+export interface Shift { id: string; date: string; period: Period; workShiftId?: string; shiftName?: string; startTime?: string; endTime?: string; userId: string; userName: string; branchId: string; checkInAtUtc: string | null; checkOutAtUtc: string | null; reviewed?: boolean; absent?: boolean }
 /** The name and hours of the template the shift came from. */
 export const shiftLabel = (s: Pick<Shift, "period" | "shiftName" | "startTime" | "endTime">) =>
   (s.shiftName ? `${s.shiftName} (${s.startTime}-${s.endTime})` : PERIOD_LABEL[s.period])

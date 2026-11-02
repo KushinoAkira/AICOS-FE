@@ -7,17 +7,17 @@ import { useAuth } from "../../context/AuthContext"
 import { useToast } from "../../context/ToastContext"
 import { shiftLabel, staffApi, type Shift } from "../../lib/api/staff"
 import { dayLabel, todayKey } from "../../lib/dates"
-import { formatTime, formatVND } from "../../lib/format"
+import { formatSignedVND, formatTime, formatVND } from "../../lib/format"
 
 /** "My shifts": attendance, replacement sign-up and (cashier) cash closing. */
 export default function MyShifts({ navigate }: { navigate: (p: Page) => void }) {
   const { role } = useAuth()
   const qc = useQueryClient()
   const { showToast } = useToast()
-  const mine = useQuery({ queryKey: ["my-shifts"], queryFn: staffApi.myShifts })
+  const mine = useQuery({ queryKey: ["my-shifts"], queryFn: staffApi.myShifts, refetchInterval: 15000 })
   const reps = useQuery({ queryKey: ["replacements"], queryFn: staffApi.replacements })
   const refresh = () => { void qc.invalidateQueries({ queryKey: ["my-shifts"] }); void qc.invalidateQueries({ queryKey: ["replacements"] }); void qc.invalidateQueries({ queryKey: ["cash"] }) }
-  const att = useMutation({ mutationFn: (v: { s: Shift; out: boolean }) => (v.out ? staffApi.checkOut(v.s.id) : staffApi.checkIn(v.s.id)), onSuccess: refresh, onError: (e) => showToast(e.message, "error") })
+  const att = useMutation({ mutationFn: (v: { s: Shift; out: boolean }) => (v.out ? staffApi.checkOut(v.s.id) : staffApi.checkIn(v.s.id)), onSuccess: refresh, onError: (e) => { refresh(); showToast(e.message, "error") } })
   const apply = useMutation({ mutationFn: staffApi.apply, onSuccess: () => { refresh(); showToast("Đã đăng ký ca thay, chờ quản lý duyệt", "success") }, onError: (e) => showToast(e.message, "error") })
 
   return (
@@ -31,7 +31,8 @@ export default function MyShifts({ navigate }: { navigate: (p: Page) => void }) 
                 {rows.map((s) => (
                   <li key={s.id} className="flex flex-wrap items-center justify-between gap-3 rounded-[16px] border border-border bg-surface p-4">
                     <div><p className="font-medium text-text-primary">{dayLabel(s.date)} · {shiftLabel(s)}</p><p className="text-sm text-text-secondary">{s.checkInAtUtc ? `Vào ca ${formatTime(s.checkInAtUtc)}` : "Chưa vào ca"}{s.checkOutAtUtc ? ` · Ra ca ${formatTime(s.checkOutAtUtc)}` : ""}</p></div>
-                    {s.checkOutAtUtc ? <StatusPill tone="success">Hoàn thành</StatusPill>
+                    {s.absent ? <StatusPill tone="danger">Vắng</StatusPill>
+                      : s.checkOutAtUtc || s.reviewed ? <StatusPill tone="success">Hoàn thành</StatusPill>
                       : s.checkInAtUtc ? <Button variant="secondary" loading={att.isPending} onClick={() => att.mutate({ s, out: true })}>Kết thúc ca</Button>
                       : <Button loading={att.isPending} disabled={s.date !== todayKey()} disabledReason="Chỉ vào ca đúng ngày" onClick={() => att.mutate({ s, out: false })}>Vào ca</Button>}
                   </li>
@@ -88,7 +89,7 @@ function CashClosing() {
             {e.shiftLabel && <p className="text-sm text-text-primary">Đang chốt: <b>{e.shiftLabel}</b></p>}
             <p className="text-sm text-text-secondary">Hệ thống ghi nhận tiền mặt <b className="text-text-primary">{formatVND(e.expected)}</b></p>
             {error && <Banner>{error}</Banner>}
-            <Field label="Tiền mặt đếm được (₫)" inputMode="numeric" value={counted} onChange={(ev) => setCounted(ev.target.value.replace(/\D/g, ""))} hint={counted ? (variance === 0 ? "Khớp" : `Lệch ${formatVND(variance)}`) : undefined} />
+            <Field label="Tiền mặt đếm được (₫)" inputMode="numeric" value={counted} onChange={(ev) => setCounted(ev.target.value.replace(/\D/g, ""))} hint={counted ? (variance === 0 ? "Khớp" : `Lệch ${formatSignedVND(variance)}`) : undefined} />
             {counted !== "" && variance !== 0 && <Field label="Lý do chênh lệch (bắt buộc)" value={reason} onChange={(ev) => setReason(ev.target.value)} />}
             <Button loading={close.isPending} disabled={counted === "" || (variance !== 0 && !reason.trim())} disabledReason="Nhập số tiền và lý do nếu lệch" onClick={() => { setError(null); close.mutate() }}>Chốt tiền mặt</Button>
           </div>

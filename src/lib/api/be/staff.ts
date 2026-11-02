@@ -2,7 +2,7 @@ import { http } from "../http"
 import { pickClosingShift } from "../../closingShift"
 import { shiftLabel, type CashClosing, type CashExpected, type LoyaltyMe, type Notice, type Period, type Replacement, type Shift } from "../staff"
 import { tokenStore } from "../tokenStore"
-import { itemsOf, num, rec, recs, str, unsupported, ymd, type Raw } from "./util"
+import { bool, itemsOf, num, rec, recs, str, unsupported, ymd, type Raw } from "./util"
 
 /** Real backend, workforce + customer loyalty (reference sections 4 and 8). */
 const W = "/workforce"
@@ -14,13 +14,18 @@ async function userIdByEmployee(): Promise<Map<string, string>> {
   return new Map(list.map((e) => [str(e.id), str(e.userId)]))
 }
 
+/** The times that count: a manager's correction wins over what the employee tapped, and an absence has none. */
+const workedTimes = (a: Raw) => (bool(a.isAbsent)
+  ? { checkInAtUtc: null, checkOutAtUtc: null }
+  : { checkInAtUtc: str(a.adjustedCheckInAtUtc) || str(a.checkInAtUtc) || null, checkOutAtUtc: str(a.adjustedCheckOutAtUtc) || str(a.checkOutAtUtc) || null })
+
 const templateOf = (a: Raw) => ({ workShiftId: str(a.workShiftId) || undefined, shiftName: str(a.shiftName) || undefined, startTime: str(a.startTime).slice(0, 5) || undefined, endTime: str(a.endTime).slice(0, 5) || undefined })
 
 function toShift(a: Raw, users: Map<string, string>): Shift {
   const employeeId = str(a.employeeId)
   return {
     id: str(a.id), date: str(a.workDate).slice(0, 10), period: periodOf(str(a.startTime, "07:00")), ...templateOf(a), userId: users.get(employeeId) ?? employeeId,
-    userName: str(a.employeeName), branchId: str(a.branchId), checkInAtUtc: str(a.checkInAtUtc) || null, checkOutAtUtc: str(a.checkOutAtUtc) || null,
+    userName: str(a.employeeName), branchId: str(a.branchId), ...workedTimes(a), reviewed: str(a.reviewStatus) === "Approved", absent: bool(a.isAbsent),
   }
 }
 
@@ -40,7 +45,7 @@ const addDays = (from: string, n: number) => { const d = new Date(`${from}T00:00
 /** The shift whose cash the signed-in cashier closes next, among the ones they checked in to. */
 async function closingAssignment() {
   const [mine, closings] = await Promise.all([http.get<Raw[]>(`${W}/shift-assignments/mine`), http.get<Raw[]>(`${W}/cash-closings/mine`, { query: { pageSize: 100 } })])
-  const shifts = recs(itemsOf(mine)).map((a) => ({ ...a, id: str(a.id), employeeName: str(a.employeeName), workDate: str(a.workDate), startTime: str(a.startTime), checkInAtUtc: str(a.checkInAtUtc) || null, checkOutAtUtc: str(a.checkOutAtUtc) || null }))
+  const shifts = recs(itemsOf(mine)).map((a) => ({ ...a, id: str(a.id), employeeName: str(a.employeeName), workDate: str(a.workDate), startTime: str(a.startTime), ...workedTimes(a) }))
   return pickClosingShift(shifts, recs(itemsOf(closings)).map((c) => str(c.assignmentId)))
 }
 

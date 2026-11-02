@@ -48,7 +48,7 @@ function Availability({ rows, branchId, onChanged }: { rows: Product[]; branchId
       key: "act", header: "", className: "text-right",
       render: (p) => {
         const out = p.soldOutAt.includes(branchId)
-        return <Button variant="secondary" className="px-3 py-1.5 text-xs" loading={toggle.isPending && toggle.variables?.id === p.id} onClick={() => toggle.mutate({ id: p.id, available: out })}>{out ? "Đánh dấu còn" : "Đánh dấu hết"}</Button>
+        return <Button variant="secondary" className="px-3 py-1.5 text-xs" loading={toggle.isPending && toggle.variables?.id === p.id} onClick={() => toggle.mutate({ id: p.id, available: out })}>{out ? "Mở bán lại" : "Đánh dấu hết"}</Button>
       },
     },
   ]

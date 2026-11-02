@@ -30,7 +30,7 @@ export function toProduct(p: Raw, categories: Map<string, string>): Product {
     toppings: groupOf(p, OPTION_KINDS.topping).map((o): Topping => choice(o)),
     published: bool(p.isActive, true),
     dirty: false,
-    soldOutAt: [],
+    soldOutAt: Array.isArray(p.soldOutBranchIds) ? p.soldOutBranchIds.map((b) => str(b)) : [],
   }
 }
 

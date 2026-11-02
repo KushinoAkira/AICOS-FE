@@ -35,7 +35,7 @@ export function OrderedTab({ token, channelUp = false }: { token: string; channe
         ))}
       </ul>
       {allPaid ? (
-        <div className="mt-4 rounded-[14px] bg-sand p-4"><p className="font-serif text-lg text-text-primary">Đã thanh toán {formatVND(total)}</p><p className="text-xs text-text-secondary">Cảm ơn bạn! Đơn sẽ được lưu vào lịch sử khi thu ngân hoàn thành bàn.</p></div>
+        <div className="mt-4 rounded-[14px] bg-sand p-4"><p className="font-serif text-lg text-text-primary">Đã thanh toán {formatVND(total)}</p><p className="text-xs text-text-secondary">{live.some(paidAndStillMaking) ? "Thanh toán thành công. Quán đang chuẩn bị món, bạn theo dõi tiến độ pha chế và giao món ngay tại đây." : "Thanh toán thành công. Món đã được phục vụ, cảm ơn bạn!"}</p></div>
       ) : (
         <GuestPay token={token} due={due} />
       )}

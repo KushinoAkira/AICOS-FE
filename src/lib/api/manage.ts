@@ -54,6 +54,14 @@ export interface AssignmentRow {
 export type AttendanceState = "Upcoming" | "InProgress" | "Worked" | "MissingCheckOut" | "NoShow" | string
 export interface AttendanceRow { shift: AssignmentRow; state: AttendanceState; isLate: boolean; lateMinutes: number; leftEarly: boolean; scheduledHours: number; workedHours: number }
 export interface AttendanceSummary { employeeId: string; employeeName: string; contractType: ContractType; shifts: number; scheduledHours: number; workedHours: number; lateCount: number; absences: number; noShows: number; pendingReview: number }
+/** A shift template of the branch: what a row of the schedule is. */
+export interface WorkShift { id: string; branchId: string; name: string; startTime: string; endTime: string; hours: number; isActive: boolean }
+export const workShiftApi = {
+  list: () => http.get<WorkShift[]>("/workforce/work-shifts"),
+  save: (id: string | null, b: { name: string; startTime: string; endTime: string }) => (id ? http.put<WorkShift>(`/workforce/work-shifts/${id}`, b) : http.post<WorkShift>("/workforce/work-shifts", b)),
+  setActive: (id: string, isActive: boolean) => http.patch<WorkShift>(`/workforce/work-shifts/${id}/status`, { isActive }),
+}
+
 export const attendanceApi = {
   report: (q: { from: string; to: string; employeeId?: string; reviewStatus?: string }) => http.get<{ from: string; to: string; rows: AttendanceRow[]; summary: AttendanceSummary[] }>("/workforce/attendance/report", { query: q }),
   approve: (id: string, note?: string) => http.post<Raw>(`/workforce/attendance/${id}/approve`, { note: note ?? null }),

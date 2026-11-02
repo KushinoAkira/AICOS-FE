@@ -45,10 +45,21 @@ async function categoryId(name: string): Promise<string> {
   return str(rec(await http.post<Raw>("/menu/categories", { name: name.trim(), sortOrder: list.length + 1 })).id)
 }
 
+/** Every product of the brand. The API serves at most 100 per page, so a long menu takes several calls. */
+async function allProducts(): Promise<Raw[]> {
+  const out: Raw[] = []
+  for (let page = 1; ; page++) {
+    const r = rec(await http.get<Raw>("/menu/products", { query: { page, pageSize: 100 } }))
+    const items = recs(r.items)
+    out.push(...items)
+    if (items.length === 0 || out.length >= num(r.totalCount)) return out
+  }
+}
+
 async function listProducts(): Promise<Product[]> {
-  const [products, cats] = await Promise.all([http.get<Raw[]>("/menu/products"), http.get<Raw[]>("/menu/categories")])
+  const [products, cats] = await Promise.all([allProducts(), http.get<Raw[]>("/menu/categories")])
   const names = new Map(recs(itemsOf(cats)).map((c) => [str(c.id), str(c.name)]))
-  return recs(itemsOf(products)).map((p) => toProduct(p, names))
+  return products.map((p) => toProduct(p, names))
 }
 
 function productBody(catId: string, b: ProductInput) {

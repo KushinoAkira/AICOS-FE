@@ -10,6 +10,8 @@ import { formatDate, formatTime } from "../../lib/format"
 const STATE_TEXT: Record<string, string> = { Upcoming: "Sắp tới", InProgress: "Đang làm", Worked: "Đã làm", MissingCheckOut: "Thiếu giờ ra", NoShow: "Không đến", Absent: "Vắng" }
 
 /** `2026-11-02T08:15` in the browser's local time, for a date-time input. */
+const checkedIn = (r: AttendanceRow) => r.shift.adjustedCheckInAtUtc ?? r.shift.checkInAtUtc
+
 const toLocalInput = (iso: string | null) => {
   if (!iso) return ""
   const d = new Date(iso)
@@ -31,9 +33,10 @@ export default function ManagerAttendance({ navigate }: { navigate: (p: Page) =>
   const [error, setError] = useState<string | null>(null)
   const [absent, setAbsent] = useState<AttendanceRow | null>(null)
   const [absentReason, setAbsentReason] = useState("")
+  const [running, setRunning] = useState<AttendanceRow | null>(null)
   const refresh = () => { void qc.invalidateQueries({ queryKey: ["attendance"] }); void qc.invalidateQueries({ queryKey: ["payroll"] }) }
   const fail = (e: Error) => showToast(e.message, "error")
-  const approve = useMutation({ mutationFn: (id: string) => attendanceApi.approve(id), onSuccess: () => { refresh(); showToast("Đã duyệt.", "success") }, onError: fail })
+  const approve = useMutation({ mutationFn: (id: string) => attendanceApi.approve(id), onSuccess: () => { refresh(); setRunning(null); showToast("Đã duyệt.", "success") }, onError: (e) => { setRunning(null); fail(e) } })
   const approveAll = useMutation({
     mutationFn: () => attendanceApi.approveRange({ from, to }),
     onSuccess: (r) => { refresh(); showToast(`Đã duyệt ${r.approved} ca.${r.needsAttention ? ` ${r.needsAttention} ca cần xem lại.` : ""}`, "success") },
@@ -61,6 +64,8 @@ export default function ManagerAttendance({ navigate }: { navigate: (p: Page) =>
     setError(null)
     adjust.mutate()
   }
+  /** A shift still running: approving it sets the check-out to now, so the manager confirms first. */
+  const isRunning = (r: AttendanceRow) => r.state === "InProgress" && !!checkedIn(r) && !(r.shift.adjustedCheckOutAtUtc ?? r.shift.checkOutAtUtc)
   const columns: Column<AttendanceRow>[] = [
     { key: "d", header: "Ngày", sort: (r) => r.shift.workDate, render: (r) => formatDate(r.shift.workDate) },
     { key: "n", header: "Nhân sự", sort: (r) => r.shift.employeeName, render: (r) => <span className="font-medium text-text-primary">{r.shift.employeeName}{r.shift.isReplacement && <span className="ml-1 text-xs text-text-secondary">(ca thay)</span>}</span> },
@@ -72,7 +77,7 @@ export default function ManagerAttendance({ navigate }: { navigate: (p: Page) =>
     {
       key: "a", header: "", className: "text-right", render: (r) => (
         <div className="flex justify-end gap-2">
-          {r.shift.reviewStatus !== "Approved" && <Button className="px-3 py-1.5 text-xs" loading={approve.isPending && approve.variables === r.shift.id} disabled={r.state === "Upcoming"} disabledReason="Ca chưa diễn ra" onClick={() => approve.mutate(r.shift.id)}>Duyệt</Button>}
+          {r.shift.reviewStatus !== "Approved" && <Button className="px-3 py-1.5 text-xs" loading={approve.isPending && approve.variables === r.shift.id} disabled={!checkedIn(r) && (r.state === "Upcoming" || r.state === "InProgress")} disabledReason="Nhân viên chưa vào ca" onClick={() => (isRunning(r) ? setRunning(r) : approve.mutate(r.shift.id))}>Duyệt</Button>}
           <Button variant="secondary" className="px-3 py-1.5 text-xs" onClick={() => openAdjust(r)}>Sửa giờ</Button>
           {!r.shift.checkInAtUtc && !r.shift.isAbsent && <Button variant="secondary" className="px-3 py-1.5 text-xs" onClick={() => setAbsent(r)}>Ghi vắng</Button>}
         </div>
@@ -96,6 +101,7 @@ export default function ManagerAttendance({ navigate }: { navigate: (p: Page) =>
           <Field label="Lý do" hint="Được lưu trong nhật ký." value={reason} onChange={(e) => setReason(e.target.value)} />
         </div>
       </Modal>
+      <ConfirmDialog open={!!running} title={`Duyệt ca đang diễn ra của ${running?.shift.employeeName ?? ""}?`} message="Giờ ra được chốt tại thời điểm này và công tính đến lúc duyệt. Nhân viên sẽ không bấm Kết thúc ca nữa. Có thể chỉnh lại bằng Sửa giờ." confirmLabel="Duyệt" onCancel={() => setRunning(null)} onConfirm={() => running && approve.mutate(running.shift.id)} />
       <ConfirmDialog open={!!absent} danger requireReason reason={absentReason} onReason={setAbsentReason} title={`Ghi vắng ${absent?.shift.employeeName ?? ""}?`} message="Ca này sẽ không được tính công." confirmLabel="Ghi vắng" onCancel={() => setAbsent(null)} onConfirm={() => markAbsent.mutate()} />
     </PageFrame>
   )

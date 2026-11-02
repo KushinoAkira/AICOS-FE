@@ -1,6 +1,8 @@
 import AuthHero from "../../components/AuthHero"
 import { Logo } from "../../components/AuthShell"
 import { GoogleButton } from "../../components/GoogleButton"
+import { Button } from "../../components/ui"
+import { demoCustomer } from "../../lib/demoAccounts"
 import { useState } from "react"
 import { useNavigate } from "react-router"
 import type { Page } from "../../App"
@@ -22,12 +24,17 @@ export default function CustomerLogin({ navigate }: Props) {
   const { showToast } = useToast()
   const [password, setPassword] = useState("")
   const [showPass, setShowPass] = useState(false)
+  const quick = demoCustomer()
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    await signIn(email, password)
+  }
+
+  async function signIn(loginName: string, pass: string) {
     setSubmitting(true)
     try {
-      const user = await login(email, password)
+      const user = await login(loginName, pass)
       const back = sessionStorage.getItem("aicos.returnTo")
       sessionStorage.removeItem("aicos.returnTo")
       if (back) routerNavigate(back, { replace: true }); else navigate(homePageOf(user))
@@ -164,6 +171,12 @@ export default function CustomerLogin({ navigate }: Props) {
         </div>
 
         <GoogleButton onCredential={handleGoogle} />
+
+        {quick && (
+          <Button type="button" variant="secondary" className="mt-3 w-full" disabled={submitting} onClick={() => void signIn(quick.login, quick.password)}>
+            Đăng nhập nhanh khách hàng demo
+          </Button>
+        )}
 
         <p className="mt-7 text-sm text-center" style={{ color: "#8A7A6C" }}>
           Chưa có tài khoản?{" "}

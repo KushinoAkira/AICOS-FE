@@ -67,7 +67,7 @@ export default function CashierTables({ navigate }: { navigate: (p: Page) => voi
             <>
               {view === "map" ? (
                 <>
-                  <div className="mb-4"><FloorLegend items={[{ tone: "neutral", label: "Trống" }, { tone: "pending", label: "Đang phục vụ" }, { tone: "danger", label: "Gọi tính tiền" }, { tone: "success", label: "Đã thanh toán, chờ trả bàn" }]} /></div>
+                  <div className="mb-4"><FloorLegend items={[{ tone: "neutral", label: "Trống" }, { tone: "pending", label: "Đang phục vụ" }, { tone: "danger", label: "Gọi tính tiền" }]} /></div>
                   <FloorMap tiles={tiles} onPick={open} />
                 </>
               ) : (

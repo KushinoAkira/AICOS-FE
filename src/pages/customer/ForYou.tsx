@@ -6,13 +6,16 @@ import { Button, EmptyState, QueryBoundary } from "../../components/ui"
 import { branchesApi } from "../../lib/api/identity"
 import { ordersApi, type RecommendedItem } from "../../lib/api/orders"
 import { formatVND } from "../../lib/format"
+import { currentBrandSlug } from "../../lib/brand"
+import { defaultBranch, rememberedBranch } from "../../lib/takeawayBranch"
 
 /** UC-54: what this customer has ordered most, and what the shop sells most. Only what is on the menu right now is shown. */
 export default function CustomerForYou({ navigate }: { navigate: (p: Page) => void }) {
   const picks = useQuery({
     queryKey: ["recommendations", "for-you"],
     queryFn: async () => {
-      const branch = (await branchesApi.listActive())[0]
+      // The branch the customer orders takeaway from, so the suggestions match the menu they will see.
+      const branch = defaultBranch(await branchesApi.listActive(), rememberedBranch(currentBrandSlug()))
       if (!branch) return { forYou: [], bestSellers: [] }
       const [menu, rec] = await Promise.all([ordersApi.takeawayMenu(branch.id), ordersApi.recommendations(branch.id)])
       const shown = (rows: RecommendedItem[]) => rows.flatMap((r) => {

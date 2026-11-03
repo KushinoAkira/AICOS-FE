@@ -105,16 +105,20 @@ test("Mang đi: khách nhập mã, số tiền thanh toán đã trừ giảm gi�
   await pay.getByRole("button", { name: "Để sau" }).click()
 })
 
-test("QR tại bàn: khách vãng lai nhập mã khi đặt món", async ({ browser, request }) => {
+test("QR tại bàn: khách thành viên nhập mã khi đặt món", async ({ browser, request }) => {
   test.skip(!process.env.E2E_QR_VOUCHER, "Bật featureFlags.voucherAtQr sau khi BE nhận promotionCode ở /orders/qr/checkout, rồi đặt E2E_QR_VOUCHER=1")
   const code = await newVoucher(request)
   const context = await browser.newContext({ viewport: { width: 1440, height: 900 } })
   const page = await context.newPage()
+  // Khách vãng lai không có token để dùng voucher, nên ô mã chỉ hiện cho khách đã đăng nhập.
+  await page.goto("/customer-login")
+  await page.getByRole("button", { name: "Đăng nhập nhanh khách hàng demo" }).click()
+  await page.waitForURL(/brands/)
   await page.goto(`/q/${QR_TABLE}`)
   await addProduct(page)
   await applyCode(page, code)
   await page.getByRole("complementary", { name: "Giỏ hàng" }).getByRole("button", { name: "Đặt món", exact: true }).click()
-  // Nếu BE chưa nhận promotionCode ở /orders/qr/checkout, trang hiện "Mã ... chưa được áp dụng" và test này báo lỗi.
+  // Nếu BE chưa có qr-checkout-promotion-code.patch, trang hiện "Mã ... chưa được áp dụng" và test này báo lỗi.
   await expect(page.getByText(new RegExp(`Đã giảm .*mã ${code}`))).toBeVisible()
   await expect(page.getByText(/chưa được áp dụng/)).toHaveCount(0)
   await context.close()

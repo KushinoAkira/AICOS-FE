@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import type { Page } from "../../App"
 import { OrderStatusPill, PaymentPill } from "../../components/OrderStatusPill"
 import { PageFrame } from "../../components/PageFrame"
+import { RefundApprovals } from "../../components/RefundApprovals"
 import { Banner, ConfirmDialog, DataTable, Field, Modal, QueryBoundary, Button, type Column } from "../../components/ui"
 import { useToast } from "../../context/ToastContext"
 import { ordersApi, type Order } from "../../lib/api/orders"
@@ -27,7 +28,7 @@ export default function BranchOrders({ navigate }: { navigate: (p: Page) => void
   const max = refunding ? maxRefundable(refunding.paidAmount, refunding.refundedAmount) : 0
   const refund = useMutation({
     mutationFn: (o: Order) => ordersApi.refund(o.id, { amount: Number(amount), reason: refundReason }),
-    onSuccess: () => { void qc.invalidateQueries({ queryKey: ["orders"] }); setRefunding(null); showToast("Đã gửi yêu cầu hoàn tiền. Đơn chỉ hiện đã hoàn khi cổng thanh toán xác nhận.", "success") },
+    onSuccess: () => { void qc.invalidateQueries({ queryKey: ["orders"] }); void qc.invalidateQueries({ queryKey: ["refunds"] }); setRefunding(null); showToast("Đã gửi yêu cầu hoàn tiền. Đơn chỉ hiện đã hoàn khi cổng thanh toán xác nhận.", "success") },
     onError: (e) => setRefundError(e.message),
   })
   function openRefund(o: Order) { setRefunding(o); setAmount(String(maxRefundable(o.paidAmount, o.refundedAmount))); setRefundReason(""); setRefundError(null) }
@@ -47,6 +48,8 @@ export default function BranchOrders({ navigate }: { navigate: (p: Page) => void
   ]
   return (
     <PageFrame page="branch-orders" navigate={navigate} uc="UC-27" title="Đơn hàng chi nhánh" subtitle="Theo dõi mọi đơn của chi nhánh. Hoàn tiền chỉ áp dụng cho đơn đã thanh toán.">
+      <RefundApprovals orderCodes={Object.fromEntries((orders.data ?? []).map((o) => [o.id, o.code]))} />
+      <h2 className="mb-3 font-serif text-lg text-text-primary">Tất cả đơn</h2>
       <div className="mb-4 flex flex-wrap gap-2">
         {FILTERS.map((f) => <button key={f} aria-pressed={f === filter} onClick={() => setFilter(f)} className={`rounded-full px-4 py-1.5 text-sm ${f === filter ? "bg-espresso text-white" : "bg-sand text-text-secondary"}`}>{f === "all" ? "Tất cả" : ORDER_STATUS_LABEL[f]}</button>)}
       </div>

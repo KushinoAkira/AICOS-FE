@@ -1,4 +1,5 @@
 import { http, downloadFile } from "./http"
+import type { RefundApprover } from "../refundDecision"
 import { itemsOf, type Raw } from "./be/util"
 
 /** Real backend, management side: reports, staff records, attendance, cash closing, payroll, tables, reconciliation, audit. */
@@ -141,11 +142,22 @@ export interface ReconciliationReport {
   byStatus: Record<string, number>
   discrepancies: Discrepancy[]
 }
-export interface Refund { id: string; paymentId: string; branchId: string; orderId: string; amount: number; kind: string; reason: string; status: string; withinPolicy: boolean; decisionNote: string | null; createdAtUtc: string }
+export interface Refund {
+  id: string; paymentId: string; branchId: string; orderId: string; amount: number; kind: string; reason: string; status: string; withinPolicy: boolean
+  /** Who asked for it: that person cannot approve it (unless brand admin). */
+  requestedBy: string | null
+  decidedBy: string | null; decidedAtUtc: string | null; decisionNote: string | null; createdAtUtc: string
+}
 export const reconciliationApi = {
   report: (q: { from: string; to: string }) => http.get<ReconciliationReport>("/payments/reconciliation", { query: q }),
   auto: (q: { from: string; to: string }) => http.get<{ orders: number; matched: number; discrepancies: Discrepancy[] }>("/payments/reconciliation/auto", { query: q }),
-  refunds: async () => itemsOf(await http.get<Refund[]>("/payments/refunds")),
+  /** The branch manager gets the refunds of their own branch only (the server filters by the token). */
+  refunds: async () => itemsOf(await http.get<Refund[]>("/payments/refunds", { query: { limit: 100 } })),
+  /** Who the brand lets decide refund exceptions (cancellation policy). */
+  async approver(): Promise<RefundApprover> {
+    const p = await http.get<{ exceptionApprover?: string }>("/payments/policies/cancellation")
+    return p.exceptionApprover === "BrandAdmin" ? "BrandAdmin" : "BranchManager"
+  },
   approveRefund: (id: string, note: string) => http.post<Refund>(`/payments/refunds/${id}/approve`, { note }),
   rejectRefund: (id: string, note: string) => http.post<Refund>(`/payments/refunds/${id}/reject`, { note }),
 }

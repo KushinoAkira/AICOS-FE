@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react"
 import { Button, EmptyState, StatusPill } from "./ui"
 import { CartPanel, type CartLine, type CartTab, type ExtraTabs } from "./CartPanel"
+import { emptyVoucher, liveQuote, type VoucherOptions, type VoucherState } from "./VoucherBox"
 import type { Product } from "../lib/api/brand"
 import type { LineInput, Recommendations, RecommendedItem } from "../lib/api/orders"
 import { formatVND } from "../lib/format"
@@ -15,17 +16,20 @@ export function ProductImage({ src, name, className = "h-16 w-16" }: { src?: str
 export type MenuItem = Product & { soldOut: boolean; price: number }
 
 /** Shared by the guest QR menu, takeaway and the cashier POS. Prices shown here are estimates; the server recomputes (BR). */
-export function OrderComposer({ products, submitLabel, submitting, error, onSubmit, tabs, clearSignal = 0, recommendations }: {
+export function OrderComposer({ products, submitLabel, submitting, error, onSubmit, tabs, clearSignal = 0, recommendations, voucher }: {
   products: MenuItem[]
   submitLabel: string
   submitting: boolean
   error: string | null
-  onSubmit: (lines: LineInput[]) => void
+  /** `promotionCode`: the voucher the guest applied, "" when none. The server checks it again and takes the discount. */
+  onSubmit: (lines: LineInput[], promotionCode: string) => void
   tabs?: ExtraTabs
   /** Increment after a successful submit: empties the cart and jumps to the "Đã gọi" tab. */
   clearSignal?: number
   /** What the shop sells most and what this customer has ordered; shown above the full menu. */
   recommendations?: Recommendations
+  /** Shows the "Mã giảm giá" field in the cart (POS, table QR, takeaway). */
+  voucher?: VoucherOptions
 }) {
   const [cart, setCart] = useState<CartLine[]>([])
   const [tab, setTab] = useState<CartTab>("cart")
@@ -38,7 +42,8 @@ export function OrderComposer({ products, submitLabel, submitting, error, onSubm
   const [note, setNote] = useState("")
   const [category, setCategory] = useState("Tất cả")
   const [seenSignal, setSeenSignal] = useState(clearSignal)
-  if (seenSignal !== clearSignal) { setSeenSignal(clearSignal); setCart([]); if (tabs) setTab("ordered") }
+  const [voucherState, setVoucherState] = useState<VoucherState>(emptyVoucher)
+  if (seenSignal !== clearSignal) { setSeenSignal(clearSignal); setCart([]); setVoucherState(emptyVoucher); if (tabs) setTab("ordered") }
 
   const categories = useMemo(() => ["Tất cả", ...Array.from(new Set(products.map((p) => p.category)))], [products])
   const shown = products.filter((p) => category === "Tất cả" || p.category === category)
@@ -96,8 +101,10 @@ export function OrderComposer({ products, submitLabel, submitting, error, onSubm
     setCart(next)
     return skipped
   }
-  const submit = () => onSubmit(cart.map(({ name: _n, unit: _u, ...l }) => l))
-  const panel = <CartPanel cart={cart} setCart={setCart} total={total} submitLabel={submitLabel} submitting={submitting} error={error} onSubmit={submit} tabs={tabs} tab={tab} setTab={setTab} reorder={reorder} />
+  const submit = () => onSubmit(cart.map(({ name: _n, unit: _u, ...l }) => l), voucher ? voucherState.applied : "")
+  const voucherProps = voucher ? { options: voucher, state: voucherState, setState: setVoucherState } : undefined
+  const toPay = voucher ? liveQuote(voucherState, total)?.amountToPay ?? total : total
+  const panel = <CartPanel cart={cart} setCart={setCart} total={total} submitLabel={submitLabel} submitting={submitting} error={error} onSubmit={submit} tabs={tabs} tab={tab} setTab={setTab} reorder={reorder} voucher={voucherProps} />
   const chips = (values: string[], current: string, set: (v: string) => void, label: string) => (
     <fieldset className="mt-4">
       <legend className="mb-2 text-sm font-medium text-text-primary">{label}</legend>
@@ -139,7 +146,7 @@ export function OrderComposer({ products, submitLabel, submitting, error, onSubm
       <aside aria-label="Giỏ hàng" className="hidden h-fit max-h-[calc(100vh-3rem)] rounded-[16px] border border-border bg-surface p-5 lg:sticky lg:top-6 lg:block">{panel}</aside>
 
       <div className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-surface p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] lg:hidden">
-        <Button className="min-h-12 w-full" onClick={() => setDrawer(true)}>{tabs ? "Đơn của bạn" : "Giỏ hàng"}{count > 0 ? ` · ${count} món · ${formatVND(total)}` : ""}</Button>
+        <Button className="min-h-12 w-full" onClick={() => setDrawer(true)}>{tabs ? "Đơn của bạn" : "Giỏ hàng"}{count > 0 ? ` · ${count} món · ${formatVND(toPay)}` : ""}</Button>
       </div>
       {drawer && (
         <div className="fixed inset-0 z-50 flex items-end bg-[rgba(58,46,34,0.45)] lg:hidden" onMouseDown={() => setDrawer(false)}>

@@ -33,7 +33,7 @@ export const customerApi = {
     return recs(itemsOf(await http.get<Raw[]>("/customers/me/vouchers"))).map((v) => ({
       id: str(v.id),
       code: str(v.code),
-      discountLabel: str(v.discountType) === "Percent" ? `Giảm ${num(v.value)}%` : `Giảm ${new Intl.NumberFormat("vi-VN").format(num(v.value))} đ`,
+      discountLabel: ["Percent", "Percentage"].includes(str(v.discountType)) ? `Giảm ${num(v.value)}%` : `Giảm ${new Intl.NumberFormat("vi-VN").format(num(v.value))} đ`,
       minOrderAmount: num(v.minOrderAmount),
       expiresAtUtc: str(v.expiresAtUtc),
       usable: str(v.status) === "Active" && v.isExpired !== true,

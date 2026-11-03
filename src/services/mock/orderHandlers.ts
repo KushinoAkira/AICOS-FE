@@ -7,6 +7,7 @@ import * as odb from "./orderDb"
 import { takeawayHandlers } from "./takeawayHandlers"
 import { engageHandlers } from "./engageHandlers"
 import { staffHandlers } from "./staffHandlers"
+import { applyDemoVoucher, voucherHandlers } from "./voucherMock"
 
 const problem = (status: number, title: string) => HttpResponse.json({ title, detail: title }, { status })
 const ok = <T,>(b: T) => HttpResponse.json(b as never)
@@ -46,9 +47,11 @@ export const orderHandlers = [
   }),
   http.get("*/api/v1/ordering/orders", () => ok([...odb.orders].reverse())),
   http.post("*/api/v1/ordering/orders", async ({ request }) => {
-    const b = (await request.json()) as { tableId: string; lines: LineInput[] }
+    const b = (await request.json()) as { tableId: string; lines: LineInput[]; promotionCode?: string | null }
     const o = build(b.tableId, b.lines, "pos")
     if (typeof o === "string") return problem(422, o)
+    const refused = applyDemoVoucher(o, b.promotionCode)
+    if (refused) return refused
     odb.orders.push(o)
     return ok(o)
   }),
@@ -86,6 +89,7 @@ export const orderHandlers = [
   ...takeawayHandlers,
   ...engageHandlers,
   ...staffHandlers,
+  ...voucherHandlers,
   http.get("*/api/v1/ordering/guest/:token", async ({ params }) => {
     await delay(150)
     const t = byToken(params.token)
@@ -96,8 +100,11 @@ export const orderHandlers = [
   http.post("*/api/v1/ordering/guest/:token/orders", async ({ params, request }) => {
     const t = byToken(params.token)
     if (!t) return problem(404, "Mã QR không hợp lệ")
-    const o = build(t.id, ((await request.json()) as { lines: LineInput[] }).lines, "qr")
+    const b = (await request.json()) as { lines: LineInput[]; promotionCode?: string | null }
+    const o = build(t.id, b.lines, "qr")
     if (typeof o === "string") return problem(422, o)
+    const refused = applyDemoVoucher(o, b.promotionCode)
+    if (refused) return refused
     const who = request.headers.get("authorization")?.replace("Bearer mock-", "")
     if (who) o.customerId = who
     odb.orders.push(o)

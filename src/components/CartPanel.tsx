@@ -2,6 +2,7 @@ import { useState, type ReactNode } from "react"
 import { Banner, Button } from "./ui"
 import type { LineInput } from "../lib/api/orders"
 import { formatVND } from "../lib/format"
+import { liveQuote, VoucherBox, type VoucherOptions, type VoucherState } from "./VoucherBox"
 
 export interface CartLine extends LineInput { name: string; unit: number }
 export type CartTab = "cart" | "ordered" | "history"
@@ -14,7 +15,7 @@ export interface ExtraTabs {
 }
 
 /** Cart + (optionally) "already ordered" and "history" tabs, shared by the sidebar and the mobile drawer. */
-export function CartPanel({ cart, setCart, total, submitLabel, submitting, error, onSubmit, tabs, tab, setTab, reorder }: {
+export function CartPanel({ cart, setCart, total, submitLabel, submitting, error, onSubmit, tabs, tab, setTab, reorder, voucher }: {
   cart: CartLine[]
   setCart: (c: CartLine[]) => void
   total: number
@@ -26,7 +27,10 @@ export function CartPanel({ cart, setCart, total, submitLabel, submitting, error
   tab: CartTab
   setTab: (t: CartTab) => void
   reorder: (lines: LineInput[]) => number
+  /** Present when this menu takes a voucher code. */
+  voucher?: { options: VoucherOptions; state: VoucherState; setState: (next: VoucherState | ((prev: VoucherState) => VoucherState)) => void }
 }) {
+  const quote = voucher ? liveQuote(voucher.state, total) : null
   const [notice, setNotice] = useState<string | null>(null)
   const count = cart.reduce((n, l) => n + l.qty, 0)
   const setQty = (i: number, q: number) => setCart(q < 1 ? cart.filter((_, j) => j !== i) : cart.map((l, j) => (j === i ? { ...l, qty: Math.min(20, q) } : l)))
@@ -69,7 +73,12 @@ export function CartPanel({ cart, setCart, total, submitLabel, submitting, error
               )}
             </div>
             <div className="mt-4 border-t border-border pt-4">
-              <div className="flex justify-between font-medium text-text-primary"><span>Tổng cộng</span><span>{formatVND(total)}</span></div>
+              {quote && quote.discount > 0 && <>
+                <div className="flex justify-between text-sm text-text-secondary"><span>Tạm tính</span><span>{formatVND(total)}</span></div>
+                <div className="flex justify-between text-sm text-state-success"><span>Giảm ({quote.code})</span><span>−{formatVND(quote.discount)}</span></div>
+              </>}
+              <div className="flex justify-between font-medium text-text-primary"><span>Tổng cộng</span><span data-testid="cart-total">{formatVND(quote ? quote.amountToPay : total)}</span></div>
+              {voucher && cart.length > 0 && <VoucherBox options={voucher.options} state={voucher.state} setState={voucher.setState} total={total} />}
               {error && <div className="mt-3"><Banner>{error}</Banner></div>}
               <Button className="mt-4 w-full" disabled={cart.length === 0} disabledReason="Chọn ít nhất một món" loading={submitting} onClick={onSubmit}>{submitLabel}</Button>
             </div>

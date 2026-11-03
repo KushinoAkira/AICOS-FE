@@ -10,6 +10,7 @@ import { useToast } from "../../context/ToastContext"
 import { brandApi } from "../../lib/api/brand"
 import { ordersApi, type LineInput, type Order } from "../../lib/api/orders"
 import { formatVND } from "../../lib/format"
+import { discountNote, orderErrorMessage } from "../../lib/promotionCode"
 
 const DEFAULT_BRANCH = "00000000-0000-0000-0000-000000000b01"
 const WALK_IN = "__walk-in"
@@ -30,14 +31,14 @@ export default function CashierPOS({ navigate }: { navigate: (p: Page) => void }
   const [received, setReceived] = useState("")
   const refresh = () => { void qc.invalidateQueries({ queryKey: ["tables"] }); void qc.invalidateQueries({ queryKey: ["orders"] }) }
   const place = useMutation({
-    mutationFn: (lines: LineInput[]) => (tableId === WALK_IN ? ordersApi.placeCounter(lines) : ordersApi.place(tableId, lines)),
+    mutationFn: ({ lines, code }: { lines: LineInput[]; code: string }) => (tableId === WALK_IN ? ordersApi.placeCounter(lines, code) : ordersApi.place(tableId, lines, code)),
     onSuccess: (o) => {
       refresh()
       setError(null)
       setPlaced((n) => n + 1)
-      if (tableId === WALK_IN) { setReceived(""); setToPay(o) } else showToast(`Đã đặt món ${o.code} cho bàn ${o.tableCode}.`, "success")
+      if (tableId === WALK_IN) { setReceived(""); setToPay(o) } else showToast(`Đã đặt món ${o.code} cho bàn ${o.tableCode}.${discountNote(o, formatVND)}`, "success")
     },
-    onError: (e) => setError(e.message),
+    onError: (e, v) => setError(orderErrorMessage(e, v.code)),
   })
   const payCash = useMutation({
     mutationFn: () => ordersApi.payOrderCash(toPay?.id ?? "", Number(received)),
@@ -59,7 +60,12 @@ export default function CashierPOS({ navigate }: { navigate: (p: Page) => void }
                 {(tables.data ?? []).map((t) => <option key={t.id} value={t.id}>Bàn {t.code}{t.orders.length ? " (đang phục vụ)" : ""}</option>)}
               </select>
             </label>
-            <OrderComposer clearSignal={placed} products={items} submitLabel={tableId ? "Đặt món" : "Chọn bàn trước"} submitting={place.isPending} error={tableId ? error : "Chọn bàn hoặc khách tại quầy trước khi đặt món."} onSubmit={(lines) => { if (tableId) place.mutate(lines) }} />
+            <OrderComposer
+              clearSignal={placed} products={items} submitLabel={tableId ? "Đặt món" : "Chọn bàn trước"} submitting={place.isPending}
+              error={tableId ? error : "Chọn bàn hoặc khách tại quầy trước khi đặt món."}
+              onSubmit={(lines, code) => { if (tableId) place.mutate({ lines, code }) }}
+              voucher={{ preview: (code, amount) => ordersApi.previewVoucher(code, amount, user?.branchId ?? undefined) }}
+            />
           </>
         )}
       </QueryBoundary>
@@ -75,6 +81,9 @@ export default function CashierPOS({ navigate }: { navigate: (p: Page) => void }
       >
         <div className="space-y-4">
           {error && <Banner>{error}</Banner>}
+          {!!toPay?.discountAmount && (
+            <p className="flex justify-between text-sm text-state-success"><span>Đã giảm (mã {toPay.promotionCode})</span><span>−{formatVND(toPay.discountAmount)}</span></p>
+          )}
           <p className="flex justify-between font-serif text-lg text-text-primary"><span>Tổng</span><span>{formatVND(total)}</span></p>
           <Field label="Khách đưa (₫)" inputMode="numeric" value={received} onChange={(e) => setReceived(e.target.value.replace(/\D/g, ""))} hint={Number(received) >= total ? `Trả lại ${formatVND(Number(received) - total)}` : undefined} />
           <Button variant="secondary" className="min-h-11 w-full" onClick={() => setDigital(true)}>Khách chuyển khoản QR</Button>

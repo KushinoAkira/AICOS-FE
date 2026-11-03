@@ -2,7 +2,7 @@ import type { OrderStatus, PaymentStatus } from "../../orderStateMachine"
 import { currentBrandSlug } from "../../brand"
 import { ApiError, http } from "../http"
 import type { Recommendations } from "../orders"
-import type { CupLabel, DigitalCharge, GuestMenu, PayMethod, LineInput, Order, PayOutcome, PickupCheck, PickupInfo, ProviderStatus, TableRow } from "../orders"
+import type { CupLabel, DigitalCharge, GuestMenu, PayMethod, LineInput, Order, PayOutcome, PickupCheck, PickupInfo, ProviderStatus, TableRow, VoucherQuote } from "../orders"
 import { tokenStore } from "../tokenStore"
 import { toProduct } from "./brand"
 import { itemsOf, num, rec, recs, str, unsupported, type Raw } from "./util"
@@ -49,6 +49,9 @@ export function toOrder(o: Raw): Order {
     createdAtUtc: str(o.createdAtUtc), source: "pos", paidAmount: paid ? num(o.finalAmount) : 0, refundedAmount: num(o.refundedAmount),
     paymentMethod: str(o.paymentProvider) ? (str(o.paymentProvider) === "Cash" ? "cash" : "online") : undefined,
     customerId: str(o.customerId) || undefined, completedAtUtc: str(o.completedAtUtc) || undefined,
+    originalAmount: o.originalAmount === undefined ? undefined : num(o.originalAmount),
+    promotionCode: str(o.promotionCode) || undefined,
+    discountAmount: num(o.discountAmount) || undefined,
   }
 }
 
@@ -58,8 +61,9 @@ const withLines = (rows: Raw[]) => rows.map(toOrder)
 const listOrders = async (query: Record<string, string | number> = {}) => withLines(recs(itemsOf(await http.get<Raw[]>("/orders", { query: { limit: 100, ...query } }))))
 
 const lineNote = (l: LineInput) => [l.size && `Size ${l.size}`, l.sugar && `Đường ${l.sugar}`, l.ice && `Đá ${l.ice}`, l.note].filter(Boolean).join(" · ")
-const orderBody = (type: string, table: string | null, lines: LineInput[]) => ({
-  type, tableNumber: table, items: lines.map((l) => ({ productId: l.productId, quantity: l.qty, note: lineNote(l) || null })),
+/** `promotionCode`: the voucher typed at the counter; the server checks it and takes the discount when it saves the order. */
+const orderBody = (type: string, table: string | null, lines: LineInput[], promotionCode?: string) => ({
+  type, tableNumber: table, promotionCode: promotionCode || null, items: lines.map((l) => ({ productId: l.productId, quantity: l.qty, note: lineNote(l) || null })),
 })
 
 async function transactionOf(orderId: string): Promise<Raw | undefined> {
@@ -122,8 +126,8 @@ export const beOrdersApi = {
     } else return unsupported(`chuyển đơn sang "${b.status}"`)
     return detail(id)
   },
-  async place(tableId: string, lines: LineInput[]): Promise<Order> {
-    return toOrder(rec(await http.post<Raw>("/orders", orderBody("DineIn", tableId, lines))))
+  async place(tableId: string, lines: LineInput[], promotionCode?: string): Promise<Order> {
+    return toOrder(rec(await http.post<Raw>("/orders", orderBody("DineIn", tableId, lines, promotionCode))))
   },
   async completeTable(tableId: string): Promise<{ completed: number }> {
     const ready = (await listOrders({ paymentStatus: "Paid" })).filter((o) => o.tableCode === tableId && o.status === "Ready")
@@ -150,7 +154,7 @@ export const beOrdersApi = {
     const tenantId = str(t.tenantId)
     return { ...(await publicMenu(branchId, str(t.branchName) || (await branchName(branchId, tenantId)))), tableCode: str(t.tableCode), tenantId, branchId }
   },
-  async guestPlace(token: string, lines: LineInput[]): Promise<Order> {
+  async guestPlace(token: string, lines: LineInput[], promotionCode?: string): Promise<Order> {
     const items = lines.map((l) => ({ productId: l.productId, quantity: l.qty, note: l.note.trim() || null, optionIds: optionIdsOf(l) }))
     return withSession(token, async (headers) => {
       // The cart belongs to the whole table. Lines added by this call are taken back if one of them is refused, so nothing is left behind.
@@ -168,7 +172,7 @@ export const beOrdersApi = {
         throw e
       }
       // Sent with the member's token when there is one, so the order earns points.
-      const order = rec(await http.post<Raw>("/orders/qr/checkout", { note: null }, { headers }))
+      const order = rec(await http.post<Raw>("/orders/qr/checkout", { note: null, promotionCode: promotionCode || null }, { headers }))
       return toQrOrder(order, str(order.tableNumber))
     })
   },
@@ -219,8 +223,13 @@ export const beOrdersApi = {
   chargeSimulate: async (c: DigitalCharge): Promise<DigitalCharge> =>
     toCharge(rec(await http.post<Raw>(`/payments/transactions/${c.id}/simulate`, { outcome: "success", notify: true })), c.orderCode),
   /** A walk-in at the counter: no table, paid before the bar starts. */
-  async placeCounter(lines: LineInput[]): Promise<Order> {
-    return toOrder(rec(await http.post<Raw>("/orders", orderBody("Takeaway", null, lines))))
+  async placeCounter(lines: LineInput[], promotionCode?: string): Promise<Order> {
+    return toOrder(rec(await http.post<Raw>("/orders", orderBody("Takeaway", null, lines, promotionCode))))
+  },
+  /** Staff preview of a voucher (no redemption). The amount is the cart estimate; the order is priced again by the server. */
+  async previewVoucher(code: string, orderAmount: number, branchId?: string): Promise<VoucherQuote> {
+    const q = rec(await http.post<Raw>("/customers/vouchers/validate", { code, orderAmount, branchId: branchId || null }))
+    return { code: str(q.code) || code, orderAmount: num(q.orderAmount, orderAmount), discount: num(q.discount), amountToPay: num(q.amountToPay, orderAmount) }
   },
   async payOrderCash(id: string, received: number): Promise<{ change: number }> {
     const order = await detail(id)
@@ -255,14 +264,14 @@ export const beOrdersApi = {
     }
     return { ok: true, remaining: num(slot.remaining), message: null }
   },
-  async placeTakeaway(b: { branchId: string; slot: string; lines: LineInput[] }): Promise<Order> {
+  async placeTakeaway(b: { branchId: string; slot: string; lines: LineInput[]; promotionCode?: string }): Promise<Order> {
     const when = new Date(b.slot)
     const slot = slotOf(await pickupDay(b.branchId, when), when)
     if (!slot) throw new ApiError(422, "Quán không nhận đơn mang đi vào giờ này.", "pickup.slot_invalid")
     const items = b.lines.map((l) => ({ productId: l.productId, quantity: l.qty, note: l.note.trim() || null, optionIds: optionIdsOf(l) }))
     // One key per attempt: a retry after a lost answer returns the same order instead of booking the slot twice.
     const key = crypto.randomUUID()
-    return toOrder(rec(await http.post<Raw>("/orders/pickup", { branchId: b.branchId, slotStartUtc: str(slot.startUtc), note: null, items }, { headers: { "Idempotency-Key": key } })))
+    return toOrder(rec(await http.post<Raw>("/orders/pickup", { branchId: b.branchId, slotStartUtc: str(slot.startUtc), promotionCode: b.promotionCode || null, note: null, items }, { headers: { "Idempotency-Key": key } })))
   },
   async payOnline(id: string, outcome: PayOutcome): Promise<Order> {
     const raw = rec(await http.get<Raw>(`/orders/${id}`))

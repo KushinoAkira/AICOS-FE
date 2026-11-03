@@ -13,6 +13,10 @@ import { useToast } from "../../context/ToastContext"
 import { ordersApi, type LineInput } from "../../lib/api/orders"
 import { pollWhile, useGuestRealtime } from "../../lib/realtime"
 import { rememberGuestOrder } from "../../lib/guestHistory"
+import { formatVND } from "../../lib/format"
+import { env } from "../../config/env"
+import { featureFlags } from "../../config/featureFlags"
+import { discountNote, orderErrorMessage } from "../../lib/promotionCode"
 
 /** Table QR ordering: cart, what the table already ordered, and history. Guests need no account; payment is at the counter. */
 export default function GuestMenu({ navigate }: { navigate: (p: Page, params?: Record<string, string>) => void }) {
@@ -35,15 +39,17 @@ export default function GuestMenu({ navigate }: { navigate: (p: Page, params?: R
   const goAuth = (p: Page) => { sessionStorage.setItem("aicos.returnTo", `/q/${token}`); navigate(p) }
   const [sent, setSent] = useState(0)
   const place = useMutation({
-    mutationFn: (lines: LineInput[]) => ordersApi.guestPlace(token, lines),
-    onSuccess: (o) => {
+    mutationFn: ({ lines, code }: { lines: LineInput[]; code: string }) => ordersApi.guestPlace(token, lines, code),
+    onSuccess: (o, { code }) => {
       rememberGuestOrder(o)
       setSent((n) => n + 1)
       void qc.invalidateQueries({ queryKey: ["guest", token, "orders"] })
       void qc.invalidateQueries({ queryKey: ["mine"] })
-      showToast(`Đã đặt món ${o.code}. Quầy pha chế đã nhận.`, "success")
+      showToast(`Đã đặt món ${o.code}. Quầy pha chế đã nhận.${discountNote(o, formatVND)}`, "success")
+      // An older server takes the order but ignores the code: say so instead of letting the guest believe it was used.
+      if (code && !o.promotionCode) showToast(`Mã ${code} chưa được áp dụng cho đơn này. Vui lòng báo nhân viên khi thanh toán.`, "error")
     },
-    onError: (e) => setError(e.message),
+    onError: (e, v) => setError(orderErrorMessage(e, v.code)),
   })
 
   return (
@@ -79,7 +85,8 @@ export default function GuestMenu({ navigate }: { navigate: (p: Page, params?: R
         {menu.data && (
           <OrderComposer
             products={menu.data.products} submitLabel="Đặt món" submitting={place.isPending} error={error} clearSignal={sent} recommendations={picks.data}
-            onSubmit={(l) => { setError(null); place.mutate(l) }}
+            onSubmit={(l, code) => { setError(null); place.mutate({ lines: l, code }) }}
+            voucher={env.useMock || (featureFlags.voucherAtQr && role === "customer") ? { hint: "Giảm giá được trừ khi đặt món." } : undefined}
             tabs={{
               orderedCount: orderedCount.data?.length ?? 0,
               ordered: <OrderedTab token={token} channelUp={live} />,

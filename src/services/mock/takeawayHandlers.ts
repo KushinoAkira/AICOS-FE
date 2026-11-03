@@ -5,6 +5,7 @@ import * as bdb from "./brandDb"
 import * as odb from "./orderDb"
 import * as db from "./db"
 import type { PickupCheck } from "../../lib/api/orders"
+import { applyDemoVoucher } from "./voucherMock"
 
 const minutesOfDay = (d: Date) => d.getHours() * 60 + d.getMinutes()
 const bucketOf = (iso: string) => Math.floor(new Date(iso).getTime() / (bdb.settings.pickup.slotMinutes * 60_000))
@@ -59,7 +60,7 @@ export const takeawayHandlers = [
   }),
   http.get("*/api/v1/ordering/takeaway/check", ({ request }) => { try { return ok(checkSlot(new URL(request.url).searchParams.get("at") ?? "")) } catch (e) { return problem(500, `check: ${String(e)}`) } }),
   http.post("*/api/v1/ordering/takeaway", async ({ request }) => {
-    const b = (await request.json()) as { slot: string; lines: LineInput[] }
+    const b = (await request.json()) as { slot: string; lines: LineInput[]; promotionCode?: string | null }
     const chk = checkSlot(b.slot)
     if (!chk.ok) return problem(409, chk.message ?? "Giờ nhận không hợp lệ")
     if (b.lines.length === 0) return problem(422, "Giỏ hàng trống")
@@ -75,6 +76,8 @@ export const takeawayHandlers = [
       id: `o${odb.orders.length + 1}`, code: odb.nextOrderCode(), tableId: "", tableCode: "Mang đi", channel: "takeaway", status: "PendingPayment", paymentStatus: "Unpaid",
       lines, total: lines.reduce((s, l) => s + l.unitPrice * l.qty, 0), createdAtUtc: new Date().toISOString(), source: "web", paidAmount: 0, refundedAmount: 0, pickupSlot: b.slot, customerId: customerOf(request),
     }
+    const refused = applyDemoVoucher(o, b.promotionCode)
+    if (refused) return refused
     odb.orders.push(o)
     return ok(o)
   }),

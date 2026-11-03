@@ -9,6 +9,11 @@ import { ErrorState, LoadingState } from "../../components/ui"
 import { useToast } from "../../context/ToastContext"
 import { addDays, todayKey } from "../../lib/dates"
 import { branchesApi } from "../../lib/api/identity"
+import { customerApi } from "../../lib/api/customer"
+import { env } from "../../config/env"
+import { featureFlags } from "../../config/featureFlags"
+import { formatVND } from "../../lib/format"
+import { discountNote, orderErrorMessage } from "../../lib/promotionCode"
 import { ordersApi, type LineInput, type Order, type PayOutcome } from "../../lib/api/orders"
 import { earliestPickup, type PickupHours } from "../../lib/earliestPickup"
 
@@ -35,11 +40,18 @@ export default function CustomerTakeaway({ navigate }: { navigate: (p: Page) => 
   const check = useQuery({ queryKey: ["takeaway", "check", BRANCH_ID, slot], queryFn: () => ordersApi.pickupCheck(BRANCH_ID, slot), enabled: !!slot && !!BRANCH_ID })
   const [error, setError] = useState<string | null>(null)
   const [paying, setPaying] = useState<Order | null>(null)
+  // The customer's own vouchers at this brand, offered as one-tap choices (the mock data has none).
+  const myVouchers = useQuery({ queryKey: ["customer", "vouchers"], queryFn: customerApi.vouchers, enabled: !env.useMock && featureFlags.voucherAtTakeaway, retry: false })
+  const suggestions = (myVouchers.data ?? []).filter((v) => v.usable).map((v) => ({ code: v.code, label: v.discountLabel, minOrderAmount: v.minOrderAmount }))
 
   const place = useMutation({
-    mutationFn: (lines: LineInput[]) => ordersApi.placeTakeaway({ branchId: BRANCH_ID, slot, lines }),
-    onSuccess: (o) => { setPaying(o); void qc.invalidateQueries({ queryKey: ["takeaway", "check"] }) },
-    onError: (e) => { setError(e.message); void qc.invalidateQueries({ queryKey: ["takeaway", "check"] }) },
+    mutationFn: ({ lines, code }: { lines: LineInput[]; code: string }) => ordersApi.placeTakeaway({ branchId: BRANCH_ID, slot, lines, promotionCode: code }),
+    onSuccess: (o) => {
+      setPaying(o)
+      void qc.invalidateQueries({ queryKey: ["takeaway", "check"] })
+      if (o.promotionCode) { void qc.invalidateQueries({ queryKey: ["customer", "vouchers"] }); showToast(`Đã giữ chỗ đơn ${o.code}.${discountNote(o, formatVND)}`, "success") }
+    },
+    onError: (e, v) => { setError(orderErrorMessage(e, v.code)); void qc.invalidateQueries({ queryKey: ["takeaway", "check"] }) },
   })
   const pay = useMutation({
     mutationFn: (outcome: PayOutcome) => ordersApi.payOnline(paying!.id, outcome),
@@ -71,7 +83,8 @@ export default function CustomerTakeaway({ navigate }: { navigate: (p: Page) => 
               <span className="text-sm text-text-secondary">Quán mở {info.data.open} - {info.data.close}, đặt trước tối thiểu {info.data.cutoffMinutes} phút</span>
             </div>
             {slot && check.data && <p role="status" className={`mt-2 text-sm ${check.data.ok ? "text-state-success" : "text-state-danger"}`}>{check.data.ok ? `Còn nhận được ${check.data.remaining} đơn quanh giờ này` : check.data.message}</p>}
-          </fieldset>          <OrderComposer products={menu.data.products} recommendations={picks.data} submitLabel="Đặt và thanh toán" submitting={place.isPending} error={!slot ? "Chọn giờ nhận hàng trước khi đặt" : check.data && !check.data.ok ? check.data.message : error} onSubmit={(l) => { if (!slot) return setError("Chọn giờ nhận hàng"); if (check.data && !check.data.ok) return; setError(null); place.mutate(l) }} />
+          </fieldset>          <OrderComposer products={menu.data.products} recommendations={picks.data} submitLabel="Đặt và thanh toán" submitting={place.isPending} error={!slot ? "Chọn giờ nhận hàng trước khi đặt" : check.data && !check.data.ok ? check.data.message : error} onSubmit={(l, code) => { if (!slot) return setError("Chọn giờ nhận hàng"); if (check.data && !check.data.ok) return; setError(null); place.mutate({ lines: l, code }) }}
+            voucher={env.useMock || featureFlags.voucherAtTakeaway ? { suggestions, hint: "Giảm giá được trừ khi đặt đơn, trước bước thanh toán." } : undefined} />
         </>
       )}
       <PayGateway open={!!paying} amount={paying?.total ?? 0} code={paying?.code ?? ""} busy={pay.isPending} onOutcome={(o) => pay.mutate(o)} onClose={() => { setPaying(null); navigate("customer-tracking") }} />

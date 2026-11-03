@@ -36,6 +36,11 @@ export interface Order {
   customerId?: string
   /** Set when the cashier completes the table: only then does a dine-in order enter the customer's history. */
   completedAtUtc?: string
+  /** Before the voucher; `total` is what is left to pay. */
+  originalAmount?: number
+  /** The voucher the server accepted for this order, and what it took off. */
+  promotionCode?: string
+  discountAmount?: number
 }
 
 export interface PickupInfo { open: string; close: string; slotMinutes: number; cutoffMinutes: number; capacityPerSlot: number }
@@ -59,6 +64,9 @@ export interface TableRow {
   /** Unpaid orders of the open table session; empty means the table is empty (derived, never stored). */
   orders: Order[]
 }
+
+/** The server's answer for a voucher on an amount (`POST /customers/vouchers/validate`). */
+export interface VoucherQuote { code: string; orderAmount: number; discount: number; amountToPay: number }
 
 /** A way to pay online that this branch offers. */
 export interface PayMethod { code: string; name: string }
@@ -106,17 +114,17 @@ const mockOrdersApi = {
   ordersBetween: (_from: string, _to: string) => http.get<Order[]>(`${B}/orders`),
   cupLabels: (id: string) => http.get<CupLabel[]>(`${B}/orders/${id}/cup-labels`),
   transition: (id: string, b: { status: OrderStatus; reason?: string }) => http.post<Order>(`${B}/orders/${id}/status`, b),
-  place: (tableId: string, lines: LineInput[]) => http.post<Order>(`${B}/orders`, { tableId, lines }),
+  place: (tableId: string, lines: LineInput[], promotionCode?: string) => http.post<Order>(`${B}/orders`, { tableId, lines, promotionCode: promotionCode || null }),
   completeTable: (tableId: string) => http.post<{ completed: number }>(`${B}/tables/${tableId}/complete`),
   payTable: (tableId: string, b: { method: "cash"; received: number }) => http.post<{ change: number }>(`${B}/tables/${tableId}/pay`, b),
   guest: (token: string) => http.get<GuestMenu>(`${B}/guest/${token}`),
-  guestPlace: (token: string, lines: LineInput[]) => http.post<Order>(`${B}/guest/${token}/orders`, { lines }),
+  guestPlace: (token: string, lines: LineInput[], promotionCode?: string) => http.post<Order>(`${B}/guest/${token}/orders`, { lines, promotionCode: promotionCode || null }),
   guestOrders: (token: string) => http.get<Order[]>(`${B}/guest/${token}/orders`),
   takeawayMenu: (branchId: string) => http.get<GuestMenu>(`${B}/takeaway/menu?branchId=${branchId}`),
   recommendations: (branchId: string) => http.get<Recommendations>(`${B}/recommendations?branchId=${branchId}`),
   pickupInfo: (branchId: string) => http.get<PickupInfo>(`${B}/takeaway/info?branchId=${branchId}`),
   pickupCheck: (branchId: string, at: string) => http.get<PickupCheck>(`${B}/takeaway/check?branchId=${branchId}&at=${encodeURIComponent(at)}`),
-  placeTakeaway: (b: { branchId: string; slot: string; lines: LineInput[] }) => http.post<Order>(`${B}/takeaway`, b),
+  placeTakeaway: (b: { branchId: string; slot: string; lines: LineInput[]; promotionCode?: string }) => http.post<Order>(`${B}/takeaway`, { ...b, promotionCode: b.promotionCode || null }),
   /** Real mode: backend returns a provider redirect URL instead; this call simulates the provider callback. */
   payOnline: (id: string, outcome: PayOutcome) => http.post<Order>(`${B}/orders/${id}/pay-online`, { outcome }),
   mine: () => http.get<Order[]>(`${B}/mine`),
@@ -135,7 +143,9 @@ const mockOrdersApi = {
   orderPayStart: async (_order: Order, _provider: string): Promise<DigitalCharge[]> => [],
   chargeCheck: async (c: DigitalCharge): Promise<DigitalCharge> => c,
   chargeSimulate: async (c: DigitalCharge): Promise<DigitalCharge> => c,
-  placeCounter: (lines: LineInput[]) => http.post<Order>(`${B}/orders`, { tableId: null, lines }),
+  placeCounter: (lines: LineInput[], promotionCode?: string) => http.post<Order>(`${B}/orders`, { tableId: null, lines, promotionCode: promotionCode || null }),
+  /** Staff only: what a code would take off this amount, before the order is placed. */
+  previewVoucher: (code: string, orderAmount: number, _branchId?: string) => http.post<VoucherQuote>(`${B}/vouchers/validate`, { code, orderAmount }),
   payOrderCash: (id: string, received: number) => http.post<{ change: number }>(`${B}/orders/${id}/pay-cash`, { received }),
 }
 

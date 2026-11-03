@@ -1,11 +1,11 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import type { Page } from "../../App"
 import { CustomerFrame } from "../../components/CustomerFrame"
 import { TimePicker24 } from "../../components/TimePicker24"
 import { OrderComposer } from "../../components/OrderComposer"
 import { PayGateway } from "../../components/PayGateway"
-import { ErrorState, LoadingState } from "../../components/ui"
+import { Banner, ErrorState, LoadingState } from "../../components/ui"
 import { useToast } from "../../context/ToastContext"
 import { addDays, todayKey } from "../../lib/dates"
 import { branchesApi } from "../../lib/api/identity"
@@ -17,7 +17,9 @@ import { discountNote, orderErrorMessage } from "../../lib/promotionCode"
 import { ordersApi, type LineInput, type Order, type PayOutcome } from "../../lib/api/orders"
 import { earliestPickup, type PickupHours } from "../../lib/earliestPickup"
 import { currentBrandSlug } from "../../lib/brand"
-import { defaultBranch, hoursLabel, isOpenAt, rememberBranch, rememberedBranch, type BranchChoice } from "../../lib/takeawayBranch"
+import { defaultBranch, rememberBranch, rememberedBranch } from "../../lib/takeawayBranch"
+import { BranchPicker } from "../../components/BranchPicker"
+import { clearDraft, draftFor, draftToCart } from "../../lib/orderDraft"
 
 /** Demo branch of the mock data, preselected there. With the real API the customer's last choice (or the first branch) is. */
 const MOCK_BRANCH_ID = "00000000-0000-0000-0000-000000000b01"
@@ -28,11 +30,15 @@ export default function CustomerTakeaway({ navigate }: { navigate: (p: Page) => 
   const { showToast } = useToast()
   const branches = useQuery({ queryKey: ["takeaway", "branches"], queryFn: () => branchesApi.listActive() })
   const brand = currentBrandSlug()
-  const [chosen, setChosen] = useState<string | null>(null)
+  // Drinks chosen on the public brand page before signing in come back here, at the branch picked there.
+  const [draft] = useState(() => draftFor(brand))
+  useEffect(() => { if (draft) clearDraft() }, [draft])
+  const [chosen, setChosen] = useState<string | null>(() => draft?.branchId ?? null)
   const list = branches.data ?? []
   const branch = list.find((b) => b.id === chosen) ?? defaultBranch(list, rememberedBranch(brand), MOCK_BRANCH_ID)
   const BRANCH_ID = branch?.id ?? ""
   const menu = useQuery({ queryKey: ["takeaway", "menu", BRANCH_ID], queryFn: () => ordersApi.takeawayMenu(BRANCH_ID), enabled: !!BRANCH_ID })
+  const restored = draft && draft.branchId === BRANCH_ID && menu.data ? draftToCart(draft.lines, menu.data.products) : null
   const picks = useQuery({ queryKey: ["recommendations", BRANCH_ID], queryFn: () => ordersApi.recommendations(BRANCH_ID), enabled: !!BRANCH_ID, retry: false })
   const info = useQuery({ queryKey: ["takeaway", "info", BRANCH_ID], queryFn: () => ordersApi.pickupInfo(BRANCH_ID), enabled: !!BRANCH_ID })
   const [day, setDay] = useState<"today" | "tomorrow">("today")
@@ -100,7 +106,8 @@ export default function CustomerTakeaway({ navigate }: { navigate: (p: Page) => 
             </div>
             {slot && check.data && <p role="status" className={`mt-2 text-sm ${check.data.ok ? "text-state-success" : "text-state-danger"}`}>{check.data.ok ? `Còn nhận được ${check.data.remaining} đơn quanh giờ này` : check.data.message}</p>}
           </fieldset>
-          <OrderComposer key={BRANCH_ID} products={menu.data.products} recommendations={picks.data} submitLabel="Đặt và thanh toán" submitting={place.isPending} error={!slot ? "Chọn giờ nhận hàng trước khi đặt" : check.data && !check.data.ok ? check.data.message : error} onSubmit={(l, code) => { if (!slot) return setError("Chọn giờ nhận hàng"); if (check.data && !check.data.ok) return; setError(null); place.mutate({ lines: l, code }) }}
+          {restored && restored.dropped > 0 && <div className="mb-4"><Banner tone="warn">{restored.dropped} món bạn chọn trước đó đã hết hoặc không còn ở chi nhánh này nên chưa được thêm vào giỏ.</Banner></div>}
+          <OrderComposer key={BRANCH_ID} initialCart={restored?.cart} products={menu.data.products} recommendations={picks.data} submitLabel="Đặt và thanh toán" submitting={place.isPending} error={!slot ? "Chọn giờ nhận hàng trước khi đặt" : check.data && !check.data.ok ? check.data.message : error} onSubmit={(l, code) => { if (!slot) return setError("Chọn giờ nhận hàng"); if (check.data && !check.data.ok) return; setError(null); place.mutate({ lines: l, code }) }}
             voucher={env.useMock || featureFlags.voucherAtTakeaway ? { suggestions, hint: "Giảm giá được trừ khi đặt đơn, trước bước thanh toán." } : undefined} />
         </>
       )}
@@ -109,35 +116,3 @@ export default function CustomerTakeaway({ navigate }: { navigate: (p: Page) => 
   )
 }
 
-/** Where the customer picks the order up. One branch: just says which. Several: one card each, with its hours and whether it is open now. */
-export function BranchPicker({ branches, value, onChange }: { branches: BranchChoice[]; value: string; onChange: (id: string) => void }) {
-  const now = new Date()
-  const current = branches.find((b) => b.id === value)
-  if (branches.length === 1 && current) {
-    return <p className="mb-5 text-sm text-text-secondary">Nhận tại <b className="text-text-primary">{current.name}</b>{current.address ? ` · ${current.address}` : ""}</p>
-  }
-  return (
-    <fieldset className="mb-6">
-      <legend className="mb-1 text-sm font-medium text-text-primary">Chi nhánh nhận hàng</legend>
-      <p className="mb-2 text-xs text-text-secondary">Thực đơn, giá và khung giờ theo từng chi nhánh. Đổi chi nhánh sẽ làm trống giỏ hàng.</p>
-      <div role="radiogroup" aria-label="Chi nhánh nhận hàng" className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-        {branches.map((b) => {
-          const selected = b.id === value
-          const open = isOpenAt(b, now)
-          const hours = hoursLabel(b)
-          return (
-            <button key={b.id} type="button" role="radio" aria-checked={selected} onClick={() => onChange(b.id)}
-              className={`rounded-[14px] border p-3 text-left ${selected ? "border-espresso bg-sand/60 ring-1 ring-espresso" : "border-border bg-surface hover:border-clay"}`}>
-              <span className="flex items-center justify-between gap-2">
-                <span className="font-medium text-text-primary">{b.name}</span>
-                {open !== null && <span className={`shrink-0 text-xs ${open ? "text-state-success" : "text-text-secondary"}`}>{open ? "Đang mở" : "Đã đóng cửa"}</span>}
-              </span>
-              {b.address && <span className="mt-0.5 block text-xs text-text-secondary">{b.address}</span>}
-              {hours && <span className="mt-0.5 block text-xs text-text-secondary">Giờ mở cửa {hours}</span>}
-            </button>
-          )
-        })}
-      </div>
-    </fieldset>
-  )
-}

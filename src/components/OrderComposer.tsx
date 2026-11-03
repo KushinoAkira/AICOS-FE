@@ -16,7 +16,7 @@ export function ProductImage({ src, name, className = "h-16 w-16" }: { src?: str
 export type MenuItem = Product & { soldOut: boolean; price: number }
 
 /** Shared by the guest QR menu, takeaway and the cashier POS. Prices shown here are estimates; the server recomputes (BR). */
-export function OrderComposer({ products, submitLabel, submitting, error, onSubmit, tabs, clearSignal = 0, recommendations, voucher }: {
+export function OrderComposer({ products, submitLabel, submitting, error, onSubmit, tabs, clearSignal = 0, recommendations, voucher, initialCart }: {
   products: MenuItem[]
   submitLabel: string
   submitting: boolean
@@ -30,8 +30,10 @@ export function OrderComposer({ products, submitLabel, submitting, error, onSubm
   recommendations?: Recommendations
   /** Shows the "Mã giảm giá" field in the cart (POS, table QR, takeaway). */
   voucher?: VoucherOptions
+  /** What the cart starts with (a cart chosen on the public brand page before signing in). Read once, when the composer mounts. */
+  initialCart?: CartLine[]
 }) {
-  const [cart, setCart] = useState<CartLine[]>([])
+  const [cart, setCart] = useState<CartLine[]>(() => initialCart ?? [])
   const [tab, setTab] = useState<CartTab>("cart")
   const [drawer, setDrawer] = useState(false)
   const [picking, setPicking] = useState<MenuItem | null>(null)

@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query"
 import type { Page } from "../../App"
 import { useEffect, type CSSProperties } from "react"
-import { useLocation } from "react-router"
+import { Link, useLocation } from "react-router"
 import { PublicPage } from "../../components/PublicChrome"
 import { Reveal } from "../../components/Reveal"
 import { FaqSection, FinalCta, RolesSection } from "./LandingSections"
@@ -23,6 +23,7 @@ export default function Landing({ navigate }: { navigate: (p: Page) => void }) {
   const { hash } = useLocation()
   useEffect(() => { if (hash) document.getElementById(hash.slice(1))?.scrollIntoView() }, [hash])
   const plans = useQuery({ queryKey: ["public", "plans"], queryFn: publicApi.plans, retry: 1 })
+  const brands = useQuery({ queryKey: ["public", "brands"], queryFn: publicApi.brands, retry: 1, staleTime: 60_000 })
   return (
     <PublicPage navigate={navigate} uc="UC-05">
         <section className="relative isolate overflow-hidden bg-espresso text-white">
@@ -110,6 +111,21 @@ export default function Landing({ navigate }: { navigate: (p: Page) => void }) {
               <Button className="min-h-11" onClick={() => navigate("auth-customer-login")}>Đăng nhập khách hàng</Button>
             </div>
           </div>
+          {!!brands.data?.length && (
+            <div className="mt-4" id="thuong-hieu">
+              <h3 className="mb-2 text-sm font-medium text-text-primary">Xem thực đơn, chưa cần đăng nhập</h3>
+              <ul className="flex flex-wrap gap-2">
+                {brands.data.map((b) => (
+                  <li key={b.id}>
+                    <Link to={`/b/${b.slug}`} className="inline-flex min-h-11 items-center gap-2 rounded-full border border-border bg-surface px-4 text-sm text-text-primary hover:border-clay">
+                      <span aria-hidden className="flex h-6 w-6 items-center justify-center rounded-full text-xs text-white" style={{ backgroundColor: b.brandColor ?? "#C97B4A" }}>{b.name.charAt(0).toUpperCase()}</span>
+                      {b.name}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </section>
     </PublicPage>
   )

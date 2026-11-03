@@ -67,6 +67,8 @@ export const beBranchesApi = {
     return paged(res.filter((b) => (!q.search || b.name.toLowerCase().includes(q.search.toLowerCase())) && (!q.status || b.status === q.status)), q.page, q.pageSize)
   },
   listActive: () => http.get<BranchDto[]>(`${BASE}/branches/active`, { anonymous: !tokenStore.get(), query: { tenantCode: currentBrandSlug() } }).then(itemsOf),
+  /** Always anonymous, so the brand in the link decides and not the brand of whoever is signed in. */
+  listActiveOf: (brandSlug: string) => http.get<BranchDto[]>(`${BASE}/branches/active`, { anonymous: true, query: { tenantCode: brandSlug } }).then(itemsOf),
   get: async (id: string): Promise<BranchDto> => {
     const all = itemsOf(await http.get<List<BranchDto>>(`${BASE}/branches`))
     const found = all.find((b) => b.id === id)

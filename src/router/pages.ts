@@ -23,6 +23,9 @@ export const PAGE_PATHS = {
   "guest-menu": "/q/:token",
   "guest-order-status": "/q/:token/status",
 
+  // Public menu of one brand: anyone browses, ordering needs a customer account
+  "brand-menu": "/b/:brandSlug",
+
   // Customer
   "customer-brands": "/brands",
   "customer-menu": "/menu",

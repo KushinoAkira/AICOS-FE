@@ -1,17 +1,27 @@
 import { hoursLabel, isOpenAt, type BranchChoice } from "../lib/takeawayBranch"
 
-/** Where the customer picks the order up. One branch: just says which. Several: one card each, with its hours and whether it is open now. */
-export function BranchPicker({ branches, value, onChange }: { branches: BranchChoice[]; value: string; onChange: (id: string) => void }) {
+/**
+ * Where the customer picks the order up. One branch: just says which. Several: one card each, with its hours and whether it is open now.
+ * The kiosk passes its own wording and `alwaysCards`, so a single branch is still shown as a card to confirm.
+ */
+export function BranchPicker({ branches, value, onChange, label = "Chi nhánh nhận hàng", hint = "Thực đơn, giá và khung giờ theo từng chi nhánh. Đổi chi nhánh sẽ làm trống giỏ hàng.", alwaysCards = false }: {
+  branches: BranchChoice[]
+  value: string
+  onChange: (id: string) => void
+  label?: string
+  hint?: string
+  alwaysCards?: boolean
+}) {
   const now = new Date()
   const current = branches.find((b) => b.id === value)
-  if (branches.length === 1 && current) {
+  if (branches.length === 1 && current && !alwaysCards) {
     return <p className="mb-5 text-sm text-text-secondary">Nhận tại <b className="text-text-primary">{current.name}</b>{current.address ? ` · ${current.address}` : ""}</p>
   }
   return (
     <fieldset className="mb-6">
-      <legend className="mb-1 text-sm font-medium text-text-primary">Chi nhánh nhận hàng</legend>
-      <p className="mb-2 text-xs text-text-secondary">Thực đơn, giá và khung giờ theo từng chi nhánh. Đổi chi nhánh sẽ làm trống giỏ hàng.</p>
-      <div role="radiogroup" aria-label="Chi nhánh nhận hàng" className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+      <legend className="mb-1 text-sm font-medium text-text-primary">{label}</legend>
+      {hint && <p className="mb-2 text-xs text-text-secondary">{hint}</p>}
+      <div role="radiogroup" aria-label={label} className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
         {branches.map((b) => {
           const selected = b.id === value
           const open = isOpenAt(b, now)

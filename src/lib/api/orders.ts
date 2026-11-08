@@ -148,7 +148,7 @@ const mockOrdersApi = {
   chargeCheck: async (c: DigitalCharge): Promise<DigitalCharge> => c,
   chargeSimulate: async (c: DigitalCharge): Promise<DigitalCharge> => c,
   placeCounter: (lines: LineInput[], promotionCode?: string) => http.post<Order>(`${B}/orders`, { tableId: null, lines, promotionCode: promotionCode || null }),
-  placeKiosk: async (lines: LineInput[], opts: { memberId?: string; promotionCode?: string } = {}): Promise<Order> => {
+  placeKiosk: async (lines: LineInput[], opts: { branchId?: string; memberId?: string; promotionCode?: string } = {}): Promise<Order> => {
     const o = await http.post<Order>(`${B}/orders`, { tableId: null, lines, promotionCode: opts.promotionCode || null })
     const placed: Order = { ...o, channel: "dine-in", tableId: "", tableCode: "", customerId: opts.memberId }
     mockKiosk.push(placed)

@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test"
 
 /**
- * Kiosk tự gọi món tại quầy (/kiosk): máy tính bảng đăng nhập tài khoản thu ngân, khách vãng lai tự chọn món uống tại quán,
+ * Kiosk tự gọi món tại quầy (/kiosk): máy tính bảng đăng nhập tài khoản thu ngân, khách vãng lai xác nhận chi nhánh, tự chọn món uống tại quán,
  * nhận mã đơn; thu ngân thấy đơn đó ở mục "Đơn từ kiosk chờ thu tiền" trên POS và thu tiền.
  * Cần: BE ở E2E_API, FE chạy `npm run dev` có nút đăng nhập nhanh "Thu ngân". Tạo một đơn thật và thu tiền đơn đó.
  */
@@ -12,6 +12,9 @@ test("Khách vãng lai gọi món ở kiosk, thu ngân thu tiền đơn kiosk tr
 
   await page.goto("/kiosk")
   await page.getByRole("button", { name: "Bắt đầu gọi món" }).click()
+  // Tài khoản thu ngân chỉ đặt cho chi nhánh của mình: bước chi nhánh có đúng một lựa chọn, đã chọn sẵn.
+  await expect(page.getByRole("radiogroup", { name: "Chi nhánh" }).getByRole("radio")).toHaveCount(1)
+  await page.getByRole("button", { name: /^Gọi món tại / }).click()
   await page.getByRole("button", { name: /Ca phe sua/i }).last().click()
   await page.getByRole("button", { name: /^Thêm ·/ }).click()
   await page.getByRole("complementary", { name: "Giỏ hàng" }).getByRole("button", { name: "Tiếp tục" }).click()

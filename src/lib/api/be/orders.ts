@@ -229,10 +229,11 @@ export const beOrdersApi = {
   },
   /**
    * The self-order kiosk at the counter: drinks for here with no table, paid at the cashier or by QR on the kiosk.
+   * `branchId`: the branch chosen on the kiosk (a brand admin must send it; staff can only send their own).
    * `memberId`: the member's user id, so the order earns points and shows in their history.
    */
-  async placeKiosk(lines: LineInput[], opts: { memberId?: string; promotionCode?: string } = {}): Promise<Order> {
-    return toOrder(rec(await http.post<Raw>("/orders", { ...orderBody("DineIn", null, lines, opts.promotionCode), customerId: opts.memberId || null, note: "Gọi tại kiosk" })))
+  async placeKiosk(lines: LineInput[], opts: { branchId?: string; memberId?: string; promotionCode?: string } = {}): Promise<Order> {
+    return toOrder(rec(await http.post<Raw>("/orders", { ...orderBody("DineIn", null, lines, opts.promotionCode), branchId: opts.branchId || null, customerId: opts.memberId || null, note: "Gọi tại kiosk" })))
   },
   /** Orders placed at the kiosk that the cashier still has to collect. */
   kioskQueue: async (): Promise<Order[]> => (await listOrders({ paymentStatus: "Unpaid" })).filter(isKioskOrder),

@@ -53,3 +53,18 @@ export function maskContact(contact: Contact): string {
 export function isKioskOrder(o: Pick<Order, "channel" | "tableCode" | "paymentStatus" | "status">): boolean {
   return o.channel === "dine-in" && !o.tableCode && o.paymentStatus === "Unpaid" && o.status !== "Cancelled"
 }
+
+/** Branches this kiosk account may order for: every branch for a brand admin, otherwise only the account's own branch (BE `BranchAccess`). */
+export function kioskBranches<T extends { id: string }>(all: T[], account: { role: string | null; branchId: string | null | undefined }): T[] {
+  if (account.role === "brandAdmin") return all
+  return account.branchId ? all.filter((b) => b.id === account.branchId) : []
+}
+
+const BRANCH_KEY = "aicos.kiosk.branch"
+/** The branch this tablet ordered for last, so the next customer starts from it. */
+export function rememberedKioskBranch(): string | null {
+  try { return localStorage.getItem(BRANCH_KEY) } catch { return null }
+}
+export function rememberKioskBranch(id: string) {
+  try { localStorage.setItem(BRANCH_KEY, id) } catch { /* private mode: not kept */ }
+}

@@ -1,5 +1,7 @@
 import { env } from "../../config/env"
 import { exactMember, type Contact } from "../kiosk"
+import type { BranchChoice } from "../takeawayBranch"
+import { branchesApi } from "./identity"
 import { http } from "./http"
 import { itemsOf, num, recs, str, type Raw } from "./be/util"
 
@@ -17,6 +19,11 @@ const DEMO: Row[] = [
 ]
 
 export const kioskApi = {
+  /** Active branches of the signed-in brand (the token says which brand). Who may order for which is decided by the caller. */
+  async branches(): Promise<BranchChoice[]> {
+    const rows = env.useMock ? await branchesApi.listActive() : itemsOf(await http.get<Raw[]>("/identity/branches/active"))
+    return recs(rows).map((b) => ({ id: str(b.id), name: str(b.name), address: str(b.address) || null, openingTime: str(b.openingTime) || null, closingTime: str(b.closingTime) || null }))
+  },
   /**
    * Looks the member up at this brand (staff endpoint, `GET /customers?search=`) and keeps only an exact phone or email match.
    * A phone is searched without its leading 0 so a number saved as +84… is found too.

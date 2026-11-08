@@ -49,8 +49,8 @@ export const PAGE_ACCESS: Record<Page, Access> = {
   "barista-queue": BARISTA,
 
   "cashier-pos": CASHIER,
-  /** A counter tablet signed in with a branch account, turned to face the customer. */
-  kiosk: ["cashier", "branchManager"],
+  /** A counter tablet turned to face the customer. Branch accounts order for their branch; a brand admin picks any branch. */
+  kiosk: ["cashier", "branchManager", "brandAdmin"],
   "cashier-payments": CASHIER,
   "cashier-tables": CASHIER,
   "cashier-serve": CASHIER,

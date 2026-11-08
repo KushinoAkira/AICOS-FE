@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import type { Page } from "../../App"
 import { Logo } from "../../components/AuthShell"
+import { BranchPicker } from "../../components/BranchPicker"
 import { CounterDigitalPay } from "../../components/CounterDigitalPay"
 import { OrderComposer, type MenuItem } from "../../components/OrderComposer"
 import { Banner, Button, ErrorState, LoadingState } from "../../components/ui"
@@ -10,22 +11,27 @@ import { brandApi } from "../../lib/api/brand"
 import { kioskApi, type KioskMember } from "../../lib/api/kiosk"
 import { ordersApi, type LineInput, type Order } from "../../lib/api/orders"
 import { formatVND } from "../../lib/format"
-import { KIOSK_DONE_MS, KIOSK_IDLE_MS, greetingName, maskContact, readContact, type Contact } from "../../lib/kiosk"
+import { KIOSK_DONE_MS, KIOSK_IDLE_MS, greetingName, kioskBranches, maskContact, readContact, rememberKioskBranch, rememberedKioskBranch, type Contact } from "../../lib/kiosk"
 import { draftToCart } from "../../lib/orderDraft"
 import { orderErrorMessage } from "../../lib/promotionCode"
 
-type Stage = "welcome" | "menu" | "member" | "done"
+type Stage = "welcome" | "branch" | "menu" | "member" | "done"
 interface Picked { lines: LineInput[]; code: string }
 
 /**
- * Self-order kiosk at the counter: customers and walk-in guests choose their drinks for here, members add their phone or email to
- * earn points, then pay at the cashier or by QR right on the kiosk. The tablet stays signed in with a cashier account; after a
+ * Self-order kiosk at the counter: customers and walk-in guests first choose the branch, then their drinks for here; members add their
+ * phone or email to earn points, then pay at the cashier or by QR right on the kiosk. A cashier or manager account orders for its own
+ * branch only; a brand admin account can order for any branch of the brand. The tablet stays signed in; after a
  * while without a touch it goes back to the welcome screen and forgets the cart. Hold the logo for 2 seconds to leave the kiosk.
  */
 export default function Kiosk({ navigate }: { navigate: (p: Page) => void }) {
-  const { user } = useAuth()
-  const branchId = user?.branchId ?? ""
+  const { user, role } = useAuth()
   const qc = useQueryClient()
+  const branchList = useQuery({ queryKey: ["kiosk", "branches"], queryFn: kioskApi.branches })
+  const allowed = kioskBranches(branchList.data ?? [], { role, branchId: user?.branchId })
+  const [chosen, setChosen] = useState<string>(() => rememberedKioskBranch() ?? "")
+  const branch = allowed.find((b) => b.id === chosen) ?? (allowed.length === 1 ? allowed[0] : undefined)
+  const branchId = branch?.id ?? ""
   const products = useQuery({ queryKey: ["brand", "products"], queryFn: brandApi.products, refetchInterval: 30000 })
   const items: MenuItem[] = (products.data ?? []).filter((p) => p.published).map((p) => ({ ...p, price: p.branchPrices[branchId] ?? p.basePrice, soldOut: p.soldOutAt.includes(branchId) }))
 
@@ -45,7 +51,7 @@ export default function Kiosk({ navigate }: { navigate: (p: Page) => void }) {
     onSuccess: (m, c) => { setMember(m); setContact(c) },
   })
   const place = useMutation({
-    mutationFn: (p: Picked & { memberId?: string }) => ordersApi.placeKiosk(p.lines, { memberId: p.memberId, promotionCode: p.code }),
+    mutationFn: (p: Picked & { memberId?: string }) => ordersApi.placeKiosk(p.lines, { branchId, memberId: p.memberId, promotionCode: p.code }),
     onSuccess: (o) => { setPlaced(o); setStage("done"); setError(null); void qc.invalidateQueries({ queryKey: ["kiosk", "queue"] }) },
     onError: (e, p) => setError(orderErrorMessage(e, p.code)),
   })
@@ -64,7 +70,7 @@ export default function Kiosk({ navigate }: { navigate: (p: Page) => void }) {
     const timer = window.setInterval(() => {
       const idle = Date.now() - lastTouch.current
       if (stage === "done" && !paying && idle > KIOSK_DONE_MS) reset()
-      else if ((stage === "menu" || stage === "member") && idle > KIOSK_IDLE_MS) reset()
+      else if ((stage === "branch" || stage === "menu" || stage === "member") && idle > KIOSK_IDLE_MS) reset()
     }, 5000)
     return () => { window.removeEventListener("pointerdown", touch); window.removeEventListener("keydown", touch); window.clearInterval(timer) }
   }, [stage, paying, reset])
@@ -84,25 +90,62 @@ export default function Kiosk({ navigate }: { navigate: (p: Page) => void }) {
   }
   const confirm = (withMember: boolean) => { if (picked) place.mutate({ ...picked, memberId: withMember ? member?.id : undefined }) }
 
-  if (!branchId) {
-    return <Shell onHoldStart={startHold} onHoldEnd={endHold}><ErrorState title="Tài khoản này chưa gắn chi nhánh" description="Đăng nhập kiosk bằng tài khoản thu ngân hoặc quản lý của một chi nhánh." /></Shell>
+  const pickBranch = (id: string) => {
+    setChosen(id)
+    rememberKioskBranch(id)
+  }
+
+  if (branchList.isSuccess && allowed.length === 0) {
+    const noBranch = role !== "brandAdmin" && !user?.branchId
+    return (
+      <Shell onHoldStart={startHold} onHoldEnd={endHold}>
+        <ErrorState
+          title={noBranch ? "Tài khoản này chưa gắn chi nhánh" : "Chưa có chi nhánh nào đang mở bán"}
+          description={noBranch ? "Đăng nhập kiosk bằng tài khoản thu ngân hoặc quản lý của một chi nhánh, hoặc tài khoản chủ thương hiệu." : "Chi nhánh của tài khoản này đang tạm ngưng. Kiểm tra ở mục Chi nhánh."}
+        />
+      </Shell>
+    )
   }
 
   return (
-    <Shell onHoldStart={startHold} onHoldEnd={endHold} step={stage === "welcome" ? null : stage === "menu" ? 1 : stage === "member" ? 2 : 3} onCancel={stage === "menu" || stage === "member" ? reset : undefined}>
+    <Shell onHoldStart={startHold} onHoldEnd={endHold} step={stage === "welcome" ? null : stage === "branch" ? 1 : stage === "menu" ? 2 : stage === "member" ? 3 : 4} onCancel={stage === "branch" || stage === "menu" || stage === "member" ? reset : undefined}>
       {stage === "welcome" && (
         <section data-testid="kiosk-welcome" className="flex min-h-[70vh] flex-col items-center justify-center gap-6 text-center">
           <p className="text-sm font-medium uppercase tracking-[0.18em] text-text-secondary">Uống tại quán</p>
           <h1 className="max-w-xl font-serif text-4xl text-text-primary sm:text-5xl">Tự gọi món, nhận đồ uống tại quầy</h1>
-          <p className="max-w-md text-text-secondary">Chọn món, nhập số điện thoại nếu bạn là thành viên để tích điểm, rồi thanh toán ở quầy hoặc quét mã QR.</p>
-          <Button className="min-h-14 px-10 text-lg" onClick={() => { lastTouch.current = Date.now(); setStage("menu") }}>Bắt đầu gọi món</Button>
+          <p className="max-w-md text-text-secondary">Chọn chi nhánh và món, nhập số điện thoại nếu bạn là thành viên để tích điểm, rồi thanh toán ở quầy hoặc quét mã QR.</p>
+          <Button className="min-h-14 px-10 text-lg" onClick={() => { lastTouch.current = Date.now(); setStage("branch") }}>Bắt đầu gọi món</Button>
+        </section>
+      )}
+
+      {stage === "branch" && (
+        <section data-testid="kiosk-branch" className="mx-auto grid max-w-4xl gap-4">
+          <div>
+            <h1 className="font-serif text-3xl text-text-primary">Bạn đang ở chi nhánh nào?</h1>
+            <p className="mt-1 text-text-secondary">Đồ uống được pha và giao tại chi nhánh này. Giá và món còn bán có thể khác nhau giữa các chi nhánh.</p>
+          </div>
+          {branchList.isPending ? <LoadingState /> : branchList.isError ? <ErrorState description={branchList.error.message} onRetry={() => void branchList.refetch()} /> : (
+            <BranchPicker branches={allowed} value={branchId} onChange={pickBranch} label="Chi nhánh" hint={allowed.length === 1 ? "Kiosk này đặt món cho chi nhánh của tài khoản đang đăng nhập." : ""} alwaysCards />
+          )}
+          <div className="flex flex-wrap gap-3">
+            <Button className="min-h-12 flex-1 text-base sm:flex-none sm:px-10" disabled={!branchId} disabledReason="Chọn một chi nhánh" onClick={() => setStage("menu")}>
+              {branch ? `Gọi món tại ${branch.name}` : "Chọn chi nhánh"}
+            </Button>
+          </div>
         </section>
       )}
 
       {/* Kept mounted while the member step is open, so "Sửa món" comes back to the same cart. */}
       <div hidden={stage !== "menu"}>
+        {branch && (
+          <p className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-text-secondary">
+            <span>Chi nhánh <b data-testid="kiosk-branch-name" className="text-text-primary">{branch.name}</b></span>
+            {allowed.length > 1 && <button type="button" onClick={() => setStage("branch")} className="text-clay underline">Đổi chi nhánh</button>}
+          </p>
+        )}
         {products.isPending ? <LoadingState /> : products.isError ? <ErrorState description={products.error.message} onRetry={() => void products.refetch()} /> : (
           <OrderComposer
+            key={branchId} /* another branch: other prices and sold-out drinks, so the cart starts empty */
             clearSignal={round}
             products={items}
             submitLabel="Tiếp tục"
@@ -164,6 +207,7 @@ export default function Kiosk({ navigate }: { navigate: (p: Page) => void }) {
         <section data-testid="kiosk-done" className="mx-auto grid max-w-xl justify-items-center gap-5 text-center">
           <p className="text-sm font-medium uppercase tracking-[0.18em] text-text-secondary">Mã đơn của bạn</p>
           <p data-testid="kiosk-code" className="font-serif text-6xl text-text-primary">{placed.code}</p>
+          {branch && <p className="text-text-secondary">Nhận đồ uống tại quầy <b className="text-text-primary">{branch.name}</b></p>}
           {!!placed.discountAmount && <p className="text-state-success">Đã giảm {formatVND(placed.discountAmount)} (mã {placed.promotionCode})</p>}
           <p className="text-2xl text-text-primary">Tổng cần trả <b data-testid="kiosk-total">{formatVND(placed.total)}</b></p>
           {paid ? (
@@ -190,8 +234,8 @@ export default function Kiosk({ navigate }: { navigate: (p: Page) => void }) {
 }
 
 /** Full-screen frame without the staff sidebar: the logo (hold to leave), the step, and a way to start over. */
-function Shell({ children, step = null, onCancel, onHoldStart, onHoldEnd }: { children: React.ReactNode; step?: 1 | 2 | 3 | null; onCancel?: () => void; onHoldStart: () => void; onHoldEnd: () => void }) {
-  const steps = ["Chọn món", "Thành viên", "Thanh toán"]
+function Shell({ children, step = null, onCancel, onHoldStart, onHoldEnd }: { children: React.ReactNode; step?: 1 | 2 | 3 | 4 | null; onCancel?: () => void; onHoldStart: () => void; onHoldEnd: () => void }) {
+  const steps = ["Chi nhánh", "Chọn món", "Thành viên", "Thanh toán"]
   return (
     <div data-uc="UC-KIOSK" className="min-h-screen bg-bg-base">
       <header className="border-b border-border bg-surface px-4 py-3 sm:px-8">

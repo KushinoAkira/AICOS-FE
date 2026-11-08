@@ -105,6 +105,16 @@ export const beOrdersApi = {
   },
   orders: () => listOrders(),
   ordersBetween: (from: string, to: string) => listOrders({ from, to, includePaid: "true", limit: 200 }),
+  /** Every order of the days, page by page (the server answers at most 200 at a time); stops at 2,000. */
+  async ordersInRange(from: string, to: string): Promise<Order[]> {
+    const all: Order[] = []
+    for (let offset = 0; offset < 2000; offset += 200) {
+      const page = await listOrders({ from, to, includePaid: "true", limit: 200, offset })
+      all.push(...page)
+      if (page.length < 200) break
+    }
+    return all
+  },
   async cupLabels(id: string): Promise<CupLabel[]> {
     const r = rec(await http.get<Raw>(`/kitchen/tickets/${await ticketOf(id)}/stickers`))
     return recs(r.stickers).map((s) => ({

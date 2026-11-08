@@ -3,7 +3,7 @@
 #
 # VITE_* values are baked in at build time (they are public). Never pass a server secret as a build-arg.
 
-FROM node:22-alpine AS deps
+FROM node:25-alpine AS deps
 WORKDIR /app
 RUN corepack enable && corepack prepare pnpm@10.15.0 --activate
 COPY package.json pnpm-lock.yaml ./

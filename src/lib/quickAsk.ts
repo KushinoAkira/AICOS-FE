@@ -1,6 +1,6 @@
 import type { Plan } from "./api/platform"
 import { formatVND } from "./format"
-import { FAQ, FEATURES, ROLES } from "../pages/public/landingContent"
+import { BEHIND, FAQ, FEATURES, JOURNEY, ROLES } from "../pages/public/landingContent"
 
 export interface Answer { title: string; body: string }
 
@@ -34,6 +34,8 @@ export function corpus(plans: Plan[] = []): Answer[] {
     ...FAQ.map((f) => ({ title: f.q, body: f.a })),
     ...planDocs(plans),
     ...FEATURES.map((f) => ({ title: f.title, body: f.body })),
+    ...JOURNEY.map((j) => ({ title: `${j.who}: ${j.title}`, body: j.body })),
+    ...BEHIND.map((b) => ({ title: b.title, body: b.body })),
     ...ROLES.map((r) => ({ title: `Dành cho ${r.who.toLowerCase()}`, body: r.body })),
   ]
 }

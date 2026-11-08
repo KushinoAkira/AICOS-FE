@@ -1,26 +1,9 @@
 import { Link } from "react-router"
 import { Reveal } from "../../components/Reveal"
 import { Button } from "../../components/ui"
-import { FAQ, ROLES } from "./landingContent"
+import { FAQ } from "./landingContent"
 import { QuickAsk } from "./QuickAsk"
 import type { Plan } from "../../lib/api/platform"
-
-export function RolesSection() {
-  return (
-    <section id="doi-tuong" className="mx-auto max-w-6xl px-4 py-14 sm:px-8">
-      <h2 className="font-serif text-3xl">Mỗi vai trò một màn hình riêng</h2>
-      <p className="mt-2 max-w-2xl text-text-secondary">Mỗi người chỉ thấy đúng những gì cần cho công việc của mình, nên đào tạo nhân viên mới rất nhanh.</p>
-      <ul className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-        {ROLES.map((r, i) => (
-          <Reveal as="li" key={r.who} delay={i * 70} className="hover-lift rounded-[16px] border border-border bg-surface p-5">
-            <h3 className="font-serif text-lg">{r.who}</h3>
-            <p className="mt-2 text-sm leading-relaxed text-text-secondary">{r.body}</p>
-          </Reveal>
-        ))}
-      </ul>
-    </section>
-  )
-}
 
 export function FaqSection({ plans = [] }: { plans?: Plan[] }) {
   return (

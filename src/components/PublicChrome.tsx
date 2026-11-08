@@ -62,8 +62,6 @@ export function PublicFooter({ navigate }: { navigate: (p: Page) => void }) {
         <Col title="Bắt đầu">
           {btn("Đăng ký quán", "register-brand")}
           {btn("Đăng nhập quản lý và nhân viên", "login")}
-          {btn("Đăng nhập khách hàng", "auth-customer-login")}
-          {btn("Đăng ký khách hàng", "auth-customer-register")}
         </Col>
         <Col title="Hỗ trợ và pháp lý">
           {btn("Liên hệ", "contact")}

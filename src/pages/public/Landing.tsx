@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query"
 import type { Page } from "../../App"
 import { useEffect, type CSSProperties } from "react"
-import { Link, useLocation } from "react-router"
+import { useLocation } from "react-router"
 import { PublicPage } from "../../components/PublicChrome"
 import { Reveal } from "../../components/Reveal"
 import { FaqSection, FinalCta, RolesSection } from "./LandingSections"
@@ -23,7 +23,6 @@ export default function Landing({ navigate }: { navigate: (p: Page) => void }) {
   const { hash } = useLocation()
   useEffect(() => { if (hash) document.getElementById(hash.slice(1))?.scrollIntoView() }, [hash])
   const plans = useQuery({ queryKey: ["public", "plans"], queryFn: publicApi.plans, retry: 1 })
-  const brands = useQuery({ queryKey: ["public", "brands"], queryFn: publicApi.brands, retry: 1, staleTime: 60_000 })
   return (
     <PublicPage navigate={navigate} uc="UC-05">
         <section className="relative isolate overflow-hidden bg-espresso text-white">
@@ -99,34 +98,6 @@ export default function Landing({ navigate }: { navigate: (p: Page) => void }) {
 
         <FaqSection plans={plans.data ?? []} />
         <FinalCta onContact={() => navigate("register-brand")} />
-
-        <section className="mx-auto max-w-6xl px-4 pb-14 sm:px-8">
-          <div className="rounded-[20px] bg-sand p-6 sm:flex sm:items-center sm:justify-between sm:p-8">
-            <div>
-              <h2 className="font-serif text-2xl">Bạn là khách hàng?</h2>
-              <p className="mt-1 text-sm text-text-secondary">Một tài khoản dùng cho mọi quán trên AICOS: chọn quán, đặt mang đi, quét QR tại bàn và tích điểm.</p>
-            </div>
-            <div className="mt-4 flex gap-3 sm:mt-0">
-              <Button variant="secondary" className="min-h-11" onClick={() => navigate("auth-customer-register")}>Đăng ký</Button>
-              <Button className="min-h-11" onClick={() => navigate("auth-customer-login")}>Đăng nhập khách hàng</Button>
-            </div>
-          </div>
-          {!!brands.data?.length && (
-            <div className="mt-4" id="thuong-hieu">
-              <h3 className="mb-2 text-sm font-medium text-text-primary">Xem thực đơn, chưa cần đăng nhập</h3>
-              <ul className="flex flex-wrap gap-2">
-                {brands.data.map((b) => (
-                  <li key={b.id}>
-                    <Link to={`/b/${b.slug}`} className="inline-flex min-h-11 items-center gap-2 rounded-full border border-border bg-surface px-4 text-sm text-text-primary hover:border-clay">
-                      <span aria-hidden className="flex h-6 w-6 items-center justify-center rounded-full text-xs text-white" style={{ backgroundColor: b.brandColor ?? "#C97B4A" }}>{b.name.charAt(0).toUpperCase()}</span>
-                      {b.name}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </section>
     </PublicPage>
   )
 }

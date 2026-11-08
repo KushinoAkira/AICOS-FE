@@ -94,7 +94,6 @@ export default function BrandMenu({ navigate }: { navigate: (p: Page) => void })
               </div>
             </section>
 
-            {!role && <div className="mb-4"><Banner tone="warn">Đặt mang đi và hẹn giờ cần tài khoản khách hàng. Không muốn đăng ký? Bạn vẫn gọi món tại quán được: quét mã QR trên bàn hoặc gọi nhân viên.</Banner></div>}
             {staffSignedIn && <div className="mb-4"><Banner tone="warn">Bạn đang đăng nhập bằng tài khoản nhân viên nên chỉ xem được thực đơn. Đặt hàng cần tài khoản khách hàng.</Banner></div>}
             {proceed.isError && <div className="mb-4"><Banner>Chưa chuyển sang quán này được: {proceed.error?.message}</Banner></div>}
             {branches.isError && <ErrorState description={branches.error.message} onRetry={() => void branches.refetch()} />}

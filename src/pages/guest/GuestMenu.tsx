@@ -80,7 +80,7 @@ export default function GuestMenu({ navigate }: { navigate: (p: Page, params?: R
         </div>
         {menu.data && (
           <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1">
-            <span className="inline-block rounded-full bg-espresso px-3 py-1 text-sm font-medium leading-none text-white">Bàn {menu.data.tableCode}</span>
+            <h1 className="inline-flex items-center gap-2 rounded-full bg-espresso px-4 py-1.5 font-serif text-lg font-medium leading-none text-white">Bàn {menu.data.tableCode}</h1>
             <span className="text-sm text-text-secondary">{menu.data.branchName}</span>
             {role !== "customer" && <span className="text-xs text-clay">Đăng nhập để tích điểm cho đơn này</span>}
           </div>

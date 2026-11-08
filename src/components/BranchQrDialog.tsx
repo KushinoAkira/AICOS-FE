@@ -72,7 +72,7 @@ export function BranchQrDialog({ branchId, onClose }: { branchId: string | null;
         <Banner>Chưa lấy được mã thương hiệu để tạo đường dẫn. Kiểm tra thương hiệu đang hoạt động rồi thử lại.</Banner>
       ) : (
         <div className="flex flex-col items-center gap-3">
-          <p className="text-center text-sm text-text-secondary">Dán ở quầy hoặc cửa ra vào. Khách quét mã sẽ vào thẳng thực đơn của chi nhánh này; đặt mang đi cần đăng nhập tài khoản khách hàng.</p>
+          <p className="text-center text-sm text-text-secondary">Dán ở cửa ra vào: khách quét mã để xem thực đơn và đặt mang đi tại chi nhánh này (đặt mang đi cần tài khoản khách hàng). Khách ngồi tại bàn dùng mã QR của bàn.</p>
           <div ref={host} data-testid="branch-qr"><QRCodeSVG value={link} size={220} marginSize={2} /></div>
           <a href={link} target="_blank" rel="noreferrer" className="break-all text-center text-sm text-clay underline">{link}</a>
           {baseIsLocal() && <Banner tone="warn">Đường dẫn đang là localhost: điện thoại của khách không mở được. Đặt VITE_PUBLIC_APP_URL là địa chỉ thật trước khi in.</Banner>}

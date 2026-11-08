@@ -105,7 +105,7 @@ export default function BrandMenu({ navigate }: { navigate: (p: Page) => void })
             {branches.isError && <ErrorState description={branches.error.message} onRetry={() => void branches.refetch()} />}
             {branches.data?.length === 0 && <ErrorState title="Chưa có chi nhánh" description="Thương hiệu này chưa có chi nhánh nào đang mở bán." />}
             {!isCustomer && !staffSignedIn && (
-              <p data-testid="guest-note" className="mb-4 rounded-[14px] bg-sand px-4 py-3 text-sm text-text-secondary"><b className="text-text-primary">Đặt mang đi chỉ dành cho khách có tài khoản.</b> Bạn vẫn xem thực đơn và chọn món được; khi đặt, hãy đăng nhập hoặc đăng ký (miễn phí). Ngồi tại quán thì quét mã QR trên bàn để gọi món.</p>
+              <p data-testid="guest-note" className="mb-4 rounded-[14px] bg-sand px-4 py-3 text-sm text-text-secondary"><b className="text-text-primary">Đặt mang đi chỉ dành cho khách có tài khoản.</b> Bạn vẫn xem thực đơn và chọn món được; khi đặt, hãy đăng nhập hoặc đăng ký (miễn phí). Uống tại quán thì gọi bằng mã QR trên bàn, kiosk hoặc ở quầy, không cần tài khoản.</p>
             )}
             {qrUnknown && <div className="mb-4"><Banner tone="warn">Chi nhánh của mã QR này hiện không nhận đơn. Hãy chọn một chi nhánh khác.</Banner></div>}
             {branch && fromQr && !changing && branch.id === qrBranch ? (

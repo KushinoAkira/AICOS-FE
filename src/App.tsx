@@ -65,6 +65,7 @@ const BranchTables = lazy(() => import("./pages/brand/BranchTables"))
 const TablesPrint = lazy(() => import("./pages/brand/TablesPrint"))
 const CashierTables = lazy(() => import("./pages/cashier/Tables"))
 const CashierShifts = lazy(() => import("./pages/cashier/Shifts"))
+const StaffOrderHistory = lazy(() => import("./pages/cashier/OrderHistory"))
 const CashierServe = lazy(() => import("./pages/cashier/Serve"))
 
 
@@ -157,6 +158,7 @@ export default function App() {
     "cashier-tables": <CashierTables navigate={navigate} />,
     "cashier-serve": <CashierServe navigate={navigate} />,
     "cashier-shift": <CashierShifts navigate={navigate} />,
+    "staff-orders": <StaffOrderHistory navigate={navigate} />,
 
     "manager-dashboard": <ManagerDashboard navigate={navigate} />,
     "manager-staff": <ManagerEmployees navigate={navigate} />,

@@ -88,13 +88,14 @@ const navMap: Record<StaffRole, NavItem[]> = {
     item("manager-reports", "Báo cáo", "chart"),
     item("manager-feedback", "Phản hồi", "heart"),
   ],
-  barista: [item("barista-queue", "Hàng đợi pha chế", "cup"), item("cashier-shift", "Ca làm việc", "clock2")],
+  barista: [item("barista-queue", "Hàng đợi pha chế", "cup"), item("cashier-shift", "Ca làm việc", "clock2"), item("staff-orders", "Đơn hàng", "list")],
   cashier: [
     item("cashier-pos", "Tạo đơn", "cash"),
     item("cashier-payments", "Thanh toán cần xử lý", "card"),
     item("cashier-tables", "Bàn và bill", "table"),
     item("cashier-serve", "Phục vụ và giao món", "cup"),
     item("cashier-shift", "Ca làm việc", "clock2"),
+    item("staff-orders", "Đơn hàng", "list"),
   ],
 }
 

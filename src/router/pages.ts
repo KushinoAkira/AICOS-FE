@@ -45,6 +45,7 @@ export const PAGE_PATHS = {
   "cashier-tables": "/cashier/tables",
   "cashier-serve": "/cashier/serve",
   "cashier-shift": "/cashier/shift",
+  "staff-orders": "/cashier/orders",
 
   // Branch Manager
   "manager-dashboard": "/branch/dashboard",

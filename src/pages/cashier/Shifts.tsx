@@ -10,7 +10,6 @@ import { dayLabel, todayKey } from "../../lib/dates"
 import { formatSignedVND, formatTime, formatVND } from "../../lib/format"
 import { ordersApi } from "../../lib/api/orders"
 import { summarizeShift } from "../../lib/shiftSummary"
-import { WorkHistory } from "../../components/WorkHistory"
 
 /**
  * "My shifts": attendance (Vào ca / Kết thúc ca), asking for somebody to take a coming shift, signing up for a colleague's shift and,
@@ -104,7 +103,6 @@ export default function MyShifts({ navigate }: { navigate: (p: Page) => void }) 
           </QueryBoundary>
         </section>
 
-        <WorkHistory shifts={mine.data ?? []} />
         {role === "cashier" && <ShiftSummaryPanel shifts={mine.data ?? []} />}
         {role === "cashier" && <CashClosing />}
       </div>

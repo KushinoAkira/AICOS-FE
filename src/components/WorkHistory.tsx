@@ -9,7 +9,7 @@ import { formatDateTime, formatTime, formatVND } from "../lib/format"
 import { orderTitle, shortOrderCode } from "../lib/orderLabel"
 import { filterHistory, historyCsv, historyTotals, type HistoryStatus, type HistoryType } from "../lib/workHistory"
 
-type Preset = "shift" | "today" | "yesterday" | "custom"
+type Preset = "shift" | "today" | "yesterday" | "week" | "custom"
 
 const toUtc = (day: string, time: string) => new Date(`${day}T${time}:00`).toISOString()
 const hhmm = (utc: string) => { const d = new Date(utc); return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}` }
@@ -36,6 +36,7 @@ export function WorkHistory({ shifts }: { shifts: Shift[] }) {
   const range = (() => {
     if (preset === "shift" && lastShift) return { fromUtc: lastShift.checkInAtUtc!, toUtc: lastShift.checkOutAtUtc ?? new Date().toISOString(), label: "Ca gần nhất" }
     if (preset === "yesterday") { const y = addDays(todayKey(), -1); return { fromUtc: toUtc(y, "00:00"), toUtc: toUtc(y, "23:59"), label: "Hôm qua" } }
+    if (preset === "week") return { fromUtc: toUtc(addDays(todayKey(), -6), "00:00"), toUtc: new Date().toISOString(), label: "7 ngày qua" }
     if (preset === "custom") return { fromUtc: toUtc(day, from || "00:00"), toUtc: toUtc(day, to || "23:59"), label: "Tùy chọn" }
     return { fromUtc: toUtc(todayKey(), "00:00"), toUtc: new Date().toISOString(), label: "Hôm nay" }
   })()
@@ -48,13 +49,12 @@ export function WorkHistory({ shifts }: { shifts: Shift[] }) {
 
   return (
     <section>
-      <h2 className="font-serif text-lg text-text-primary">Lịch sử đơn</h2>
-      <p className="mb-3 text-sm text-text-secondary">Đơn của chi nhánh trong khoảng thời gian bạn chọn: món gì, tại quán hay mang đi, bàn nào, lúc nào, bao nhiêu tiền và kết thúc ra sao.</p>
-
       <div className="space-y-3 rounded-[16px] border border-border bg-surface p-4">
+        <input aria-label="Tìm đơn" type="search" autoFocus placeholder="Tìm theo mã đơn (vd 630A22), số bàn (vd A02) hoặc tên món…" value={search} onChange={(e) => setSearch(e.target.value)}
+          className="w-full rounded-[12px] border border-border bg-bg-base px-4 py-3 text-sm text-text-primary outline-none focus:border-terracotta" />
         <div role="radiogroup" aria-label="Khoảng thời gian" className="flex flex-wrap gap-2">
           {lastShift && <button role="radio" aria-checked={preset === "shift"} onClick={() => setPreset("shift")} className={chip(preset === "shift")}>Ca gần nhất</button>}
-          {([["today", "Hôm nay"], ["yesterday", "Hôm qua"], ["custom", "Chọn ngày giờ"]] as const).map(([p, l]) => (
+          {([["today", "Hôm nay"], ["yesterday", "Hôm qua"], ["week", "7 ngày qua"], ["custom", "Chọn ngày giờ"]] as const).map(([p, l]) => (
             <button key={p} role="radio" aria-checked={preset === p} onClick={() => setPreset(p)} className={chip(preset === p)}>{l}</button>
           ))}
         </div>
@@ -68,9 +68,8 @@ export function WorkHistory({ shifts }: { shifts: Shift[] }) {
         <div className="flex flex-wrap items-center gap-2">
           <select aria-label="Loại đơn" value={type} onChange={(e) => setType(e.target.value as HistoryType)} className={input}>{TYPES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>
           <select aria-label="Trạng thái" value={status} onChange={(e) => setStatus(e.target.value as HistoryStatus)} className={input}>{STATUSES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>
-          <input aria-label="Tìm đơn" placeholder="Tìm mã đơn, bàn, món…" value={search} onChange={(e) => setSearch(e.target.value)} className={`${input} min-w-[200px] flex-1`} />
         </div>
-        <p className="text-xs text-text-secondary">{range.label}: {formatDateTime(range.fromUtc)} → {formatDateTime(range.toUtc)}</p>
+        <p className="text-xs text-text-secondary">{range.label}: {formatDateTime(range.fromUtc)} → {formatDateTime(range.toUtc)}{search.trim() ? (preset === "week" ? " · tìm trong 7 ngày, cũ hơn thì dùng Chọn ngày giờ" : " · tìm trong khoảng này, không thấy thì chọn 7 ngày qua hoặc ngày khác") : ""}</p>
       </div>
 
       <div className="mt-4">

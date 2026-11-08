@@ -3,6 +3,7 @@ import { beOrdersApi } from "./be/orders"
 import { http } from "./http"
 import type { Product } from "./brand"
 import type { OrderStatus, PaymentStatus } from "../orderStateMachine"
+import { isKioskOrder } from "../kiosk"
 
 export interface OrderLine {
   productId: string
@@ -107,6 +108,9 @@ export interface GuestMenu {
 }
 
 const B = "/api/v1/ordering"
+/** Orders placed at the kiosk in demo mode (the mock server has no dine-in order without a table). */
+const mockKiosk: Order[] = []
+
 const mockOrdersApi = {
   tables: () => http.get<TableRow[]>(`${B}/tables`),
   addTable: (b: { code: string; seats: number }) => http.post<TableRow>(`${B}/tables`, b),
@@ -144,6 +148,13 @@ const mockOrdersApi = {
   chargeCheck: async (c: DigitalCharge): Promise<DigitalCharge> => c,
   chargeSimulate: async (c: DigitalCharge): Promise<DigitalCharge> => c,
   placeCounter: (lines: LineInput[], promotionCode?: string) => http.post<Order>(`${B}/orders`, { tableId: null, lines, promotionCode: promotionCode || null }),
+  placeKiosk: async (lines: LineInput[], opts: { memberId?: string; promotionCode?: string } = {}): Promise<Order> => {
+    const o = await http.post<Order>(`${B}/orders`, { tableId: null, lines, promotionCode: opts.promotionCode || null })
+    const placed: Order = { ...o, channel: "dine-in", tableId: "", tableCode: "", customerId: opts.memberId }
+    mockKiosk.push(placed)
+    return placed
+  },
+  kioskQueue: async (): Promise<Order[]> => mockKiosk.filter(isKioskOrder),
   /** Staff only: what a code would take off this amount, before the order is placed. */
   previewVoucher: (code: string, orderAmount: number, _branchId?: string) => http.post<VoucherQuote>(`${B}/vouchers/validate`, { code, orderAmount }),
   payOrderCash: (id: string, received: number) => http.post<{ change: number }>(`${B}/orders/${id}/pay-cash`, { received }),

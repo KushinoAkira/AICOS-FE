@@ -41,6 +41,7 @@ export const PAGE_PATHS = {
 
   // Cashier
   "cashier-pos": "/cashier/pos",
+  kiosk: "/kiosk",
   "cashier-payments": "/cashier/payments",
   "cashier-tables": "/cashier/tables",
   "cashier-serve": "/cashier/serve",

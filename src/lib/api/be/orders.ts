@@ -3,6 +3,7 @@ import { currentBrandSlug } from "../../brand"
 import { ApiError, http } from "../http"
 import type { Recommendations } from "../orders"
 import type { CupLabel, DigitalCharge, GuestMenu, PayMethod, LineInput, Order, PayOutcome, PickupCheck, PickupInfo, ProviderStatus, TableRow, VoucherQuote } from "../orders"
+import { isKioskOrder } from "../../kiosk"
 import { tokenStore } from "../tokenStore"
 import { toProduct } from "./brand"
 import { itemsOf, num, rec, recs, str, unsupported, type Raw } from "./util"
@@ -226,6 +227,15 @@ export const beOrdersApi = {
   async placeCounter(lines: LineInput[], promotionCode?: string): Promise<Order> {
     return toOrder(rec(await http.post<Raw>("/orders", orderBody("Takeaway", null, lines, promotionCode))))
   },
+  /**
+   * The self-order kiosk at the counter: drinks for here with no table, paid at the cashier or by QR on the kiosk.
+   * `memberId`: the member's user id, so the order earns points and shows in their history.
+   */
+  async placeKiosk(lines: LineInput[], opts: { memberId?: string; promotionCode?: string } = {}): Promise<Order> {
+    return toOrder(rec(await http.post<Raw>("/orders", { ...orderBody("DineIn", null, lines, opts.promotionCode), customerId: opts.memberId || null, note: "Gọi tại kiosk" })))
+  },
+  /** Orders placed at the kiosk that the cashier still has to collect. */
+  kioskQueue: async (): Promise<Order[]> => (await listOrders({ paymentStatus: "Unpaid" })).filter(isKioskOrder),
   /** Staff preview of a voucher (no redemption). The amount is the cart estimate; the order is priced again by the server. */
   async previewVoucher(code: string, orderAmount: number, branchId?: string): Promise<VoucherQuote> {
     const q = rec(await http.post<Raw>("/customers/vouchers/validate", { code, orderAmount, branchId: branchId || null }))

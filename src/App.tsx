@@ -28,6 +28,7 @@ const OTPVerification = lazy(() => import("./pages/auth/OTPVerification"))
 const RegisterBrand = lazy(() => import("./pages/public/RegisterBrand"))
 const CustomerBrands = lazy(() => import("./pages/customer/Brands"))
 const BrandMenu = lazy(() => import("./pages/public/BrandMenu"))
+const Kiosk = lazy(() => import("./pages/kiosk/Kiosk"))
 const ForgotPassword = lazy(() => import("./pages/auth/ForgotPassword"))
 const ResetPassword = lazy(() => import("./pages/auth/ResetPassword"))
 const AccountSettings = lazy(() => import("./pages/shared/AccountSettings"))
@@ -153,6 +154,7 @@ export default function App() {
     "barista-queue": <BaristaQueue navigate={navigate} />,
 
     "cashier-pos": <CashierPOS navigate={navigate} />,
+    kiosk: <Kiosk navigate={navigate} />,
     "cashier-payments": <CashierPayments navigate={navigate} />,
     "cashier-tables": <CashierTables navigate={navigate} />,
     "cashier-serve": <CashierServe navigate={navigate} />,

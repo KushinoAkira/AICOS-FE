@@ -23,13 +23,14 @@ export default function CashierPOS({ navigate }: { navigate: (p: Page) => void }
   const { showToast } = useToast()
   const products = useQuery({ queryKey: ["brand", "products"], queryFn: brandApi.products, refetchInterval: 15000 })
   const tables = useQuery({ queryKey: ["tables"], queryFn: ordersApi.tables })
+  const kiosk = useQuery({ queryKey: ["kiosk", "queue"], queryFn: ordersApi.kioskQueue, refetchInterval: 10000 })
   const [tableId, setTableId] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [toPay, setToPay] = useState<Order | null>(null)
   const [digital, setDigital] = useState(false)
   const [placed, setPlaced] = useState(0)
   const [received, setReceived] = useState("")
-  const refresh = () => { void qc.invalidateQueries({ queryKey: ["tables"] }); void qc.invalidateQueries({ queryKey: ["orders"] }) }
+  const refresh = () => { void qc.invalidateQueries({ queryKey: ["tables"] }); void qc.invalidateQueries({ queryKey: ["orders"] }); void qc.invalidateQueries({ queryKey: ["kiosk", "queue"] }) }
   const place = useMutation({
     mutationFn: ({ lines, code }: { lines: LineInput[]; code: string }) => (tableId === WALK_IN ? ordersApi.placeCounter(lines, code) : ordersApi.place(tableId, lines, code)),
     onSuccess: (o) => {
@@ -53,6 +54,19 @@ export default function CashierPOS({ navigate }: { navigate: (p: Page) => void }
       <QueryBoundary query={products}>
         {() => (
           <>
+            {(kiosk.data?.length ?? 0) > 0 && (
+              <section aria-label="Đơn từ kiosk chờ thu tiền" data-testid="kiosk-queue" className="mb-5 rounded-[14px] border border-border bg-surface p-4">
+                <h2 className="mb-2 font-medium text-text-primary">Đơn từ kiosk chờ thu tiền ({kiosk.data?.length})</h2>
+                <ul className="divide-y divide-border">
+                  {kiosk.data?.map((o) => (
+                    <li key={o.id} className="flex flex-wrap items-center justify-between gap-3 py-2 text-sm">
+                      <span><b className="text-text-primary">{o.code}</b> · {o.lines.reduce((n, l) => n + l.qty, 0)} món · {formatVND(o.total)}{o.customerId ? " · thành viên" : ""}</span>
+                      <Button className="px-4 py-1.5 text-xs" onClick={() => { setError(null); setReceived(""); setToPay(o) }}>Thu tiền</Button>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
             <label className="mb-5 block max-w-xs text-sm font-medium text-text-primary">Đơn cho
               <select value={tableId} onChange={(e) => setTableId(e.target.value)} className="mt-1.5 w-full rounded-[10px] border border-border bg-surface px-3 py-3 text-sm">
                 <option value="">Chọn bàn hoặc khách tại quầy</option>

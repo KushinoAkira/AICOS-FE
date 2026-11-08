@@ -84,7 +84,7 @@ async function floorTables(): Promise<{ areaId: string; areaName: string; branch
 }
 
 const openTableOrders = async (code: string) =>
-  (await listOrders({ paymentStatus: "Unpaid" })).filter((o) => o.tableCode === code && o.status !== "Cancelled")
+  (await listOrders({ paymentStatus: "Unpaid" })).filter((o) => o.tableCode === code && o.status !== "Cancelled" && o.status !== "Unfulfillable")
 
 export const beOrdersApi = {
   async tables(): Promise<TableRow[]> {
@@ -92,7 +92,7 @@ export const beOrdersApi = {
     const asked = new Map(recs(itemsOf(sessions)).filter((s) => str(s.billRequestedAtUtc)).map((s) => [str(s.tableCode), str(s.billRequestedMethod)]))
     return tables.map(({ t, areaId, areaName }) => {
       const code = str(t.tableCode)
-      return { id: code, code, seats: num(t.capacity), areaId, areaName, positionX: typeof t.positionX === "number" ? t.positionX : null, positionY: typeof t.positionY === "number" ? t.positionY : null, qrToken: str(t.qrToken), billRequested: asked.has(code), billMethod: (asked.get(code) as "Cash" | "Transfer" | undefined), orders: orders.filter((o) => o.tableCode === code && o.status !== "Cancelled") }
+      return { id: code, code, seats: num(t.capacity), areaId, areaName, positionX: typeof t.positionX === "number" ? t.positionX : null, positionY: typeof t.positionY === "number" ? t.positionY : null, qrToken: str(t.qrToken), billRequested: asked.has(code), billMethod: (asked.get(code) as "Cash" | "Transfer" | undefined), orders: orders.filter((o) => o.tableCode === code && o.status !== "Cancelled" && o.status !== "Unfulfillable") }
     })
   },
   async addTable(b: { code: string; seats: number }): Promise<TableRow> {

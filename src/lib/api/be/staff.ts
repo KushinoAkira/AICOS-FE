@@ -87,7 +87,7 @@ export const beStaffApi = {
     }))
   },
   async openReplacement(b: { shiftId: string; reason: string }): Promise<Replacement> {
-    return toReplacement(rec(await http.post<Raw>(`${W}/replacement-shifts`, { assignmentId: b.shiftId, reason: b.reason })), await userIdByEmployee())
+    return toReplacement(rec(await http.post<Raw>(`${W}/replacement-shifts`, { assignmentId: b.shiftId, reason: b.reason })), await userIdByEmployee().catch(() => new Map<string, string>()))
   },
   async apply(id: string): Promise<Replacement> {
     return { ...toReplacement(rec(await http.post<Raw>(`${W}/replacement-shifts/${id}/register`, { note: "" })), new Map()), applied: true }

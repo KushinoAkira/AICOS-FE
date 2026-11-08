@@ -14,7 +14,12 @@ export const beAuthApi = {
     return session
   },
   /** One customer account works at every brand; the brand is chosen after signing in (`selectBrand`). */
-  register: (body: SignUpInput) => http.post<SignUpPending>(`${BASE}/auth/register`, body, { anonymous: true }),
+  /** Registering signs the customer in at once: no email code (the code is kept for the password reset). */
+  async register(body: SignUpInput): Promise<StoredSession> {
+    const session = await http.post<StoredSession>(`${BASE}/auth/register`, body, { anonymous: true })
+    tokenStore.set(session)
+    return session
+  },
   async verifyRegistration(email: string, code: string): Promise<StoredSession> {
     const session = await http.post<StoredSession>(`${BASE}/auth/register/verify`, { email, code }, { anonymous: true })
     tokenStore.set(session)

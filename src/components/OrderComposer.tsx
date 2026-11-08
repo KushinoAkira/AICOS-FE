@@ -27,7 +27,7 @@ export function ProductImage({ src, className = "h-16 w-16" }: { src?: string; n
 export type MenuItem = Product & { soldOut: boolean; price: number }
 
 /** Shared by the guest QR menu, takeaway and the cashier POS. Prices shown here are estimates; the server recomputes (BR). */
-export function OrderComposer({ products, submitLabel, submitting, error, onSubmit, tabs, clearSignal = 0, recommendations, voucher, initialCart }: {
+export function OrderComposer({ products, submitLabel, submitting, error, onSubmit, tabs, clearSignal = 0, recommendations, voucher, initialCart, cartExtra }: {
   products: MenuItem[]
   submitLabel: string
   submitting: boolean
@@ -43,6 +43,8 @@ export function OrderComposer({ products, submitLabel, submitting, error, onSubm
   voucher?: VoucherOptions
   /** What the cart starts with (a cart chosen on the public brand page before signing in). Read once, when the composer mounts. */
   initialCart?: CartLine[]
+  /** Shown in the cart above the submit button. */
+  cartExtra?: React.ReactNode
 }) {
   const [cart, setCart] = useState<CartLine[]>(() => initialCart ?? [])
   const [tab, setTab] = useState<CartTab>("cart")
@@ -117,7 +119,7 @@ export function OrderComposer({ products, submitLabel, submitting, error, onSubm
   const submit = () => onSubmit(cart.map(({ name: _n, unit: _u, ...l }) => l), voucher ? voucherState.applied : "")
   const voucherProps = voucher ? { options: voucher, state: voucherState, setState: setVoucherState } : undefined
   const toPay = voucher ? liveQuote(voucherState, total)?.amountToPay ?? total : total
-  const panel = <CartPanel cart={cart} setCart={setCart} total={total} submitLabel={submitLabel} submitting={submitting} error={error} onSubmit={submit} tabs={tabs} tab={tab} setTab={setTab} reorder={reorder} voucher={voucherProps} />
+  const panel = <CartPanel cart={cart} setCart={setCart} total={total} submitLabel={submitLabel} submitting={submitting} error={error} onSubmit={submit} tabs={tabs} tab={tab} setTab={setTab} reorder={reorder} voucher={voucherProps} cartExtra={cartExtra} />
   const chips = (values: string[], current: string, set: (v: string) => void, label: string) => (
     <fieldset className="mt-4">
       <legend className="mb-2 text-sm font-medium text-text-primary">{label}</legend>

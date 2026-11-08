@@ -50,6 +50,7 @@ export function toOrder(o: Raw): Order {
     createdAtUtc: str(o.createdAtUtc), source: "pos", paidAmount: paid ? num(o.finalAmount) : 0, refundedAmount: num(o.refundedAmount),
     paymentMethod: str(o.paymentProvider) ? (str(o.paymentProvider) === "Cash" ? "cash" : "online") : undefined,
     customerId: str(o.customerId) || undefined, completedAtUtc: str(o.completedAtUtc) || undefined,
+    pickupSlot: str(o.pickupSlotStartUtc) || undefined,
     originalAmount: o.originalAmount === undefined ? undefined : num(o.originalAmount),
     promotionCode: str(o.promotionCode) || undefined,
     discountAmount: num(o.discountAmount) || undefined,

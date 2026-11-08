@@ -6,6 +6,7 @@ import { Banner, Button, EmptyState, ErrorState, LoadingState, StatusPill } from
 import { ordersApi, type LineInput, type Order } from "../lib/api/orders"
 import { pollWhile } from "../lib/realtime"
 import { formatDateTime, formatTime, formatVND } from "../lib/format"
+import { orderTitle, shortOrderCode } from "../lib/orderLabel"
 import { clearGuestHistory, readGuestHistory, type PastOrder } from "../lib/guestHistory"
 
 const linesText = (lines: Order["lines"]) => lines.map((l) => `${l.qty}× ${l.name}${l.size ? ` (${l.size})` : ""}`).join(", ")
@@ -28,7 +29,7 @@ export function OrderedTab({ token, channelUp = false }: { token: string; channe
       <ul className="space-y-3">
         {orders.data.map((o) => (
           <li key={o.id} className="rounded-[14px] border border-border p-3 text-sm">
-            <div className="flex items-center justify-between"><b className="text-text-primary">{o.code} <span className="font-normal text-text-secondary">{formatTime(o.createdAtUtc)}</span></b>{o.paymentStatus === "Unpaid" && o.status === "Pending" ? <StatusPill tone="pending">Chờ thanh toán</StatusPill> : <OrderStatusPill status={o.status} />}</div>
+            <div className="flex items-center justify-between"><b className="text-text-primary">{orderTitle(o.lines)} <span className="font-normal text-text-secondary">{shortOrderCode(o.code)} · {formatTime(o.createdAtUtc)}</span></b>{o.paymentStatus === "Unpaid" && o.status === "Pending" ? <StatusPill tone="pending">Chờ thanh toán</StatusPill> : <OrderStatusPill status={o.status} />}</div>
             <ul className="mt-2 text-text-secondary">{o.lines.map((l, i) => <li key={i}>{l.qty}× {l.name}{l.size ? ` (${l.size})` : ""}</li>)}</ul>
             {o.status === "Unfulfillable" && <div className="mt-2"><Banner>Quán không làm được đơn này{o.reason ? `: ${o.reason}` : ""}. Bạn không bị tính tiền.</Banner></div>}
           </li>

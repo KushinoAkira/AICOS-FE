@@ -93,9 +93,13 @@ const mockAuthApi = {
     tokenStore.set(session)
     return session
   },
-  /** Step 1 of the sign-up: creates the pending account and mails a 6-digit code. */
-  register: (body: SignUpInput) => http.post<SignUpPending>(`${BASE}/auth/register`, body, { anonymous: true }),
-  /** Step 2: the code from the email activates the account and signs the customer in. */
+  /** Creates the customer account and signs them in at once (no email code). */
+  async register(body: SignUpInput): Promise<StoredSession> {
+    const session = await http.post<StoredSession>(`${BASE}/auth/register`, body, { anonymous: true })
+    tokenStore.set(session)
+    return session
+  },
+  /** Only for an account still pending from the time sign-up needed an emailed code. */
   async verifyRegistration(email: string, code: string): Promise<StoredSession> {
     const session = await http.post<StoredSession>(`${BASE}/auth/register/verify`, { email, code }, { anonymous: true })
     tokenStore.set(session)

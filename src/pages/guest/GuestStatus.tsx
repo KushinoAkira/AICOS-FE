@@ -9,6 +9,7 @@ import { Banner, Button, EmptyState, ErrorState, LoadingState } from "../../comp
 import { ordersApi } from "../../lib/api/orders"
 import { pollWhile, useGuestRealtime } from "../../lib/realtime"
 import { formatTime, formatVND } from "../../lib/format"
+import { orderTitle, shortOrderCode } from "../../lib/orderLabel"
 
 /** Live status of the table's open orders. Pushed over SignalR; polls every 5s while the channel is down. */
 export default function GuestStatus({ navigate }: { navigate: (p: Page, params?: Record<string, string>) => void }) {
@@ -29,7 +30,7 @@ export default function GuestStatus({ navigate }: { navigate: (p: Page, params?:
         {orders.data?.length === 0 && <EmptyState title="Bàn chưa có đơn nào" action={<Button onClick={() => navigate("guest-menu", { token })}>Chọn món</Button>} />}
         {orders.data?.map((o) => (
           <section key={o.id} className="rounded-[16px] border border-border bg-surface p-5">
-            <div className="flex items-center justify-between"><p className="font-medium text-text-primary">{o.code} <span className="text-xs text-text-secondary">{formatTime(o.createdAtUtc)}</span></p><OrderStatusPill status={o.status} /></div>
+            <div className="flex items-center justify-between"><p className="font-medium text-text-primary">{orderTitle(o.lines)} <span className="text-xs text-text-secondary">{shortOrderCode(o.code)} · {formatTime(o.createdAtUtc)}</span></p><OrderStatusPill status={o.status} /></div>
             <ul className="mt-3 text-sm text-text-secondary">{o.lines.map((l, i) => <li key={i}>{l.qty}× {l.name}{l.size ? ` (${l.size})` : ""}</li>)}</ul>
             {o.status === "Unfulfillable" && <div className="mt-3"><Banner>Quán không thực hiện được đơn này{o.reason ? `: ${o.reason}` : ""}. Bạn không bị tính tiền.</Banner></div>}
           </section>

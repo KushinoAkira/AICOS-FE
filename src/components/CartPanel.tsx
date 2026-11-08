@@ -15,7 +15,7 @@ export interface ExtraTabs {
 }
 
 /** Cart + (optionally) "already ordered" and "history" tabs, shared by the sidebar and the mobile drawer. */
-export function CartPanel({ cart, setCart, total, submitLabel, submitting, error, onSubmit, tabs, tab, setTab, reorder, voucher }: {
+export function CartPanel({ cart, setCart, total, submitLabel, submitting, error, onSubmit, tabs, tab, setTab, reorder, voucher, cartExtra }: {
   cart: CartLine[]
   setCart: (c: CartLine[]) => void
   total: number
@@ -29,6 +29,8 @@ export function CartPanel({ cart, setCart, total, submitLabel, submitting, error
   reorder: (lines: LineInput[]) => number
   /** Present when this menu takes a voucher code. */
   voucher?: { options: VoucherOptions; state: VoucherState; setState: (next: VoucherState | ((prev: VoucherState) => VoucherState)) => void }
+  /** Shown above the submit button (the table QR menu's "Đặt mang đi" option and pickup time). */
+  cartExtra?: React.ReactNode
 }) {
   const quote = voucher ? liveQuote(voucher.state, total) : null
   const [notice, setNotice] = useState<string | null>(null)
@@ -79,6 +81,7 @@ export function CartPanel({ cart, setCart, total, submitLabel, submitting, error
               </>}
               <div className="flex justify-between font-medium text-text-primary"><span>Tổng cộng</span><span data-testid="cart-total">{formatVND(quote ? quote.amountToPay : total)}</span></div>
               {voucher && cart.length > 0 && <VoucherBox options={voucher.options} state={voucher.state} setState={voucher.setState} total={total} />}
+              {cartExtra && <div className="mt-4">{cartExtra}</div>}
               {error && <div className="mt-3"><Banner>{error}</Banner></div>}
               <Button className="mt-4 w-full" disabled={cart.length === 0} disabledReason="Chọn ít nhất một món" loading={submitting} onClick={onSubmit}>{submitLabel}</Button>
             </div>

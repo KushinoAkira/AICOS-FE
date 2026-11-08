@@ -6,6 +6,7 @@ import { Logo } from "../../components/AuthShell"
 import { BranchPicker } from "../../components/BranchPicker"
 import CustomerUserMenu from "../../components/CustomerUserMenu"
 import { OrderComposer } from "../../components/OrderComposer"
+import { AiChat } from "../../components/AiChat"
 import { Banner, ErrorState, LoadingState } from "../../components/ui"
 import { useAuth } from "../../context/AuthContext"
 import { branchesApi } from "../../lib/api/identity"
@@ -16,7 +17,8 @@ import { defaultBranch, rememberBranch, rememberedBranch } from "../../lib/takea
 
 /**
  * Public menu of one brand, `/b/:brandSlug`: anyone can see the branches and their drinks and fill a cart (size, sugar, ice, note).
- * Placing the order needs a customer account at this brand: a guest signs in first and comes back here, the cart is kept in the tab
+ * Placing the order needs a customer account at this brand (takeaway is for members; a guest without an account orders at the shop, from
+ * the table QR code or at the counter): a guest signs in first and comes back here, the cart is kept in the tab
  * and the takeaway menu (`/menu`) opens with it, at the same branch, to choose the pickup time and pay.
  */
 export default function BrandMenu({ navigate }: { navigate: (p: Page) => void }) {
@@ -92,6 +94,7 @@ export default function BrandMenu({ navigate }: { navigate: (p: Page) => void })
               </div>
             </section>
 
+            {!role && <div className="mb-4"><Banner tone="warn">Đặt mang đi và hẹn giờ cần tài khoản khách hàng. Không muốn đăng ký? Bạn vẫn gọi món tại quán được: quét mã QR trên bàn hoặc gọi nhân viên.</Banner></div>}
             {staffSignedIn && <div className="mb-4"><Banner tone="warn">Bạn đang đăng nhập bằng tài khoản nhân viên nên chỉ xem được thực đơn. Đặt hàng cần tài khoản khách hàng.</Banner></div>}
             {proceed.isError && <div className="mb-4"><Banner>Chưa chuyển sang quán này được: {proceed.error?.message}</Banner></div>}
             {branches.isError && <ErrorState description={branches.error.message} onRetry={() => void branches.refetch()} />}
@@ -104,7 +107,7 @@ export default function BrandMenu({ navigate }: { navigate: (p: Page) => void })
                 key={branchId}
                 products={menu.data.products}
                 recommendations={picks.data}
-                submitLabel={isCustomer ? "Đặt hàng" : staffSignedIn ? "Cần tài khoản khách hàng" : "Đăng nhập để đặt hàng"}
+                submitLabel={isCustomer ? "Đặt hàng" : staffSignedIn ? "Cần tài khoản khách hàng" : "Đăng nhập để đặt mang đi"}
                 submitting={proceed.isPending}
                 error={staffSignedIn ? "Đặt hàng cần tài khoản khách hàng." : null}
                 onSubmit={(lines) => { if (!staffSignedIn) order(lines) }}
@@ -113,6 +116,7 @@ export default function BrandMenu({ navigate }: { navigate: (p: Page) => void })
           </>
         )}
       </main>
+      <AiChat />
     </div>
   )
 }

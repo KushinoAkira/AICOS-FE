@@ -6,6 +6,7 @@ import { Logo } from "../../components/AuthShell"
 import CustomerUserMenu from "../../components/CustomerUserMenu"
 import { AiChat } from "../../components/AiChat"
 import { HistoryTab, OrderedTab } from "../../components/GuestOrderTabs"
+import { GuestPay } from "../../components/GuestPay"
 import { OrderComposer } from "../../components/OrderComposer"
 import { ErrorState, LoadingState } from "../../components/ui"
 import { useAuth } from "../../context/AuthContext"
@@ -18,7 +19,10 @@ import { env } from "../../config/env"
 import { featureFlags } from "../../config/featureFlags"
 import { discountNote, orderErrorMessage } from "../../lib/promotionCode"
 
-/** Table QR ordering: cart, what the table already ordered, and history. Guests need no account; payment is at the counter. */
+/**
+ * Table QR ordering: cart, what the table already ordered, and history. Guests need no account. A guest's own order is paid first:
+ * sending it opens the QR payment straight away (or the guest calls staff to pay), and the bar starts once the money is in.
+ */
 export default function GuestMenu({ navigate }: { navigate: (p: Page, params?: Record<string, string>) => void }) {
   const { token = "" } = useParams()
   const { role, selectBrand } = useAuth()
@@ -38,6 +42,8 @@ export default function GuestMenu({ navigate }: { navigate: (p: Page, params?: R
   /** Remember the table so signing in brings the customer straight back to this menu (points are earned on this order). */
   const goAuth = (p: Page) => { sessionStorage.setItem("aicos.returnTo", `/q/${token}`); navigate(p) }
   const [sent, setSent] = useState(0)
+  const [paying, setPaying] = useState(0)
+  const due = (orderedCount.data ?? []).filter((o) => o.paymentStatus === "Unpaid" && o.status !== "Cancelled" && o.status !== "Unfulfillable").reduce((s, o) => s + o.total, 0)
   const place = useMutation({
     mutationFn: ({ lines, code }: { lines: LineInput[]; code: string }) => ordersApi.guestPlace(token, lines, code),
     onSuccess: (o, { code }) => {
@@ -45,7 +51,8 @@ export default function GuestMenu({ navigate }: { navigate: (p: Page, params?: R
       setSent((n) => n + 1)
       void qc.invalidateQueries({ queryKey: ["guest", token, "orders"] })
       void qc.invalidateQueries({ queryKey: ["mine"] })
-      showToast(`Đã đặt món ${o.code}. Quầy pha chế đã nhận.${discountNote(o, formatVND)}`, "success")
+      showToast(`Đã đặt món ${o.code}. Thanh toán xong quầy sẽ bắt đầu pha.${discountNote(o, formatVND)}`, "success")
+      setPaying((n) => n + 1)
       // An older server takes the order but ignores the code: say so instead of letting the guest believe it was used.
       if (code && !o.promotionCode) showToast(`Mã ${code} chưa được áp dụng cho đơn này. Vui lòng báo nhân viên khi thanh toán.`, "error")
     },
@@ -84,7 +91,7 @@ export default function GuestMenu({ navigate }: { navigate: (p: Page, params?: R
         {menu.isError && <ErrorState title="Không mở được thực đơn" description={menu.error.message} onRetry={() => void menu.refetch()} />}
         {menu.data && (
           <OrderComposer
-            products={menu.data.products} submitLabel="Đặt món" submitting={place.isPending} error={error} clearSignal={sent} recommendations={picks.data}
+            products={menu.data.products} submitLabel="Đặt món và thanh toán" submitting={place.isPending} error={error} clearSignal={sent} recommendations={picks.data}
             onSubmit={(l, code) => { setError(null); place.mutate({ lines: l, code }) }}
             voucher={env.useMock || (featureFlags.voucherAtQr && role === "customer") ? { hint: "Giảm giá được trừ khi đặt món." } : undefined}
             tabs={{
@@ -94,7 +101,8 @@ export default function GuestMenu({ navigate }: { navigate: (p: Page, params?: R
             }}
           />
         )}
-        <p className="mt-6 text-center text-sm text-text-secondary">Thanh toán QR ngay trên điện thoại hoặc gọi nhân viên.</p>
+        <p className="mt-6 text-center text-sm text-text-secondary">Món được pha sau khi bạn thanh toán: quét QR ngay trên điện thoại, hoặc gọi nhân viên.</p>
+        {paying > 0 && due > 0 && <GuestPay key={paying} token={token} due={due} startOpen bare />}
       </main>
       <AiChat />
     </div>

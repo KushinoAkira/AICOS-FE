@@ -7,9 +7,20 @@ import type { LineInput, Recommendations, RecommendedItem } from "../lib/api/ord
 import { formatVND } from "../lib/format"
 
 /** Photo with a lettered fallback so a broken URL never leaves a hole in the grid. */
-export function ProductImage({ src, name, className = "h-16 w-16" }: { src?: string; name: string; className?: string }) {
+/** A drink without a photo, or whose photo fails to load, shows a cup drawing. `name` stays for the callers that pass it. */
+export function ProductImage({ src, className = "h-16 w-16" }: { src?: string; name: string; className?: string }) {
   const [failed, setFailed] = useState(false)
-  if (!src || failed) return <span aria-hidden className={`${className} flex shrink-0 items-center justify-center rounded-[12px] bg-sand font-serif text-xl text-clay`}>{name.charAt(0)}</span>
+  if (!src || failed) {
+    return (
+      <span aria-hidden className={`${className} flex shrink-0 items-center justify-center rounded-[12px] bg-sand text-clay`}>
+        <svg viewBox="0 0 48 48" className="h-3/5 w-3/5" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M18 6c0 2-2 3-2 5s2 3 2 5M25 4c0 2-2 3-2 5s2 3 2 5M32 6c0 2-2 3-2 5s2 3 2 5" />
+          <path d="M9 21h28v8a12 12 0 0 1-12 12h-4A12 12 0 0 1 9 29z" fill="currentColor" fillOpacity="0.15" />
+          <path d="M37 24h2.5a5 5 0 0 1 0 10H36" />
+        </svg>
+      </span>
+    )
+  }
   return <img src={src} alt="" loading="lazy" onError={() => setFailed(true)} className={`${className} shrink-0 rounded-[12px] object-cover`} />
 }
 

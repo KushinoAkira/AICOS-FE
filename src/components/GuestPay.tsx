@@ -9,17 +9,26 @@ import { formatVND } from "../lib/format"
  * What a guest can do about the bill: pay by QR on the phone, or ask staff to come (cash or transfer).
  * The order is paid only when the payment provider confirms it (BR-26), so this screen never marks anything paid by itself.
  */
-export function GuestPay({ token, due }: { token: string; due: number }) {
+export function GuestPay({ token, due, startOpen = false, bare = false, onClosed }: {
+  token: string
+  due: number
+  /** Opens the QR payment at once: used right after the guest sends an order, since a guest's own order is paid before it is made. */
+  startOpen?: boolean
+  /** Only the payment window, without the summary box (the menu shows it over the cart). */
+  bare?: boolean
+  onClosed?: () => void
+}) {
   const qc = useQueryClient()
   const [askOpen, setAskOpen] = useState(false)
-  const [payOpen, setPayOpen] = useState(false)
+  const [payOpen, setPayOpen] = useState(startOpen)
   const [charges, setCharges] = useState<DigitalCharge[] | null>(null)
   const methods = useQuery({ queryKey: ["guest", token, "pay-methods"], queryFn: () => ordersApi.guestPayMethods(token), enabled: payOpen, retry: false })
   const refresh = () => void qc.invalidateQueries({ queryKey: ["guest", token] })
   const ask = useMutation({ mutationFn: (method: "Cash" | "Transfer") => ordersApi.requestBill(token, method), onSuccess: () => { setAskOpen(false); refresh() } })
   const start = useMutation({ mutationFn: (provider: string) => ordersApi.guestPayStart(token, provider), onSuccess: setCharges })
-  const closePay = () => { setPayOpen(false); setCharges(null); start.reset(); refresh() }
+  const closePay = () => { setPayOpen(false); setCharges(null); start.reset(); refresh(); onClosed?.() }
 
+  if (bare) return payModal()
   return (
     <div className="mt-4 rounded-[14px] bg-sand p-4">
       <p className="text-xs text-text-secondary">Còn phải trả</p>
@@ -39,6 +48,12 @@ export function GuestPay({ token, due }: { token: string; due: number }) {
         </div>
       </Modal>
 
+      {payModal()}
+    </div>
+  )
+
+  function payModal() {
+    return (
       <Modal open={payOpen} title="Thanh toán QR" onClose={closePay} footer={<Button variant="secondary" onClick={closePay}>Đóng</Button>}>
         {charges ? (
           <DigitalPayment
@@ -65,6 +80,6 @@ export function GuestPay({ token, due }: { token: string; due: number }) {
           </>
         )}
       </Modal>
-    </div>
-  )
+    )
+  }
 }

@@ -5,7 +5,7 @@ import { PageFrame } from "../../components/PageFrame"
 import { Banner, Button, EmptyState, Field, Modal, QueryBoundary, StatusPill } from "../../components/ui"
 import { useAuth } from "../../context/AuthContext"
 import { useToast } from "../../context/ToastContext"
-import { shiftLabel, staffApi, type Shift } from "../../lib/api/staff"
+import { replacementOver, shiftLabel, staffApi, type Replacement, type Shift } from "../../lib/api/staff"
 import { dayLabel, todayKey } from "../../lib/dates"
 import { formatSignedVND, formatTime, formatVND } from "../../lib/format"
 import { ordersApi } from "../../lib/api/orders"
@@ -28,51 +28,73 @@ export default function MyShifts({ navigate }: { navigate: (p: Page) => void }) 
   const [askReason, setAskReason] = useState("")
   const ask = useMutation({
     mutationFn: (v: { s: Shift; reason: string }) => staffApi.openReplacement({ shiftId: v.s.id, reason: v.reason }),
-    onSuccess: () => { refresh(); setAsking(null); setAskReason(""); showToast("Đã gửi yêu cầu. Đồng nghiệp sẽ thấy ca này ở mục Ca thay đang tuyển, quản lý duyệt người thay.", "success") },
+    onSuccess: () => { refresh(); setAsking(null); setAskReason(""); showToast("Đã gửi yêu cầu. Đồng nghiệp cùng chi nhánh sẽ thấy ca này và đăng ký, quản lý duyệt người thay.", "success") },
     onError: (e) => showToast(e.message, "error"),
   })
-  /** The replacement asked for one of my shifts, if any. */
-  const replacementOf = (s: Shift) => (reps.data ?? []).find((r) => r.shift.id === s.id)
+  const retract = useMutation({
+    mutationFn: (r: Replacement) => staffApi.retract(r.id),
+    onSuccess: () => { refresh(); showToast("Đã rút yêu cầu. Ca vẫn là của bạn.", "success") },
+    onError: (e) => showToast(e.message, "error"),
+  })
+  /** My open request for somebody to take this shift, if any. */
+  const requestOf = (s: Shift) => (reps.data ?? []).find((r) => r.shift.id === s.id && r.status === "open")
 
   return (
-    <PageFrame page="cashier-shift" navigate={navigate} uc="UC-46" title="Ca của tôi" subtitle="Vào ca, kết thúc ca và đăng ký ca thay.">
+    <PageFrame page="cashier-shift" navigate={navigate} uc="UC-46" title="Ca của tôi" subtitle="Lịch làm của bạn, ca của đồng nghiệp cần người thay, và chốt ca.">
       <div className="space-y-10">
         <section>
-          <h2 className="mb-3 font-serif text-lg text-text-primary">Ca sắp tới</h2>
+          <h2 className="font-serif text-lg text-text-primary">Lịch làm của tôi</h2>
+          <p className="mb-3 text-sm text-text-secondary">Các ca quản lý đã xếp cho bạn. Bận thì bấm "Nhờ người thay"; đến khi quản lý duyệt người thay, ca vẫn là của bạn.</p>
           <QueryBoundary query={mine}>
             {(rows) => rows.length === 0 ? <EmptyState title="Bạn chưa được xếp ca nào" /> : (
               <ul className="space-y-3">
-                {rows.map((s) => (
-                  <li key={s.id} className="flex flex-wrap items-center justify-between gap-3 rounded-[16px] border border-border bg-surface p-4">
-                    <div><p className="font-medium text-text-primary">{dayLabel(s.date)} · {shiftLabel(s)}</p><p className="text-sm text-text-secondary">{s.checkInAtUtc ? `Vào ca ${formatTime(s.checkInAtUtc)}` : "Chưa vào ca"}{s.checkOutAtUtc ? ` · Ra ca ${formatTime(s.checkOutAtUtc)}` : ""}</p></div>
-                    {s.absent ? <StatusPill tone="danger">Vắng</StatusPill>
-                      : s.checkOutAtUtc || s.reviewed ? <StatusPill tone="success">Hoàn thành</StatusPill>
-                      : s.checkInAtUtc ? <Button variant="secondary" loading={att.isPending} onClick={() => att.mutate({ s, out: true })}>Kết thúc ca</Button>
-                      : replacementOf(s) ? <StatusPill tone="pending">{replacementOf(s)!.status === "filled" ? `Đã có người thay${replacementOf(s)!.filledBy ? `: ${replacementOf(s)!.filledBy}` : ""}` : "Đang tìm người thay"}</StatusPill>
-                      : <span className="flex flex-wrap gap-2">
-                          {s.date >= todayKey() && <Button variant="secondary" onClick={() => { setAsking(s); setAskReason("") }}>Nhờ người thay</Button>}
-                          <Button loading={att.isPending} disabled={s.date !== todayKey()} disabledReason="Chỉ vào ca đúng ngày" onClick={() => att.mutate({ s, out: false })}>Vào ca</Button>
-                        </span>}
-                  </li>
-                ))}
+                {rows.map((s) => {
+                  const request = requestOf(s)
+                  const over = request ? replacementOver(request) : false
+                  const signed = request?.applications ?? 0
+                  return (
+                    <li key={s.id} className="rounded-[16px] border border-border bg-surface p-4">
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <div><p className="font-medium text-text-primary">{dayLabel(s.date)} · {shiftLabel(s)}</p><p className="text-sm text-text-secondary">{s.replaced ? "Đã có đồng nghiệp làm thay, bạn không cần đi ca này" : s.checkInAtUtc ? `Vào ca ${formatTime(s.checkInAtUtc)}` : "Chưa vào ca"}{s.checkOutAtUtc ? ` · Ra ca ${formatTime(s.checkOutAtUtc)}` : ""}</p></div>
+                        {s.replaced ? <StatusPill tone="success">Đã có người thay</StatusPill>
+                          : s.absent ? <StatusPill tone="danger">Vắng</StatusPill>
+                          : s.checkOutAtUtc || s.reviewed ? <StatusPill tone="success">Hoàn thành</StatusPill>
+                          : s.checkInAtUtc ? <Button variant="secondary" loading={att.isPending} onClick={() => att.mutate({ s, out: true })}>Kết thúc ca</Button>
+                          : <span className="flex flex-wrap gap-2">
+                              {request && !over && <Button variant="secondary" loading={retract.isPending && retract.variables?.id === request.id} onClick={() => retract.mutate(request)}>Rút yêu cầu</Button>}
+                              {!request && s.date >= todayKey() && <Button variant="secondary" onClick={() => { setAsking(s); setAskReason("") }}>Nhờ người thay</Button>}
+                              <Button loading={att.isPending} disabled={s.date !== todayKey()} disabledReason="Chỉ vào ca đúng ngày" onClick={() => att.mutate({ s, out: false })}>Vào ca</Button>
+                            </span>}
+                      </div>
+                      {request && !s.replaced && !s.checkInAtUtc && (
+                        <div className={`mt-3 rounded-[12px] px-3 py-2 text-sm ${over ? "bg-danger-bg text-state-danger" : "bg-pending-bg text-[#8A5A2B]"}`}>
+                          {over
+                            ? "Hết hạn, không có người thay. Ca này vẫn tính là của bạn."
+                            : <>Đang tìm người thay · {signed > 0 ? <b>{signed} người đã đăng ký, chờ quản lý duyệt</b> : <b>chưa ai nhận</b>}. Chưa được duyệt thì bạn vẫn làm ca này.</>}
+                        </div>
+                      )}
+                    </li>
+                  )
+                })}
               </ul>
             )}
           </QueryBoundary>
         </section>
 
         <section>
-          <h2 className="mb-3 font-serif text-lg text-text-primary">Ca thay đang tuyển</h2>
+          <h2 className="font-serif text-lg text-text-primary">Ca của đồng nghiệp cần người thay</h2>
+          <p className="mb-3 text-sm text-text-secondary">Đồng nghiệp cùng chi nhánh bận, hoặc quản lý cần thêm người. Bấm "Đăng ký thay" nếu bạn làm được; quản lý sẽ chọn một người.</p>
           <QueryBoundary query={reps}>
             {(rows) => {
-              // A shift I asked somebody to take shows on my own row above, not as one I could sign up for.
+              // My own requests show on my row above; a shift that has already ended can no longer be taken.
               const mineIds = new Set((mine.data ?? []).map((s) => s.id))
-              const open = rows.filter((r) => r.status === "open" && !mineIds.has(r.shift.id))
-              return open.length === 0 ? <EmptyState title="Hiện không có ca thay" /> : (
+              const open = rows.filter((r) => r.status === "open" && !mineIds.has(r.shift.id) && !replacementOver(r))
+              return open.length === 0 ? <EmptyState title="Hiện không có ca nào cần người thay" /> : (
                 <ul className="space-y-3">
                   {open.map((r) => (
                     <li key={r.id} className="flex flex-wrap items-center justify-between gap-3 rounded-[16px] border border-border bg-surface p-4">
-                      <p className="text-sm text-text-primary"><b>{dayLabel(r.shift.date)} · {shiftLabel(r.shift)}</b><br /><span className="text-text-secondary">{r.reason}</span></p>
-                      {r.applied ? <StatusPill tone="pending">Đã đăng ký</StatusPill> : <Button variant="secondary" loading={apply.isPending && apply.variables === r.id} onClick={() => apply.mutate(r.id)}>Đăng ký thay</Button>}
+                      <p className="text-sm text-text-primary"><b>{dayLabel(r.shift.date)} · {shiftLabel(r.shift)}</b><br /><span className="text-text-secondary">{r.shift.userName ? `Ca của ${r.shift.userName}` : "Quản lý cần thêm người"} · Lý do: {r.reason}</span></p>
+                      {r.applied ? <StatusPill tone="pending">Đã đăng ký, chờ quản lý duyệt</StatusPill> : <Button variant="secondary" loading={apply.isPending && apply.variables === r.id} onClick={() => apply.mutate(r.id)}>Đăng ký thay</Button>}
                     </li>
                   ))}
                 </ul>

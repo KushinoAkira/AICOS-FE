@@ -5,13 +5,20 @@ import { http } from "./http"
 export type Period = "morning" | "afternoon"
 export const PERIOD_LABEL: Record<Period, string> = { morning: "Ca sáng (07:00-14:30)", afternoon: "Ca chiều (14:30-22:00)" }
 
-export interface Shift { id: string; date: string; period: Period; workShiftId?: string; shiftName?: string; startTime?: string; endTime?: string; userId: string; userName: string; branchId: string; checkInAtUtc: string | null; checkOutAtUtc: string | null; reviewed?: boolean; absent?: boolean }
+export interface Shift { id: string; date: string; period: Period; workShiftId?: string; shiftName?: string; startTime?: string; endTime?: string; userId: string; userName: string; branchId: string; checkInAtUtc: string | null; checkOutAtUtc: string | null; reviewed?: boolean; absent?: boolean
+  /** An approved colleague works it instead: it is no longer this person's to work. */
+  replaced?: boolean }
 /** The name and hours of the template the shift came from. */
 export const shiftLabel = (s: Pick<Shift, "period" | "shiftName" | "startTime" | "endTime">) =>
   (s.shiftName ? `${s.shiftName} (${s.startTime}-${s.endTime})` : PERIOD_LABEL[s.period])
 
 export interface Applicant { userId: string; name: string; branchName: string }
-export interface Replacement { id: string; shift: Shift; reason: string; status: "open" | "filled"; applicants: Applicant[]; filledBy?: string; applied: boolean }
+export interface Replacement { id: string; shift: Shift; reason: string; status: "open" | "filled"; applicants: Applicant[]; filledBy?: string; applied: boolean
+  /** How many colleagues signed up, waiting for the manager. */
+  applications?: number }
+
+/** The shift of a replacement has ended (it can no longer be taken). Times are shop time, as shown. */
+export const replacementOver = (r: Replacement, now = new Date()) => new Date(`${r.shift.date}T${r.shift.endTime ?? "23:59"}:00`) <= now
 export interface CashClosing { id: string; date: string; userName: string; expected: number; counted: number; variance: number; reason: string }
 
 export interface LoyaltyVoucher { id: string; code: string; title: string; value: number; expiresAtUtc: string }
@@ -32,6 +39,8 @@ const mockStaffApi = {
   replacements: () => http.get<Replacement[]>(`${S}/replacements`),
   openReplacement: (b: { shiftId: string; reason: string }) => http.post<Replacement>(`${S}/replacements`, b),
   apply: (id: string) => http.post<Replacement>(`${S}/replacements/${id}/apply`, {}),
+  /** The requester takes back their own request while nobody is approved. */
+  retract: (id: string) => http.post<Replacement>(`${S}/replacements/${id}/retract`, {}),
   approve: (id: string, userId: string) => http.post<Replacement>(`${S}/replacements/${id}/approve`, { userId }),
   cashExpected: () => http.get<CashExpected>(`${S}/cash/expected`),
   cashClosings: () => http.get<CashClosing[]>(`${S}/cash/closings`),

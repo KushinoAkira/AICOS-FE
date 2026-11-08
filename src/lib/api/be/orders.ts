@@ -5,6 +5,7 @@ import type { Recommendations } from "../orders"
 import type { CupLabel, DigitalCharge, GuestMenu, PayMethod, LineInput, Order, PayOutcome, PickupCheck, PickupInfo, ProviderStatus, TableRow, VoucherQuote } from "../orders"
 import { tokenStore } from "../tokenStore"
 import { toProduct } from "./brand"
+import { indexOptions, optionIdsOf, optionOf } from "./optionIndex"
 import { itemsOf, num, rec, recs, str, unsupported, type Raw } from "./util"
 
 /**
@@ -60,10 +61,9 @@ const detail = async (id: string) => toOrder(rec(await http.get<Raw>(`/orders/${
 const withLines = (rows: Raw[]) => rows.map(toOrder)
 const listOrders = async (query: Record<string, string | number> = {}) => withLines(recs(itemsOf(await http.get<Raw[]>("/orders", { query: { limit: 100, ...query } }))))
 
-const lineNote = (l: LineInput) => [l.size && `Size ${l.size}`, l.sugar && `Đường ${l.sugar}`, l.ice && `Đá ${l.ice}`, l.note].filter(Boolean).join(" · ")
-/** `promotionCode`: the voucher typed at the counter; the server checks it and takes the discount when it saves the order. */
+/** Counter orders send the chosen options like the other channels, so the server prices the size that was picked. `promotionCode`: the voucher typed at the counter; the server checks it and takes the discount when it saves the order. */
 const orderBody = (type: string, table: string | null, lines: LineInput[], promotionCode?: string) => ({
-  type, tableNumber: table, promotionCode: promotionCode || null, items: lines.map((l) => ({ productId: l.productId, quantity: l.qty, note: lineNote(l) || null })),
+  type, tableNumber: table, promotionCode: promotionCode || null, items: lines.map((l) => ({ productId: l.productId, quantity: l.qty, note: l.note.trim() || null, optionIds: optionIdsOf(l) })),
 })
 
 async function transactionOf(orderId: string): Promise<Raw | undefined> {
@@ -355,29 +355,7 @@ async function branchName(branchId: string, tenantId: string): Promise<string> {
 
 // ---------- guest QR helpers ----------
 
-/** What a label on the screen means for the backend. Filled when a menu is opened: `productId|kind|label` -> option id, and option id -> kind + label. */
-const optionIdByLabel = new Map<string, string>()
-const optionById = new Map<string, { kind: string; label: string }>()
 
-function indexOptions(product: Raw) {
-  for (const group of recs(product.optionGroups)) {
-    const kind = str(group.kind).toLowerCase()
-    for (const option of recs(group.options)) {
-      optionIdByLabel.set(`${str(product.id)}|${kind}|${str(option.name)}`, str(option.id))
-      optionById.set(str(option.id), { kind, label: str(option.name) })
-    }
-  }
-}
-
-/** The option ids of a cart line. A label the menu no longer offers is refused instead of being dropped silently. */
-function optionIdsOf(l: LineInput): string[] {
-  const chosen: [string, string][] = [["size", l.size], ["sugar", l.sugar], ["ice", l.ice]]
-  return chosen.filter(([, label]) => label).map(([kind, label]) => {
-    const id = optionIdByLabel.get(`${l.productId}|${kind}|${label}`)
-    if (!id) throw new ApiError(422, `Lựa chọn "${label}" không còn trong thực đơn. Hãy tải lại trang rồi chọn lại.`, "option_unknown")
-    return id
-  })
-}
 
 const toMethods = (list: unknown): PayMethod[] => recs(itemsOf(list as Raw[])).map((m) => ({ code: str(m.providerCode), name: str(m.displayName) || str(m.providerCode) }))
 
@@ -433,8 +411,8 @@ function toQrOrder(o: Raw, tableCode: string): Order {
   const order = toOrder({ ...o, type: o.type ?? "DineIn", tableNumber: o.tableNumber ?? tableCode })
   const lines = recs(o.items).map((i, n) => {
     const options = recs(i.options)
-    const known = options.every((x) => optionById.has(str(x.optionId)))
-    const label = (kind: string) => options.map((x) => optionById.get(str(x.optionId))).find((x) => x?.kind === kind)?.label ?? ""
+    const known = options.every((x) => optionOf(str(x.optionId)) !== undefined)
+    const label = (kind: string) => options.map((x) => optionOf(str(x.optionId))).find((x) => x?.kind === kind)?.label ?? ""
     return {
       ...order.lines[n]!,
       // Options of a menu this tab has not opened (the page was reloaded) are listed by name so the line still tells what was ordered.

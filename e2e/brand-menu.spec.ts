@@ -12,7 +12,7 @@ test("Khách chọn món ở /b/demo trước khi đăng nhập, đăng nhập x
   await page.getByRole("button", { name: /^Thêm ·/ }).click()
 
   const cart = page.getByRole("complementary", { name: "Giỏ hàng" })
-  await cart.getByRole("button", { name: "Đăng nhập để đặt hàng" }).click()
+  await cart.getByRole("button", { name: "Đăng nhập để đặt mang đi" }).click()
   await page.waitForURL(/customer-login/)
   await page.getByRole("button", { name: "Đăng nhập nhanh khách hàng demo" }).click()
 

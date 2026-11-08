@@ -37,6 +37,7 @@ export default function Landing({ navigate }: { navigate: (p: Page) => void }) {
             <div className="rise-in mt-8 flex flex-wrap gap-3" style={{ "--reveal-delay": "300ms" } as CSSProperties}>
               <Button className="min-h-12 px-6" onClick={() => navigate("register-brand")}>Đăng ký quán của bạn</Button>
               <Button variant="secondary" className="min-h-12 px-6" onClick={() => navigate("login")}>Tôi đã có tài khoản</Button>
+              <Button variant="secondary" className="min-h-12 px-6" onClick={() => navigate("order-start")}>Đặt món ngay</Button>
             </div>
             <p className="rise-in mt-4 text-sm text-white/70" style={{ "--reveal-delay": "400ms" } as CSSProperties}>AICOS tạo tài khoản quản trị cho thương hiệu của bạn sau khi tư vấn. Dùng thử 14 ngày, không cần thẻ thanh toán.</p>
           </div>
@@ -108,7 +109,8 @@ export default function Landing({ navigate }: { navigate: (p: Page) => void }) {
             </div>
             <div className="mt-4 flex gap-3 sm:mt-0">
               <Button variant="secondary" className="min-h-11" onClick={() => navigate("auth-customer-register")}>Đăng ký</Button>
-              <Button className="min-h-11" onClick={() => navigate("auth-customer-login")}>Đăng nhập khách hàng</Button>
+              <Button variant="secondary" className="min-h-11" onClick={() => navigate("auth-customer-login")}>Đăng nhập khách hàng</Button>
+              <Button className="min-h-11" onClick={() => navigate("order-start")}>Đặt món</Button>
             </div>
           </div>
           {!!brands.data?.length && (

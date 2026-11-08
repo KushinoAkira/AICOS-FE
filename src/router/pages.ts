@@ -25,6 +25,7 @@ export const PAGE_PATHS = {
 
   // Public menu of one brand: anyone browses, ordering needs a customer account
   "brand-menu": "/b/:brandSlug",
+  "order-start": "/dat-mon",
 
   // Customer
   "customer-brands": "/brands",

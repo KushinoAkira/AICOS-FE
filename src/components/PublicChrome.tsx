@@ -17,7 +17,8 @@ export function PublicHeader({ navigate }: { navigate: (p: Page) => void }) {
           <Link to="/#tinh-nang" className={`hidden md:block ${linkCls}`}>Tính năng</Link>
           <Link to="/#bang-gia" className={`hidden md:block ${linkCls}`}>Bảng giá</Link>
           <Link to="/#hoi-dap" className={`hidden lg:block ${linkCls}`}>Hỏi đáp</Link>
-          <button onClick={() => navigate("login")} className={`min-h-10 ${linkCls}`}>Đăng nhập quán</button>
+          <button onClick={() => navigate("login")} className={`hidden min-h-10 sm:block ${linkCls}`}>Đăng nhập quán</button>
+          <Button variant="secondary" className="min-h-10 px-4 py-2" onClick={() => navigate("order-start")}>Đặt món</Button>
           <Button className="min-h-10 px-4 py-2" onClick={() => navigate("register-brand")}>Đăng ký quán</Button>
         </nav>
       </div>

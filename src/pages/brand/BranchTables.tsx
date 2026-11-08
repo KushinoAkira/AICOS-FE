@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { QRCodeSVG } from "qrcode.react"
 import { useSearchParams } from "react-router"
 import type { Page } from "../../App"
+import { BranchQrDialog } from "../../components/BranchQrDialog"
 import { PageFrame } from "../../components/PageFrame"
 import { Banner, Button, ConfirmDialog, EmptyState, Field, Modal, QueryBoundary, StatusPill } from "../../components/ui"
 import { FloorPlanEditor } from "../../components/tables/FloorPlan"
@@ -62,8 +63,9 @@ interface Form { areaId: string; tableCode: string; capacity: string }
 export default function BranchTables({ navigate }: { navigate: (p: Page) => void }) {
   const qc = useQueryClient()
   const { showToast } = useToast()
-  const { role } = useAuth()
+  const { role, user } = useAuth()
   const isBrand = role === "brandAdmin"
+  const [branchQr, setBranchQr] = useState<string | null>(null)
   const [params, setParams] = useSearchParams()
   const branches = useQuery({ queryKey: ["branches", "active"], queryFn: () => branchesApi.listActive(), enabled: isBrand })
   const branchId = isBrand ? params.get("branch") ?? branches.data?.[0]?.id : undefined
@@ -128,6 +130,7 @@ export default function BranchTables({ navigate }: { navigate: (p: Page) => void
     <PageFrame
       page="branch-tables" navigate={navigate} uc="UC-25" title="Bàn và mã QR" subtitle="Mỗi bàn có một mã QR riêng để in và dán tại bàn."
       action={<div className="flex flex-wrap gap-2">
+        <Button variant="secondary" disabled={!(isBrand ? branchId : user?.branchId)} disabledReason="Chọn chi nhánh" onClick={() => setBranchQr((isBrand ? branchId : user?.branchId) ?? null)}>QR gọi món của chi nhánh</Button>
         <Button variant="secondary" disabled={!ready || used === 0} disabledReason="Chưa có bàn để in" onClick={printAll}>In QR hàng loạt</Button>
         {isBrand && (branches.data?.length ?? 0) > 1 && <Button variant="secondary" disabled={blocked || used === 0} disabledReason={noPlan ? "Thương hiệu chưa có gói dịch vụ" : "Chi nhánh này chưa có bàn để nhân bản"} onClick={() => setBatch("clone")}>Nhân bản sang chi nhánh khác</Button>}
         <Button variant="secondary" disabled={blocked} onClick={() => setBatch("import")}>Nhập CSV</Button>
@@ -242,6 +245,7 @@ export default function BranchTables({ navigate }: { navigate: (p: Page) => void
           </div>
         )}
       </Modal>
+      <BranchQrDialog branchId={branchQr} onClose={() => setBranchQr(null)} />
       <ConfirmDialog open={!!removing} danger title={`Xóa bàn ${removing?.tableCode ?? ""}?`} message="Mã QR đã in của bàn này sẽ không dùng được nữa." confirmLabel="Xóa" onCancel={() => setRemoving(null)} onConfirm={() => removing && remove.mutate(removing.id)} />
       <ConfirmDialog open={!!regenerating} danger title={`Đổi mã QR bàn ${regenerating?.tableCode ?? ""}?`} message="Mã đang dán tại bàn sẽ ngừng hoạt động. Bạn cần in và dán mã mới." confirmLabel="Đổi mã" onCancel={() => setRegenerating(null)} onConfirm={() => regenerating && regenerate.mutate(regenerating.id)} />
     </PageFrame>

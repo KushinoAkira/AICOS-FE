@@ -28,6 +28,7 @@ const OTPVerification = lazy(() => import("./pages/auth/OTPVerification"))
 const RegisterBrand = lazy(() => import("./pages/public/RegisterBrand"))
 const CustomerBrands = lazy(() => import("./pages/customer/Brands"))
 const BrandMenu = lazy(() => import("./pages/public/BrandMenu"))
+const OrderStart = lazy(() => import("./pages/public/OrderStart"))
 const Kiosk = lazy(() => import("./pages/kiosk/Kiosk"))
 const ForgotPassword = lazy(() => import("./pages/auth/ForgotPassword"))
 const ResetPassword = lazy(() => import("./pages/auth/ResetPassword"))
@@ -142,6 +143,7 @@ export default function App() {
     "guest-order-status": <GuestStatus navigate={navigate} />,
 
     "brand-menu": <BrandMenu navigate={navigate} />,
+    "order-start": <OrderStart navigate={navigate} />,
     "customer-brands": <CustomerBrands navigate={navigate} />,
     "customer-menu": <CustomerMenu navigate={navigate} />,
     "customer-tracking": <CustomerOrderTracking navigate={navigate} />,

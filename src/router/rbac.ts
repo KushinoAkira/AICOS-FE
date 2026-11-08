@@ -33,6 +33,7 @@ export const PAGE_ACCESS: Record<Page, Access> = {
   "guest-menu": "public",
   "guest-order-status": "public",
   "brand-menu": "public",
+  "order-start": "public",
 
   "account-settings": "authenticated",
   "staff-notifications": ["superAdmin", "brandAdmin", "branchManager", "barista", "cashier"],

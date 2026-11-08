@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react"
 import { useMutation, useQuery } from "@tanstack/react-query"
-import { useNavigate, useParams } from "react-router"
+import { useNavigate, useParams, useSearchParams } from "react-router"
 import type { Page } from "../../App"
 import { Logo } from "../../components/AuthShell"
 import { BranchPicker } from "../../components/BranchPicker"
@@ -16,6 +16,7 @@ import { defaultBranch, rememberBranch, rememberedBranch } from "../../lib/takea
 
 /**
  * Public menu of one brand, `/b/:brandSlug`: anyone can see the branches and their drinks and fill a cart (size, sugar, ice, note).
+ * `?branch=<id>` is the QR code posted at a branch: that branch's menu opens directly, without choosing.
  * Placing the order needs a customer account at this brand: a guest signs in first and comes back here, the cart is kept in the tab
  * and the takeaway menu (`/menu`) opens with it, at the same branch, to choose the pickup time and pay.
  */
@@ -27,10 +28,17 @@ export default function BrandMenu({ navigate }: { navigate: (p: Page) => void })
   const isCustomer = role === "customer"
   const brand = useQuery({ queryKey: ["public", "brand", slug], queryFn: () => publicApi.brand(slug), retry: false })
   const branches = useQuery({ queryKey: ["public", "branches", slug], queryFn: () => branchesApi.listActiveOf(slug), enabled: !!brand.data })
-  const [chosen, setChosen] = useState<string | null>(null)
+  const [params] = useSearchParams()
+  const qrBranch = params.get("branch")
+  const [chosen, setChosen] = useState<string | null>(qrBranch)
+  const [changing, setChanging] = useState(false)
   const list = branches.data ?? []
   const branch = list.find((b) => b.id === chosen) ?? defaultBranch(list, rememberedBranch(slug))
   const branchId = branch?.id ?? ""
+  // Opened from a branch QR: that branch is where the customer is, so it is also the one remembered for next time.
+  const fromQr = !!qrBranch && list.some((b) => b.id === qrBranch)
+  const qrUnknown = !!qrBranch && branches.isSuccess && !fromQr
+  useEffect(() => { if (fromQr && qrBranch) rememberBranch(slug, qrBranch) }, [fromQr, qrBranch, slug])
   const menu = useQuery({ queryKey: ["takeaway", "menu", branchId], queryFn: () => ordersApi.takeawayMenu(branchId), enabled: !!branchId })
   const picks = useQuery({ queryKey: ["recommendations", branchId, role], queryFn: () => ordersApi.recommendations(branchId), enabled: !!branchId, retry: false })
 
@@ -96,7 +104,16 @@ export default function BrandMenu({ navigate }: { navigate: (p: Page) => void })
             {proceed.isError && <div className="mb-4"><Banner>Chưa chuyển sang quán này được: {proceed.error?.message}</Banner></div>}
             {branches.isError && <ErrorState description={branches.error.message} onRetry={() => void branches.refetch()} />}
             {branches.data?.length === 0 && <ErrorState title="Chưa có chi nhánh" description="Thương hiệu này chưa có chi nhánh nào đang mở bán." />}
-            {branch && <BranchPicker branches={list} value={branchId} onChange={pickBranch} />}
+            {!isCustomer && !staffSignedIn && (
+              <p data-testid="guest-note" className="mb-4 rounded-[14px] bg-sand px-4 py-3 text-sm text-text-secondary"><b className="text-text-primary">Đặt mang đi chỉ dành cho khách có tài khoản.</b> Bạn vẫn xem thực đơn và chọn món được; khi đặt, hãy đăng nhập hoặc đăng ký (miễn phí). Ngồi tại quán thì quét mã QR trên bàn để gọi món.</p>
+            )}
+            {qrUnknown && <div className="mb-4"><Banner tone="warn">Chi nhánh của mã QR này hiện không nhận đơn. Hãy chọn một chi nhánh khác.</Banner></div>}
+            {branch && fromQr && !changing && branch.id === qrBranch ? (
+              <div data-testid="qr-branch" className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-[14px] border border-border bg-surface p-3">
+                <p className="text-sm text-text-secondary">Bạn đang gọi món tại <b className="text-text-primary">{branch.name}</b>{branch.address ? ` · ${branch.address}` : ""}</p>
+                {list.length > 1 && <button type="button" onClick={() => setChanging(true)} className="text-sm text-clay underline">Chọn chi nhánh khác</button>}
+              </div>
+            ) : branch && <BranchPicker branches={list} value={branchId} onChange={pickBranch} />}
             {(branches.isPending || (!!branchId && menu.isPending)) && <LoadingState />}
             {menu.isError && <ErrorState description={menu.error.message} onRetry={() => void menu.refetch()} />}
             {menu.data && (
@@ -104,7 +121,7 @@ export default function BrandMenu({ navigate }: { navigate: (p: Page) => void })
                 key={branchId}
                 products={menu.data.products}
                 recommendations={picks.data}
-                submitLabel={isCustomer ? "Đặt hàng" : staffSignedIn ? "Cần tài khoản khách hàng" : "Đăng nhập để đặt hàng"}
+                submitLabel={isCustomer ? "Đặt mang đi" : staffSignedIn ? "Cần tài khoản khách hàng" : "Đăng nhập để đặt mang đi"}
                 submitting={proceed.isPending}
                 error={staffSignedIn ? "Đặt hàng cần tài khoản khách hàng." : null}
                 onSubmit={(lines) => { if (!staffSignedIn) order(lines) }}

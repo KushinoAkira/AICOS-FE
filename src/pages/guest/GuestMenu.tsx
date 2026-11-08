@@ -72,10 +72,17 @@ export default function GuestMenu({ navigate }: { navigate: (p: Page, params?: R
           </div>
         </div>
         {menu.data && (
-          <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1">
-            <span className="inline-block rounded-full bg-espresso px-3 py-1 text-sm font-medium leading-none text-white">Bàn {menu.data.tableCode}</span>
-            <span className="text-sm text-text-secondary">{menu.data.branchName}</span>
-            {role !== "customer" && <span className="text-xs text-clay">Đăng nhập để tích điểm cho đơn này</span>}
+          // Where the guest is sitting, first and large: the order goes to this table.
+          <div data-testid="table-card" className="mt-4 flex items-center gap-4 rounded-[20px] bg-espresso px-4 py-4 text-white sm:px-5">
+            <div className="flex h-16 w-16 shrink-0 flex-col items-center justify-center rounded-[16px] bg-white/12 ring-1 ring-white/20">
+              <span className="text-[11px] leading-none text-white/70">Bàn</span>
+              <span className="mt-1 font-serif text-2xl leading-none">{menu.data.tableCode}</span>
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="font-serif text-xl leading-tight">Bạn đang ngồi bàn {menu.data.tableCode}</p>
+              <p className="mt-1 text-sm text-white/75">{menu.data.branchName}. Gọi món ở đây, quầy pha chế nhận ngay; thanh toán khi bạn xong.</p>
+              {role !== "customer" && <button type="button" onClick={() => goAuth("auth-customer-login")} className="mt-1.5 text-sm text-white underline underline-offset-2">Đăng nhập để tích điểm cho đơn này</button>}
+            </div>
           </div>
         )}
       </header>
@@ -94,7 +101,7 @@ export default function GuestMenu({ navigate }: { navigate: (p: Page, params?: R
             }}
           />
         )}
-        <p className="mt-6 text-center text-sm text-text-secondary">Thanh toán QR ngay trên điện thoại hoặc gọi nhân viên.</p>
+        <p className="mt-8 text-center text-sm text-text-secondary">Xem đơn và thanh toán ở thẻ “Đã gọi”, hoặc gọi nhân viên.</p>
       </main>
       <AiChat />
     </div>

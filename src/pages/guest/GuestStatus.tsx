@@ -1,14 +1,14 @@
 import { useQuery } from "@tanstack/react-query"
 import { useParams } from "react-router"
 import type { Page } from "../../App"
-import { Logo } from "../../components/AuthShell"
+import { HomeLogo } from "../../components/AuthShell"
 import { GuestPay } from "../../components/GuestPay"
 import { paidAndStillMaking } from "../../components/GuestOrderTabs"
-import { OrderStatusPill } from "../../components/OrderStatusPill"
+import { GuestOrderCard } from "../../components/GuestOrderCard"
 import { Banner, Button, EmptyState, ErrorState, LoadingState } from "../../components/ui"
 import { ordersApi } from "../../lib/api/orders"
 import { pollWhile, useGuestRealtime } from "../../lib/realtime"
-import { formatTime, formatVND } from "../../lib/format"
+import { formatVND } from "../../lib/format"
 
 /** Live status of the table's open orders. Pushed over SignalR; polls every 5s while the channel is down. */
 export default function GuestStatus({ navigate }: { navigate: (p: Page, params?: Record<string, string>) => void }) {
@@ -21,19 +21,14 @@ export default function GuestStatus({ navigate }: { navigate: (p: Page, params?:
 
   return (
     <div data-uc="UC-QR" className="min-h-screen bg-bg-base px-4 py-6 sm:px-8">
-      <header className="mx-auto mb-6 flex max-w-2xl items-center justify-between"><Logo /><Button variant="secondary" onClick={() => navigate("guest-menu", { token })}>Gọi thêm món</Button></header>
+      <header className="mx-auto mb-6 flex max-w-2xl items-center justify-between"><HomeLogo /><Button variant="secondary" onClick={() => navigate("guest-menu", { token })}>Gọi thêm món</Button></header>
       <main className="mx-auto max-w-2xl space-y-4">
-        <h1 className="font-serif text-2xl text-text-primary">Đơn của bàn</h1>
+        <h1 className="font-serif text-3xl text-text-primary">Đơn của bàn</h1>
+        <p className="-mt-2 text-sm text-text-secondary">Trạng thái tự cập nhật khi quầy pha chế làm xong từng đơn.</p>
         {orders.isPending && <LoadingState />}
         {orders.isError && <ErrorState description={orders.error.message} onRetry={() => void orders.refetch()} />}
         {orders.data?.length === 0 && <EmptyState title="Bàn chưa có đơn nào" action={<Button onClick={() => navigate("guest-menu", { token })}>Chọn món</Button>} />}
-        {orders.data?.map((o) => (
-          <section key={o.id} className="rounded-[16px] border border-border bg-surface p-5">
-            <div className="flex items-center justify-between"><p className="font-medium text-text-primary">{o.code} <span className="text-xs text-text-secondary">{formatTime(o.createdAtUtc)}</span></p><OrderStatusPill status={o.status} /></div>
-            <ul className="mt-3 text-sm text-text-secondary">{o.lines.map((l, i) => <li key={i}>{l.qty}× {l.name}{l.size ? ` (${l.size})` : ""}</li>)}</ul>
-            {o.status === "Unfulfillable" && <div className="mt-3"><Banner>Quán không thực hiện được đơn này{o.reason ? `: ${o.reason}` : ""}. Bạn không bị tính tiền.</Banner></div>}
-          </section>
-        ))}
+        {orders.data?.map((o) => <GuestOrderCard key={o.id} order={o} />)}
         {!!orders.data?.length && (
           <div className="flex items-center justify-between rounded-[16px] bg-sand p-5">
             <p className="text-sm text-text-secondary">Tổng các đơn</p><p className="font-serif text-xl text-text-primary">{formatVND(total)}</p>

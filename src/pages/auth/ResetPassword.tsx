@@ -3,7 +3,7 @@ import { useParams } from "react-router"
 import { z } from "zod"
 import type { Page } from "../../App"
 import { AuthShell } from "../../components/AuthShell"
-import { Banner, Button, Field } from "../../components/ui"
+import { Banner, Button, Field, PasswordField } from "../../components/ui"
 import { env } from "../../config/env"
 import { useToast } from "../../context/ToastContext"
 import { ApiError } from "../../lib/api/http"
@@ -129,8 +129,8 @@ export default function ResetPassword({ navigate }: Props) {
     <AuthShell title="Đặt mật khẩu mới" subtitle="Mã đã đúng. Mật khẩu tối thiểu 8 ký tự, có chữ hoa và chữ số.">
       <form onSubmit={(e) => { e.preventDefault(); void submit() }} className="space-y-4" noValidate>
         {networkError && <Banner>Không thể kết nối máy chủ. Thử lại sau.</Banner>}
-        <Field label="Mật khẩu mới" type="password" autoComplete="new-password" autoFocus value={newPassword} onChange={(e) => setNewPassword(e.target.value)} error={errors.newPassword} />
-        <Field label="Nhập lại mật khẩu" type="password" autoComplete="new-password" value={confirm} onChange={(e) => setConfirm(e.target.value)} error={errors.confirm} />
+        <PasswordField label="Mật khẩu mới" autoComplete="new-password" autoFocus value={newPassword} onChange={(e) => setNewPassword(e.target.value)} error={errors.newPassword} />
+        <PasswordField label="Nhập lại mật khẩu" autoComplete="new-password" value={confirm} onChange={(e) => setConfirm(e.target.value)} error={errors.confirm} />
         <Button type="submit" loading={loading} className="w-full">Đặt mật khẩu</Button>
       </form>
     </AuthShell>

@@ -1,5 +1,5 @@
 import AuthHero from "../../components/AuthHero"
-import { Logo } from "../../components/AuthShell"
+import { HomeLogo } from "../../components/AuthShell"
 import { GoogleButton } from "../../components/GoogleButton"
 import { Button } from "../../components/ui"
 import { demoCustomer } from "../../lib/demoAccounts"
@@ -78,7 +78,7 @@ export default function CustomerLogin({ navigate }: Props) {
       <div className="flex-1 flex items-center justify-center px-6 sm:px-8 py-12">
       <div className="w-full max-w-[420px]">
         {/* Logo */}
-        <div className="mb-8"><Logo /></div>
+        <div className="mb-8"><HomeLogo /></div>
 
         <h1
           className="font-serif text-2xl font-medium mb-2"

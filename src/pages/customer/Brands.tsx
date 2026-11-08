@@ -2,7 +2,7 @@ import { useState } from "react"
 import { useMutation, useQuery } from "@tanstack/react-query"
 import { useNavigate } from "react-router"
 import type { Page } from "../../App"
-import { Logo } from "../../components/AuthShell"
+import { HomeLogo } from "../../components/AuthShell"
 import CustomerUserMenu from "../../components/CustomerUserMenu"
 import { Banner, Button, EmptyState, Field, QueryBoundary } from "../../components/ui"
 import { useAuth } from "../../context/AuthContext"
@@ -32,7 +32,7 @@ export default function CustomerBrands({ navigate }: { navigate: (p: Page) => vo
     <div data-uc="UC-BRANDS" className="min-h-screen bg-bg-base">
       <header className="border-b border-border bg-surface px-4 py-3 sm:px-8">
         <div className="mx-auto flex max-w-5xl items-center justify-between gap-4">
-          <Logo />
+          <HomeLogo />
           <CustomerUserMenu navigate={navigate} />
         </div>
       </header>

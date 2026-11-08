@@ -1,4 +1,5 @@
 import type { ReactNode } from "react"
+import { Link } from "react-router"
 import AuthHero from "./AuthHero"
 import { useBrand } from "../context/BrandContext"
 
@@ -31,7 +32,7 @@ export function AuthShell({ title, subtitle, hero, children }: { title: string; 
       {hero && <AuthHero />}
       <div className="flex flex-1 items-center justify-center px-6 py-12">
         <div className="w-full max-w-sm">
-          <div className="mb-10"><Logo /></div>
+          <div className="mb-10"><HomeLogo /></div>
           <h1 className="mb-2 font-serif text-3xl font-medium text-text-primary">{title}</h1>
           {subtitle && <p className="mb-8 text-sm leading-relaxed text-text-secondary">{subtitle}</p>}
           {children}
@@ -39,5 +40,14 @@ export function AuthShell({ title, subtitle, hero, children }: { title: string; 
         </div>
       </div>
     </div>
+  )
+}
+
+/** The logo as a way back to the home page. Signed-in people land on their own start page (the home page is for visitors). */
+export function HomeLogo() {
+  return (
+    <Link to="/" aria-label="Về trang chủ" className="inline-flex rounded-[10px] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-espresso">
+      <Logo />
+    </Link>
   )
 }

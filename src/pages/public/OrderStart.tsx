@@ -11,7 +11,7 @@ import { BRAND_SEARCH_FROM, BRANDS_SHOWN, filterBrands } from "../../lib/brandSe
 
 /**
  * "Đặt món" from the home page: choose the coffee shop, then its public menu `/b/:brandSlug` opens (choose the branch and the drinks).
- * With a single brand on the platform the menu opens straight away. With many, the list gets a search box and shows 12 at a
+ * A signed-in customer with a single brand to choose goes straight to its menu; a visitor stays on this page. With many, the list gets a search box and shows 12 at a
  * time, and how to order stays beside it (above it on a phone), so it never ends up far down the page. A customer already inside a brand goes on to its takeaway menu.
  * Ordering takeaway needs a customer account; guests can look and fill a cart, then sign in to order.
  */
@@ -27,14 +27,18 @@ export default function OrderStart({ navigate }: { navigate: (p: Page) => void }
   const found = filterBrands(all, query)
   const shown = showAll ? found : found.slice(0, BRANDS_SHOWN)
 
-  // One brand only: nothing to choose, open its menu.
-  useEffect(() => { if (only && !activeBrand) routerNavigate(`/b/${only.slug}`, { replace: true }) }, [only, activeBrand, routerNavigate])
+  // A signed-in customer with one shop to choose from goes straight to its menu. A visitor stays here: takeaway needs an
+  // account, so they first see how ordering works (sign in, or scan the QR at the table) and can still look at the menu.
+  const isCustomer = role === "customer"
+  useEffect(() => { if (only && isCustomer && !activeBrand) routerNavigate(`/b/${only.slug}`, { replace: true }) }, [only, isCustomer, activeBrand, routerNavigate])
 
   return (
     <PublicPage navigate={navigate} uc="UC-ORDER-START">
       <section className="mx-auto max-w-6xl px-4 py-10 sm:px-8 sm:py-14">
         <h1 className="font-serif text-3xl text-text-primary sm:text-4xl">Bạn muốn gọi món ở quán nào?</h1>
-        <p className="mt-2 max-w-2xl text-text-secondary">Chọn quán để xem thực đơn và chọn chi nhánh. Bạn có thể xem thực đơn và chọn món trước, rồi đăng nhập khi đặt mang đi.</p>
+        <p className="mt-2 max-w-2xl text-text-secondary">{role
+          ? "Chọn quán để xem thực đơn và chọn chi nhánh."
+          : "Bạn chưa đăng nhập. Đặt mang đi cần tài khoản khách hàng; ngồi tại quán thì quét mã QR trên bàn để gọi món. Bạn vẫn có thể xem thực đơn của từng quán."}</p>
 
         <div className="mt-8 grid gap-8 lg:grid-cols-[minmax(0,1fr)_300px] lg:items-start">
           {/* How to order stays in view beside the list (above it on a phone), however many shops there are. */}
@@ -94,6 +98,7 @@ export default function OrderStart({ navigate }: { navigate: (p: Page) => void }
                             <span className="block font-medium text-text-primary">{b.name}</span>
                             {b.description && <span className="block truncate text-sm text-text-secondary">{b.description}</span>}
                             <span className="block text-xs text-text-secondary">{b.branchCount} chi nhánh</span>
+                            {!isCustomer && <span className="mt-1 block text-xs font-medium text-clay underline underline-offset-2">Xem thực đơn</span>}
                           </span>
                         </Link>
                       </li>

@@ -1,5 +1,5 @@
 ﻿import type { ReactNode } from "react"
-import { Logo } from "./AuthShell"
+import { HomeLogo } from "./AuthShell"
 import CustomerUserMenu from "./CustomerUserMenu"
 import { AiChat } from "./AiChat"
 import { useBrand } from "../context/BrandContext"
@@ -21,7 +21,7 @@ export function CustomerFrame({ page, navigate, uc, title, children }: { page: P
       <header className="border-b border-border bg-surface px-4 py-3 sm:px-8">
         <div className="mx-auto flex max-w-5xl items-center justify-between gap-4">
           <div className="flex shrink-0 items-center gap-2">
-            <Logo />
+            <HomeLogo />
             {brand.kind === "ready" && <button onClick={() => navigate("customer-brands")} className="min-h-9 rounded-full border border-border px-3 text-xs text-text-secondary hover:bg-bg-warm">Đổi quán</button>}
           </div>
           <nav aria-label="Khách hàng" className="flex min-w-0 gap-1 overflow-x-auto">

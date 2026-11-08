@@ -1,7 +1,7 @@
 import { useState } from "react"
 import { useNavigate } from "react-router"
 import type { Page } from "../../App"
-import { Logo } from "../../components/AuthShell"
+import { HomeLogo } from "../../components/AuthShell"
 import { GoogleButton } from "../../components/GoogleButton"
 import { homePageOf, useAuth } from "../../context/AuthContext"
 import { useToast } from "../../context/ToastContext"
@@ -85,7 +85,7 @@ export default function CustomerRegister({ navigate }: Props) {
     <div className="min-h-screen flex items-center justify-center px-6 py-12" style={{ backgroundColor: "#FAF6F0" }}>
       <div className="w-full max-w-[420px]">
         {/* Logo */}
-        <div className="mb-8"><Logo /></div>
+        <div className="mb-8"><HomeLogo /></div>
 
         <h1
           className="font-serif text-2xl font-medium mb-2 leading-snug"

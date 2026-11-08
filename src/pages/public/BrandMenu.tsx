@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react"
 import { useMutation, useQuery } from "@tanstack/react-query"
 import { useNavigate, useParams, useSearchParams } from "react-router"
 import type { Page } from "../../App"
-import { Logo } from "../../components/AuthShell"
+import { HomeLogo } from "../../components/AuthShell"
 import { BranchPicker } from "../../components/BranchPicker"
 import CustomerUserMenu from "../../components/CustomerUserMenu"
 import { OrderComposer } from "../../components/OrderComposer"
@@ -73,7 +73,7 @@ export default function BrandMenu({ navigate }: { navigate: (p: Page) => void })
     <div data-uc="UC-BRAND-MENU" className="min-h-screen bg-bg-base">
       <header className="border-b border-border bg-surface px-4 py-3 sm:px-8">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-4">
-          <Logo />
+          <HomeLogo />
           {isCustomer ? <CustomerUserMenu navigate={navigate} /> : !role && (
             <div className="flex items-center gap-2">
               <button onClick={() => { sessionStorage.setItem("aicos.returnTo", `/b/${slug}`); navigate("auth-customer-register") }} className="hidden min-h-11 rounded-full px-3 text-sm text-text-secondary sm:block">Đăng ký</button>

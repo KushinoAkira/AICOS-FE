@@ -22,7 +22,7 @@ export default function ShiftRequests({ navigate }: { navigate: (p: Page) => voi
   const approve = useMutation({ mutationFn: (v: { id: string; userId: string }) => staffApi.approve(v.id, v.userId), onSuccess: () => { refresh(); void qc.invalidateQueries({ queryKey: ["shifts"] }); showToast("Đã duyệt người thay ca", "success") }, onError: (e) => { showToast(e.message, "error"); refresh() } })
 
   return (
-    <PageFrame page="branch-shift-requests" navigate={navigate} uc="UC-47" title="Ca thay" subtitle="Mở ca thay khi có người nghỉ. Nhân viên cùng thương hiệu có thể đăng ký." action={<Button onClick={() => { setError(null); setOpen(true) }}>Mở ca thay</Button>}>
+    <PageFrame page="branch-shift-requests" navigate={navigate} uc="UC-47" title="Ca thay" subtitle="Mở ca thay khi có người nghỉ. Nhân viên cùng chi nhánh có thể đăng ký; bạn chọn một người." action={<Button onClick={() => { setError(null); setOpen(true) }}>Mở ca thay</Button>}>
       <QueryBoundary query={reqs}>
         {(rows) => rows.length === 0 ? <EmptyState title="Chưa có yêu cầu ca thay" /> : (
           <ul className="space-y-4">

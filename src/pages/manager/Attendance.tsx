@@ -7,7 +7,9 @@ import { useToast } from "../../context/ToastContext"
 import { addDays, attendanceApi, today, type AttendanceRow } from "../../lib/api/manage"
 import { formatDate, formatTime } from "../../lib/format"
 
-const STATE_TEXT: Record<string, string> = { Upcoming: "Sắp tới", InProgress: "Đang làm", Worked: "Đã làm", MissingCheckOut: "Thiếu giờ ra", NoShow: "Không đến", Absent: "Vắng" }
+const STATE_TEXT: Record<string, string> = { Upcoming: "Sắp tới", InProgress: "Đang làm", Worked: "Đã làm", MissingCheckOut: "Thiếu giờ ra", NoShow: "Không đến", Absent: "Vắng", Declined: "Đã báo nghỉ", Replaced: "Có người làm thay" }
+/** Shifts nobody works under this name any more (an approved colleague took it, or the employee declined it): nothing to review. */
+const notReviewable = (state: string) => state === "Replaced" || state === "Declined"
 
 /** `2026-11-02T08:15` in the browser's local time, for a date-time input. */
 const checkedIn = (r: AttendanceRow) => r.shift.adjustedCheckInAtUtc ?? r.shift.checkInAtUtc
@@ -73,13 +75,13 @@ export default function ManagerAttendance({ navigate }: { navigate: (p: Page) =>
     { key: "i", header: "Vào / Ra", render: (r) => { const a = r.shift.adjustedCheckInAtUtc ?? r.shift.checkInAtUtc, b = r.shift.adjustedCheckOutAtUtc ?? r.shift.checkOutAtUtc; return `${a ? formatTime(a) : "-"} / ${b ? formatTime(b) : "-"}` } },
     { key: "w", header: "Giờ", render: (r) => r.workedHours.toFixed(1) },
     { key: "f", header: "Tình trạng", render: (r) => <span>{r.shift.isAbsent ? "Vắng" : STATE_TEXT[r.state] ?? r.state}{r.isLate && <span className="ml-1 text-xs text-state-warning">trễ {r.lateMinutes} phút</span>}{r.leftEarly && <span className="ml-1 text-xs text-state-warning">về sớm</span>}</span> },
-    { key: "r", header: "Duyệt", render: (r) => <StatusPill tone={r.shift.reviewStatus === "Approved" ? "success" : "pending"}>{r.shift.reviewStatus === "Approved" ? "Đã duyệt" : "Chờ duyệt"}</StatusPill> },
+    { key: "r", header: "Duyệt", render: (r) => notReviewable(r.state) ? <span className="text-xs text-text-secondary">Không cần duyệt</span> : <StatusPill tone={r.shift.reviewStatus === "Approved" ? "success" : "pending"}>{r.shift.reviewStatus === "Approved" ? "Đã duyệt" : "Chờ duyệt"}</StatusPill> },
     {
-      key: "a", header: "", className: "text-right", render: (r) => (
+      key: "a", header: "", className: "text-right", render: (r) => notReviewable(r.state) ? null : (
         <div className="flex justify-end gap-2">
           {r.shift.reviewStatus !== "Approved" && <Button className="px-3 py-1.5 text-xs" loading={approve.isPending && approve.variables === r.shift.id} disabled={!checkedIn(r) && (r.state === "Upcoming" || r.state === "InProgress")} disabledReason="Nhân viên chưa vào ca" onClick={() => (isRunning(r) ? setRunning(r) : approve.mutate(r.shift.id))}>Duyệt</Button>}
-          <Button variant="secondary" className="px-3 py-1.5 text-xs" onClick={() => openAdjust(r)}>Sửa giờ</Button>
-          {!r.shift.checkInAtUtc && !r.shift.isAbsent && <Button variant="secondary" className="px-3 py-1.5 text-xs" onClick={() => setAbsent(r)}>Ghi vắng</Button>}
+          {r.state !== "Upcoming" && <Button variant="secondary" className="px-3 py-1.5 text-xs" onClick={() => openAdjust(r)}>Sửa giờ</Button>}
+          {!r.shift.checkInAtUtc && !r.shift.isAbsent && r.state !== "Upcoming" && <Button variant="secondary" className="px-3 py-1.5 text-xs" onClick={() => setAbsent(r)}>Ghi vắng</Button>}
         </div>
       ),
     },

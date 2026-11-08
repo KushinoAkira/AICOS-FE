@@ -114,8 +114,13 @@ export const bePickupApi = {
   pickupDefault: async () => toPickup(rec(await http.get<Raw>("/orders/pickup-slots/effective"))),
   savePickupDefault: async (v: PickupSettings) => { await http.put<Raw>("/orders/pickup-slots", pickupBody(null, v)); return v },
   async branchPickup(branchId: string) {
-    const eff = rec(await http.get<Raw>("/orders/pickup-slots/effective", { query: { branchId } }))
-    const brandDefault = toPickup(rec(await http.get<Raw>("/orders/pickup-slots/effective")))
+    const [eff, rows] = await Promise.all([
+      http.get<Raw>("/orders/pickup-slots/effective", { query: { branchId } }).then(rec),
+      http.get<Raw[]>("/orders/pickup-slots").then((l) => recs(itemsOf(l))),
+    ])
+    // "/effective" without a branch answers for the caller's own branch when a manager asks, so the brand default is the row without a branch.
+    const brandRow = rows.find((s) => !str(s.branchId))
+    const brandDefault = brandRow ? toPickup(brandRow) : toPickup({})
     return { inherited: str(eff.source) !== "Branch", values: toPickup(eff), defaults: brandDefault }
   },
   async saveBranchPickup(branchId: string, v: PickupSettings | null) {

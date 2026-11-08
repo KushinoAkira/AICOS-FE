@@ -133,6 +133,8 @@ const mockAuthApi = {
   /** Link flow (featureFlags.resetMethod = "link"). For the OTP flow send `code` instead of `token`. */
   resetPassword: (body: { token: string; code?: string; newPassword: string; confirmNewPassword: string }) =>
     http.post<{ message: string }>(`${BASE}/auth/reset-password`, body, { anonymous: true }),
+  /** Checks the emailed code before the new password is asked for; the code is not used up. */
+  verifyResetCode: (email: string, code: string) => http.post<void>(`${BASE}/auth/reset-password/verify`, { email, code }, { anonymous: true }),
 }
 
 const mockBranchesApi = {

@@ -56,6 +56,8 @@ export const beAuthApi = {
       { email: body.token, code: body.code ?? "", newPassword: body.newPassword, confirmNewPassword: body.confirmNewPassword },
       { anonymous: true },
     ),
+  /** Step 1 of the reset page: the emailed code is checked first (not used up), then the new password is asked for. */
+  verifyResetCode: (email: string, code: string) => http.post<void>(`${BASE}/auth/reset-password/verify`, { email, code }, { anonymous: true }),
 }
 
 type List<T> = T[] | PagedResponse<T>

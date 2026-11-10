@@ -68,32 +68,45 @@ function PreferencesCard() {
   )
 }
 
+const SUGAR = [0, 30, 50, 70, 100]
+
+/** A row of choices that look like the size chips on the menu; one can be picked, "Chưa chọn" clears it. */
+function ChipGroup({ label, options, value, onChange }: { label: string; options: { value: string; label: string }[]; value: string; onChange: (v: string) => void }) {
+  return (
+    <fieldset>
+      <legend className="mb-1.5 text-sm font-medium text-text-primary">{label}</legend>
+      <div className="flex flex-wrap gap-2">
+        {options.map((o) => (
+          <button
+            key={o.value} type="button" aria-pressed={value === o.value} onClick={() => onChange(o.value)}
+            className={`min-h-10 rounded-full border px-4 text-sm transition-colors ${value === o.value ? "border-espresso bg-espresso text-white" : "border-border bg-surface text-text-primary hover:border-clay"}`}
+          >
+            {o.label}
+          </button>
+        ))}
+      </div>
+    </fieldset>
+  )
+}
+
 function PreferencesForm({ initial }: { initial: Preferences }) {
   const { showToast } = useToast()
   const [sugar, setSugar] = useState(initial.sugarPercent === null ? "" : String(initial.sugarPercent))
   const [ice, setIce] = useState(initial.ice ?? "")
   const [notes, setNotes] = useState(initial.notes ?? "")
-  const [error, setError] = useState<string | undefined>()
   const save = useMutation({
     mutationFn: () => customerApi.savePreferences({ sugarPercent: sugar === "" ? null : Number(sugar), ice: ice || null, favoriteToppings: initial.favoriteToppings, notes: notes.trim() || null }),
     onSuccess: () => showToast("Đã lưu khẩu vị.", "success"),
     onError: (e) => showToast(e instanceof ApiError ? e.message : "Không thể kết nối máy chủ", "error"),
   })
-  const submit = () => {
-    const bad = sugar !== "" && (!/^\d+$/.test(sugar) || Number(sugar) > 100)
-    setError(bad ? "Mức đường từ 0 đến 100" : undefined)
-    if (!bad) save.mutate()
-  }
+  // A value saved earlier that is not one of the usual steps (say 40%) stays on the list so it is not lost.
+  const sugarSteps = initial.sugarPercent !== null && !SUGAR.includes(initial.sugarPercent) ? [...SUGAR, initial.sugarPercent].sort((x, y) => x - y) : SUGAR
   return (
-    <form noValidate onSubmit={(e) => { e.preventDefault(); submit() }} className="mt-4 space-y-4">
-      <Field label="Mức đường (%)" inputMode="numeric" value={sugar} error={error} onChange={(e) => setSugar(e.target.value)} />
-      <div>
-        <label htmlFor="pref-ice" className="mb-1 block text-sm font-medium text-text-primary">Mức đá</label>
-        <select id="pref-ice" value={ice} onChange={(e) => setIce(e.target.value)} className="w-full rounded-[10px] border border-border bg-surface px-4 py-3 text-sm text-text-primary">
-          {ICE.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-        </select>
-      </div>
-      <Field label="Ghi chú" value={notes} onChange={(e) => setNotes(e.target.value)} />
+    <form noValidate onSubmit={(e) => { e.preventDefault(); save.mutate() }} className="mt-4 space-y-5">
+      <p className="text-sm text-text-secondary">Quán dùng khẩu vị này làm mặc định khi bạn chọn món.</p>
+      <ChipGroup label="Mức đường" value={sugar} onChange={setSugar} options={[{ value: "", label: "Chưa chọn" }, ...sugarSteps.map((n) => ({ value: String(n), label: `${n}%` }))]} />
+      <ChipGroup label="Mức đá" value={ice} onChange={setIce} options={ICE} />
+      <Field label="Ghi chú" value={notes} placeholder="Ví dụ: ít ngọt, không ống hút" onChange={(e) => setNotes(e.target.value)} />
       <Button type="submit" variant="secondary" loading={save.isPending} className="min-h-11">Lưu khẩu vị</Button>
     </form>
   )
@@ -108,7 +121,7 @@ function VouchersCard() {
         {(rows) => rows.length === 0 ? <p className="mt-4 text-sm text-text-secondary">Bạn chưa có voucher. Đổi điểm ở mục Tích điểm để nhận voucher.</p> : (
           <ul className="mt-4 space-y-3">
             {rows.map((v) => (
-              <li key={v.id} className="rounded-[12px] border border-border p-3">
+              <li key={v.id} className={`rounded-[12px] border border-border p-3 ${v.usable ? "" : "bg-bg-base opacity-70"}`}>
                 <p className="font-medium text-text-primary">{v.discountLabel}</p>
                 <p className="text-sm text-text-secondary">Mã <strong>{v.code}</strong>{v.minOrderAmount ? ` · Đơn từ ${formatVND(v.minOrderAmount)}` : ""}</p>
                 <p className="text-xs text-text-secondary">{v.usable ? `Hạn dùng ${new Date(v.expiresAtUtc).toLocaleDateString("vi-VN")}` : "Đã dùng hoặc hết hạn"}</p>

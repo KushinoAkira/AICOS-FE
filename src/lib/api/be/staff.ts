@@ -131,7 +131,15 @@ async function loyaltyMe(): Promise<LoyaltyMe> {
   const points = num(m.pointsBalance), tier = str(m.tier, "Member")
   return {
     points, tier, nextTier: m.nextTierAt == null ? null : tier === "Member" ? "Silver" : "Gold", pointsToNext: num(m.pointsToNextTier), redeemPoints: num(m.minPointsToRedeem, 10),
-    vouchers: recs(itemsOf(vouchers)).map((v) => ({ id: str(v.id), code: str(v.code), title: `Voucher ${str(v.code)}`, value: num(v.value), expiresAtUtc: str(v.expiresAtUtc) })),
+    nextTierAt: m.nextTierAt == null ? undefined : num(m.nextTierAt),
+    // Only vouchers that can still be used: the server filters by status, the date check covers a stale status.
+    vouchers: recs(itemsOf(vouchers))
+      .filter((v) => str(v.status, "Active") === "Active" && !v.isExpired && !(str(v.expiresAtUtc) && Date.parse(str(v.expiresAtUtc)) < Date.now()))
+      .map((v) => ({
+        id: str(v.id), code: str(v.code), title: `Voucher ${str(v.code)}`, value: num(v.value), expiresAtUtc: str(v.expiresAtUtc),
+        label: ["Percent", "Percentage"].includes(str(v.discountType)) ? `Giảm ${num(v.value)}%` : `Giảm ${new Intl.NumberFormat("vi-VN").format(num(v.value))} đ`,
+        minOrder: num(v.minOrderAmount),
+      })),
     history: recs(rec(m.history).items).map((h) => ({ id: str(h.id), delta: num(h.points), reason: str(h.note) || str(h.type), atUtc: str(h.createdAtUtc) })),
   }
 }

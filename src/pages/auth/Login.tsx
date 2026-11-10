@@ -95,7 +95,7 @@ function LoginForm({ navigate }: Props) {
 
       {quick.length > 0 && (
         <div className="mt-8 border-t border-border pt-5">
-          <p className="mb-3 text-xs font-medium uppercase tracking-wide text-text-secondary">{t("auth.demo")}</p>
+          <p className="mb-3 text-sm text-text-secondary">{t("auth.demo")}</p>
           <div className="flex flex-wrap gap-2">
             {quick.map((a) => (
               <Button key={a.login} type="button" variant="secondary" className="px-3 py-1.5 text-xs" disabled={submitting} onClick={() => void submit(a.login, a.password)}>

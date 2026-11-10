@@ -24,13 +24,13 @@ export function DataTable<T>({ rows, columns, rowKey, emptyTitle = "Chưa có d�
   return (
     <div className="overflow-hidden rounded-[16px] border border-border bg-surface">
       <div className="overflow-x-auto">
-        <table className="w-full text-sm">
+        <table className="w-full min-w-max text-sm">
           <thead>
-            <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-text-secondary">
+            <tr className="border-b border-border bg-bg-base/60 text-left text-xs text-text-secondary">
               {columns.map((c) => (
-                <th key={c.key} scope="col" className={`px-5 py-3 font-medium ${c.className ?? ""}`} aria-sort={sortKey === c.key ? (asc ? "ascending" : "descending") : undefined}>
+                <th key={c.key} scope="col" className={`whitespace-nowrap px-5 py-3 font-medium ${c.className ?? ""}`} aria-sort={sortKey === c.key ? (asc ? "ascending" : "descending") : undefined}>
                   {c.sort ? (
-                    <button onClick={() => { setAsc(sortKey === c.key ? !asc : true); setSortKey(c.key) }} className="uppercase hover:text-text-primary">
+                    <button onClick={() => { setAsc(sortKey === c.key ? !asc : true); setSortKey(c.key) }} className="hover:text-text-primary">
                       {c.header}{sortKey === c.key ? (asc ? " ↑" : " ↓") : ""}
                     </button>
                   ) : c.header}
@@ -51,8 +51,8 @@ export function DataTable<T>({ rows, columns, rowKey, emptyTitle = "Chưa có d�
         <div className="flex items-center justify-between border-t border-border px-5 py-3 text-xs text-text-secondary">
           <span>Trang {page + 1}/{pages}</span>
           <span className="flex gap-3">
-            <button disabled={page === 0} onClick={() => setPage(page - 1)} className="disabled:opacity-40">Trước</button>
-            <button disabled={page >= pages - 1} onClick={() => setPage(page + 1)} className="disabled:opacity-40">Sau</button>
+            <button disabled={page === 0} onClick={() => setPage(page - 1)} className="min-h-9 rounded-[10px] border border-border px-3 hover:bg-bg-base disabled:opacity-40">Trước</button>
+            <button disabled={page >= pages - 1} onClick={() => setPage(page + 1)} className="min-h-9 rounded-[10px] border border-border px-3 hover:bg-bg-base disabled:opacity-40">Sau</button>
           </span>
         </div>
       )}

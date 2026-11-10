@@ -16,7 +16,7 @@ export function Field({ label, error, hint, id, className = "", ...rest }: Props
         aria-invalid={!!error}
         aria-describedby={error ? `${fieldId}-err` : undefined}
         {...rest}
-        className={`w-full rounded-[10px] border bg-surface px-4 py-3 text-sm text-text-primary outline-none transition-colors focus:border-terracotta ${error ? "border-state-danger" : "border-border"} ${className}`}
+        className={`w-full rounded-[10px] border bg-surface px-4 py-3 text-sm text-text-primary outline-none transition-[border-color,box-shadow] focus:border-terracotta focus:ring-2 focus:ring-terracotta/20 ${error ? "border-state-danger" : "border-border"} ${className}`}
       />
       {hint && !error && <p className="mt-1 text-xs text-text-secondary">{hint}</p>}
       {error && <p id={`${fieldId}-err`} className="mt-1 text-xs text-state-danger">{error}</p>}

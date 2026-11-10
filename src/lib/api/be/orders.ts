@@ -24,6 +24,8 @@ function toStatus(o: Raw): OrderStatus {
     case "Preparing": return "Preparing"
     case "Ready": return "Ready"
     case "Completed": return dineIn ? "Served" : "PickedUp"
+    case "PickedUp": return "PickedUp"
+    case "Served": return "Served"
     case "Cancelled": return "Cancelled"
     case "NoShow": return "NoShow"
     case "Unfulfillable": return "Unfulfillable"

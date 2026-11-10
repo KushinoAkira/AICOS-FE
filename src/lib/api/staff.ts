@@ -14,8 +14,14 @@ export interface Applicant { userId: string; name: string; branchName: string }
 export interface Replacement { id: string; shift: Shift; reason: string; status: "open" | "filled"; applicants: Applicant[]; filledBy?: string; applied: boolean }
 export interface CashClosing { id: string; date: string; userName: string; expected: number; counted: number; variance: number; reason: string }
 
-export interface LoyaltyVoucher { id: string; code: string; title: string; value: number; expiresAtUtc: string }
-export interface LoyaltyMe { points: number; tier: string; nextTier: string | null; pointsToNext: number; redeemPoints: number; vouchers: LoyaltyVoucher[]; history: { id: string; delta: number; reason: string; atUtc: string }[] }
+export interface LoyaltyVoucher {
+  id: string; code: string; title: string; value: number; expiresAtUtc: string
+  /** What it takes off, already worded: "Giảm 10%" or "Giảm 20.000 đ". */
+  label?: string
+  /** Smallest order it works on; 0 when there is none. */
+  minOrder?: number
+}
+export interface LoyaltyMe { points: number; tier: string; nextTier: string | null; pointsToNext: number; /** Points the next tier starts at, for the progress bar. */ nextTierAt?: number; redeemPoints: number; vouchers: LoyaltyVoucher[]; history: { id: string; delta: number; reason: string; atUtc: string }[] }
 export interface Notice { id: string; title: string; body: string; atUtc: string; read: boolean }
 
 /** What the cashier closes next. `noShift`: they have not checked in to any shift yet. */

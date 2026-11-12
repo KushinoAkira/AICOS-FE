@@ -121,6 +121,7 @@ const navMap: Record<StaffRole, NavGroup[]> = {
     item("barista-queue", "Hàng đợi pha chế", "cup"),
     item("floor-plan-view", "Sơ đồ tầng", "map"),
     item("cashier-shift", "Ca làm việc", "clock2"),
+    item("staff-orders", "Đơn hàng", "list"),
   ] }],
   cashier: [
     { items: [
@@ -131,6 +132,7 @@ const navMap: Record<StaffRole, NavGroup[]> = {
       item("floor-plan-view", "Sơ đồ tầng", "map"),
       item("cashier-serve", "Phục vụ và giao món", "cup"),
       item("cashier-shift", "Ca làm việc", "clock2"),
+      item("staff-orders", "Đơn hàng", "list"),
     ] },
   ],
 }

@@ -30,6 +30,7 @@ const VOUCHER_MESSAGES: Record<string, string> = {
   "voucher.invalid_status": "Mã giảm giá không còn dùng được.",
   "voucher.min_order_not_met": "Đơn chưa đạt giá trị tối thiểu để dùng mã này.",
   "voucher.wrong_branch": "Mã này không dùng được ở chi nhánh này.",
+  "voucher.sign_in_required": "Đăng nhập để dùng mã giảm giá tại bàn.",
   "voucher.not_yours": "Mã này thuộc tài khoản khác. Hãy đăng nhập đúng tài khoản đã nhận voucher.",
 }
 

@@ -25,7 +25,7 @@ function toShift(a: Raw, users: Map<string, string>): Shift {
   const employeeId = str(a.employeeId)
   return {
     id: str(a.id), date: str(a.workDate).slice(0, 10), period: periodOf(str(a.startTime, "07:00")), ...templateOf(a), userId: users.get(employeeId) ?? employeeId,
-    userName: str(a.employeeName), branchId: str(a.branchId), ...workedTimes(a), reviewed: str(a.reviewStatus) === "Approved", absent: bool(a.isAbsent),
+    userName: str(a.employeeName), branchId: str(a.branchId), ...workedTimes(a), reviewed: str(a.reviewStatus) === "Approved", absent: bool(a.isAbsent), replaced: str(a.status) === "Replaced",
   }
 }
 
@@ -36,7 +36,7 @@ function toReplacement(r: Raw, users: Map<string, string>, applicants: Raw[] = [
     id: str(r.id), reason: str(r.reason), status: str(r.status) === "Filled" ? "filled" : "open",
     shift: { id: str(r.originalAssignmentId) || str(r.id), date: str(r.workDate).slice(0, 10), period: periodOf(str(r.startTime, "07:00")), ...templateOf(r), userId: "", userName: str(r.originalEmployeeName), branchId: str(r.branchId), checkInAtUtc: null, checkOutAtUtc: null },
     applicants: applicants.filter((x) => str(x.status) === "Pending").map((x) => ({ userId: users.get(str(x.employeeId)) ?? str(x.employeeId), name: str(x.employeeName), branchName: "" })),
-    filledBy: str(r.approvedEmployeeName) || undefined, applied: mine === "Pending" || mine === "Approved",
+    filledBy: str(r.approvedEmployeeName) || undefined, applied: mine === "Pending" || mine === "Approved", applications: num(r.applications),
   }
 }
 
@@ -87,7 +87,10 @@ export const beStaffApi = {
     }))
   },
   async openReplacement(b: { shiftId: string; reason: string }): Promise<Replacement> {
-    return toReplacement(rec(await http.post<Raw>(`${W}/replacement-shifts`, { assignmentId: b.shiftId, reason: b.reason })), await userIdByEmployee())
+    return toReplacement(rec(await http.post<Raw>(`${W}/replacement-shifts`, { assignmentId: b.shiftId, reason: b.reason })), await userIdByEmployee().catch(() => new Map<string, string>()))
+  },
+  async retract(id: string): Promise<Replacement> {
+    return toReplacement(rec(await http.post<Raw>(`${W}/replacement-shifts/${id}/retract`, {})), new Map())
   },
   async apply(id: string): Promise<Replacement> {
     return { ...toReplacement(rec(await http.post<Raw>(`${W}/replacement-shifts/${id}/register`, { note: "" })), new Map()), applied: true }

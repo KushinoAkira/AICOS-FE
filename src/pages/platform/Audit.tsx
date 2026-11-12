@@ -2,14 +2,15 @@
 import type { Page } from "../../App"
 import { DataTable, QueryBoundary, type Column } from "../../components/ui"
 import { formatDateTime } from "../../lib/format"
+import { auditActionLabel, auditEntityLabel } from "../../lib/auditLabels"
 import { platformApi, type PlatformAuditEntry } from "../../lib/api/platform"
 import { PlatformPage } from "./PlatformPage"
 
 const columns: Column<PlatformAuditEntry>[] = [
   { key: "at", header: "Thời gian", sort: (e) => e.at, render: (e) => formatDateTime(e.at) },
   { key: "actor", header: "Người thực hiện", render: (e) => e.actor },
-  { key: "action", header: "Hành động", render: (e) => <span className="font-medium text-text-primary">{e.action}</span> },
-  { key: "target", header: "Đối tượng", render: (e) => e.target },
+  { key: "action", header: "Hành động", render: (e) => <span><span className="font-medium text-text-primary">{auditActionLabel(e.action)}</span> <code className="text-[11px] text-text-secondary">{e.action}</code></span> },
+  { key: "target", header: "Đối tượng", render: (e) => auditEntityLabel(e.target) },
 ]
 
 /** Append-only: no edit or delete controls by design. Platform-level events only (BR-06). */

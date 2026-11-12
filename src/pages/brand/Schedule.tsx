@@ -4,6 +4,7 @@ import type { Page } from "../../App"
 import { PageFrame } from "../../components/PageFrame"
 import { Banner, Button, EmptyState, Field, Modal, QueryBoundary } from "../../components/ui"
 import { useToast } from "../../context/ToastContext"
+import { ApiError } from "../../lib/api/http"
 import { usersApi } from "../../lib/api/identity"
 import { workShiftApi, type WorkShift } from "../../lib/api/manage"
 import { staffApi } from "../../lib/api/staff"
@@ -23,6 +24,16 @@ function timesFromNow() {
 }
 
 const minutesOf = (time: string) => Number(time.slice(0, 2)) * 60 + Number(time.slice(3, 5))
+
+/** The server's refusals in the words of the schedule screen. */
+function scheduleError(e: Error): string {
+  const code = e instanceof ApiError ? e.code : undefined
+  if (code === "shift.has_replacement") return "Ca này đã được duyệt cho người khác làm thay nên không bỏ được. Xem ở trang Ca thay."
+  if (code === "shift.already_started") return "Nhân viên đã vào ca hoặc ca đã được duyệt chấm công nên không bỏ được."
+  if (code === "work_shift.in_use") return "Còn ca sắp tới đang dùng ca mẫu này. Bỏ các ca đó khỏi lịch trước rồi xóa."
+  if (code === "work_shift.active") return "Ngừng dùng ca mẫu trước rồi mới xóa."
+  return e.message
+}
 
 /** Weekly schedule for the branch (UC-45), one row per shift template. Changing a template leaves the shifts already assigned as they are. */
 export default function BranchSchedule({ navigate }: { navigate: (p: Page) => void }) {
@@ -46,7 +57,14 @@ export default function BranchSchedule({ navigate }: { navigate: (p: Page) => vo
     onSuccess: () => { refresh(); setCell(null); showToast("Đã xếp ca", "success") },
     onError: (e) => setError(e.message),
   })
-  const remove = useMutation({ mutationFn: staffApi.unassign, onSuccess: refresh, onError: (e) => showToast(e.message, "error") })
+  // Taking someone off a shift also cancels an open "find a replacement" request for it (the server does that).
+  const remove = useMutation({ mutationFn: staffApi.unassign, onSuccess: () => { refresh(); void qc.invalidateQueries({ queryKey: ["replacements"] }); showToast("Đã bỏ khỏi ca", "success") }, onError: (e) => showToast(scheduleError(e), "error") })
+  const [deleting, setDeleting] = useState<WorkShift | null>(null)
+  const del = useMutation({
+    mutationFn: (t: WorkShift) => workShiftApi.remove(t.id),
+    onSuccess: () => { refreshTemplates(); setDeleting(null); showToast("Đã xóa ca mẫu", "success") },
+    onError: (e) => { setDeleting(null); showToast(scheduleError(e), "error") },
+  })
   const save = useMutation({
     mutationFn: () => workShiftApi.save(editing && editing !== "new" ? editing.id : null, { name: form.name.trim(), startTime: form.startTime, endTime: form.endTime }),
     onSuccess: () => { refreshTemplates(); setEditing(null); showToast("Đã lưu ca mẫu", "success") },
@@ -55,7 +73,7 @@ export default function BranchSchedule({ navigate }: { navigate: (p: Page) => vo
   const setActive = useMutation({
     mutationFn: (v: { id: string; isActive: boolean }) => workShiftApi.setActive(v.id, v.isActive),
     onSuccess: refreshTemplates,
-    onError: (e) => showToast(e.message, "error"),
+    onError: (e) => showToast(scheduleError(e), "error"),
   })
   const days = Array.from({ length: 7 }, (_, i) => addDays(week, i))
 
@@ -98,6 +116,7 @@ export default function BranchSchedule({ navigate }: { navigate: (p: Page) => vo
                                 <p className="text-xs text-text-secondary">{timeOf(t)}{!t.isActive && " · ngừng dùng"}</p>
                                 <p className="mt-1 flex gap-2 text-xs">
                                   <button aria-label={`Sửa ca mẫu ${t.name}`} onClick={() => openTemplate(t)} className="text-clay hover:underline">Sửa</button>
+                                  {!t.isActive && <button aria-label={`Dùng lại ca mẫu ${t.name}`} onClick={() => setActive.mutate({ id: t.id, isActive: true })} className="text-clay hover:underline">Dùng lại</button>}
                                   {t.isActive && <button aria-label={`Ngừng dùng ca mẫu ${t.name}`} onClick={() => setActive.mutate({ id: t.id, isActive: false })} className="text-text-secondary hover:underline">Ngừng dùng</button>}
                                 </p>
                               </th>
@@ -106,6 +125,7 @@ export default function BranchSchedule({ navigate }: { navigate: (p: Page) => vo
                                   {rows.filter((s) => s.date === d && s.workShiftId === t.id).map((s) => (
                                     <p key={s.id} className="mb-1 flex items-center justify-between rounded-md bg-bg-warm px-2 py-1 text-xs text-text-primary">{s.userName}<button aria-label={`Bỏ ${s.userName} khỏi ca`} onClick={() => remove.mutate(s.id)} className="text-state-danger">✕</button></p>
                                   ))}
+                                  {!t.isActive && d >= todayKey() && <p className="text-[11px] leading-tight text-text-secondary">Ca mẫu đang ngừng dùng. Bấm "Dùng lại" để xếp thêm.</p>}
                                   {t.isActive && d >= todayKey() && <button onClick={() => { setCell({ date: d, template: t }); setUserId(""); setError(null) }} aria-label={`Thêm người vào ${dayLabel(d)} ${t.name}`} className="text-xs text-clay hover:underline">+ Thêm</button>}
                                 </td>
                               ))}
@@ -123,6 +143,7 @@ export default function BranchSchedule({ navigate }: { navigate: (p: Page) => vo
                           <li key={t.id} className="flex items-center gap-2 rounded-full bg-bg-warm px-3 py-1.5 text-sm text-text-primary">
                             {t.name} <span className="text-xs text-text-secondary">{timeOf(t)}</span>
                             <button aria-label={`Dùng lại ca mẫu ${t.name}`} onClick={() => setActive.mutate({ id: t.id, isActive: true })} className="text-xs text-clay hover:underline">Dùng lại</button>
+                            <button aria-label={`Xóa ca mẫu ${t.name}`} onClick={() => setDeleting(t)} className="text-xs text-state-danger hover:underline">Xóa</button>
                           </li>
                         ))}
                       </ul>
@@ -157,6 +178,10 @@ export default function BranchSchedule({ navigate }: { navigate: (p: Page) => vo
           </div>
           <p className="text-xs text-text-secondary">Một ca dài từ 1 đến 12 giờ, không qua đêm. Nhân viên vào ca được từ 15 phút trước giờ bắt đầu. Sửa ca mẫu không đổi giờ của các ca đã xếp.</p>
         </div>
+      </Modal>
+      <Modal open={!!deleting} title={deleting ? `Xóa ca mẫu ${deleting.name}?` : ""} onClose={() => setDeleting(null)}
+        footer={<><Button variant="secondary" onClick={() => setDeleting(null)}>Hủy</Button><Button variant="danger" loading={del.isPending} onClick={() => deleting && del.mutate(deleting)}>Xóa</Button></>}>
+        {deleting && <p className="text-sm text-text-secondary">Ca mẫu <b className="text-text-primary">{deleting.name} ({timeOf(deleting)})</b> sẽ không còn trong danh sách. Các ca đã làm trước đây vẫn được giữ cho chấm công và bảng lương.</p>}
       </Modal>
     </PageFrame>
   )

@@ -25,7 +25,9 @@ interface AuthContextValue {
   role: Role | null
   isAuthenticated: boolean
   login: (login: string, password: string, opts?: LoginOpts) => Promise<UserDto>
-  /** Sign-up step 2: the emailed code activates the account and signs the customer in. */
+  /** Creates the customer account and signs them in at once (Lam: no email OTP). */
+  signUp: (body: { fullName: string; email: string; password: string; confirmPassword: string }) => Promise<UserDto>
+  /** Only for an account still pending from the time sign-up needed an emailed code. */
   verifySignUp: (email: string, code: string) => Promise<UserDto>
   /** Saves the signed-in user's own name and phone. */
   updateProfile: (body: { fullName: string; phone: string | null; username: string | null }) => Promise<UserDto>
@@ -51,6 +53,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = useCallback(async (loginName: string, password: string, opts?: LoginOpts) => {
     const session = await authApi.login(loginName.trim(), password, opts)
+    setUser(session.user)
+    return session.user
+  }, [])
+
+  const signUp = useCallback(async (body: { fullName: string; email: string; password: string; confirmPassword: string }) => {
+    const session = await authApi.register(body)
     setUser(session.user)
     return session.user
   }, [])
@@ -100,8 +108,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const value = useMemo<AuthContextValue>(
-    () => ({ user, role: webRoleOf(user), isAuthenticated: user !== null, login, verifySignUp, selectBrand, updateProfile, deleteMyData, googleLogin, logout }),
-    [user, login, verifySignUp, selectBrand, updateProfile, deleteMyData, googleLogin, logout],
+    () => ({ user, role: webRoleOf(user), isAuthenticated: user !== null, login, signUp, verifySignUp, selectBrand, updateProfile, deleteMyData, googleLogin, logout }),
+    [user, login, signUp, verifySignUp, selectBrand, updateProfile, deleteMyData, googleLogin, logout],
   )
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }

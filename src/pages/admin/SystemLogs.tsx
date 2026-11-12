@@ -5,6 +5,7 @@ import { PageFrame } from "../../components/PageFrame"
 import { Button, DataTable, Field, Modal, QueryBoundary, type Column } from "../../components/ui"
 import { auditApi, type AuditEntry } from "../../lib/api/manage"
 import { formatDateTime } from "../../lib/format"
+import { auditActionLabel, auditEntityLabel } from "../../lib/auditLabels"
 
 const PAGE_SIZE = 20
 
@@ -21,8 +22,8 @@ export default function AdminSystemLogs({ navigate }: { navigate: (p: Page) => v
   const columns: Column<AuditEntry>[] = [
     { key: "t", header: "Thời gian", render: (a) => formatDateTime(a.occurredAtUtc) },
     { key: "w", header: "Người thực hiện", render: (a) => <span className="text-text-primary">{a.actorName ?? "Hệ thống"}<span className="block text-xs text-text-secondary">{a.actorRole ?? ""}</span></span> },
-    { key: "a", header: "Hành động", render: (a) => <code className="text-xs text-text-primary">{a.action}</code> },
-    { key: "e", header: "Đối tượng", render: (a) => a.entityType },
+    { key: "a", header: "Hành động", render: (a) => <span><span className="font-medium text-text-primary">{auditActionLabel(a.action)}</span> <code className="text-[11px] text-text-secondary">{a.action}</code></span> },
+    { key: "e", header: "Đối tượng", render: (a) => auditEntityLabel(a.entityType) },
     { key: "d", header: "", className: "text-right", render: (a) => <Button variant="secondary" className="px-3 py-1.5 text-xs" onClick={() => setOpen(a)}>Chi tiết</Button> },
   ]
   return (
@@ -52,8 +53,8 @@ export default function AdminSystemLogs({ navigate }: { navigate: (p: Page) => v
       <Modal open={!!open} title="Chi tiết nhật ký" onClose={() => setOpen(null)} footer={<Button variant="secondary" onClick={() => setOpen(null)}>Đóng</Button>}>
         {open && (
           <div className="space-y-3 text-sm">
-            <p className="text-text-primary"><code>{open.action}</code></p>
-            <p className="text-text-secondary">{open.entityType} {open.entityId ?? ""} · {formatDateTime(open.occurredAtUtc)}</p>
+            <p className="text-text-primary">{auditActionLabel(open.action)} <code className="text-xs text-text-secondary">{open.action}</code></p>
+            <p className="text-text-secondary">{auditEntityLabel(open.entityType)} {open.entityId ?? ""} · {formatDateTime(open.occurredAtUtc)}</p>
             {open.before != null && <div><p className="font-medium text-text-primary">Trước</p><pre className="mt-1 overflow-x-auto rounded-[10px] bg-bg-warm p-3 text-xs">{JSON.stringify(open.before, null, 2)}</pre></div>}
             {open.after != null && <div><p className="font-medium text-text-primary">Sau</p><pre className="mt-1 overflow-x-auto rounded-[10px] bg-bg-warm p-3 text-xs">{JSON.stringify(open.after, null, 2)}</pre></div>}
           </div>

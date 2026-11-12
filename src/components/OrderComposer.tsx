@@ -6,15 +6,20 @@ import type { Product } from "../lib/api/brand"
 import type { LineInput, Recommendations, RecommendedItem } from "../lib/api/orders"
 import { formatVND } from "../lib/format"
 
-/** Warm tints for drinks without a photo, so a menu without pictures does not read as one beige block. */
-const TINTS = ["bg-sand text-clay", "bg-[#E9DCCB] text-espresso", "bg-[#E4E8DA] text-[#4F6B45]", "bg-[#F3DCCB] text-[#9A5A33]"]
-
 /** Photo with a lettered fallback so a broken URL never leaves a hole in the grid. */
-export function ProductImage({ src, name, className = "h-16 w-16" }: { src?: string; name: string; className?: string }) {
+/** A drink without a photo, or whose photo fails to load, shows a cup drawing. `name` stays for the callers that pass it. */
+export function ProductImage({ src, className = "h-16 w-16" }: { src?: string; name: string; className?: string }) {
   const [failed, setFailed] = useState(false)
   if (!src || failed) {
-    const tint = TINTS[(name.codePointAt(0) ?? 0) % TINTS.length]
-    return <span aria-hidden className={`${className} flex shrink-0 items-center justify-center rounded-[14px] font-serif text-2xl ${tint}`}>{name.charAt(0)}</span>
+    return (
+      <span aria-hidden className={`${className} flex shrink-0 items-center justify-center rounded-[12px] bg-sand text-clay`}>
+        <svg viewBox="0 0 48 48" className="h-3/5 w-3/5" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M18 6c0 2-2 3-2 5s2 3 2 5M25 4c0 2-2 3-2 5s2 3 2 5M32 6c0 2-2 3-2 5s2 3 2 5" />
+          <path d="M9 21h28v8a12 12 0 0 1-12 12h-4A12 12 0 0 1 9 29z" fill="currentColor" fillOpacity="0.15" />
+          <path d="M37 24h2.5a5 5 0 0 1 0 10H36" />
+        </svg>
+      </span>
+    )
   }
   return <img src={src} alt="" loading="lazy" onError={() => setFailed(true)} className={`${className} shrink-0 rounded-[12px] object-cover`} />
 }
@@ -22,7 +27,7 @@ export function ProductImage({ src, name, className = "h-16 w-16" }: { src?: str
 export type MenuItem = Product & { soldOut: boolean; price: number }
 
 /** Shared by the guest QR menu, takeaway and the cashier POS. Prices shown here are estimates; the server recomputes (BR). */
-export function OrderComposer({ products, submitLabel, submitting, error, onSubmit, tabs, clearSignal = 0, recommendations, voucher, initialCart }: {
+export function OrderComposer({ products, submitLabel, submitting, error, onSubmit, tabs, clearSignal = 0, recommendations, voucher, initialCart, cartExtra }: {
   products: MenuItem[]
   submitLabel: string
   submitting: boolean
@@ -38,6 +43,8 @@ export function OrderComposer({ products, submitLabel, submitting, error, onSubm
   voucher?: VoucherOptions
   /** What the cart starts with (a cart chosen on the public brand page before signing in). Read once, when the composer mounts. */
   initialCart?: CartLine[]
+  /** Shown in the cart above the submit button. */
+  cartExtra?: React.ReactNode
 }) {
   const [cart, setCart] = useState<CartLine[]>(() => initialCart ?? [])
   const [tab, setTab] = useState<CartTab>("cart")
@@ -78,7 +85,6 @@ export function OrderComposer({ products, submitLabel, submitting, error, onSubm
       </ul>
     </section>
   )
-  const inCart = (id: string) => cart.reduce((n, l) => n + (l.productId === id ? l.qty : 0), 0)
   const total = cart.reduce((s, l) => s + l.unit * l.qty, 0)
   const count = cart.reduce((n, l) => n + l.qty, 0)
 
@@ -113,84 +119,49 @@ export function OrderComposer({ products, submitLabel, submitting, error, onSubm
   const submit = () => onSubmit(cart.map(({ name: _n, unit: _u, ...l }) => l), voucher ? voucherState.applied : "")
   const voucherProps = voucher ? { options: voucher, state: voucherState, setState: setVoucherState } : undefined
   const toPay = voucher ? liveQuote(voucherState, total)?.amountToPay ?? total : total
-  const panel = <CartPanel cart={cart} setCart={setCart} total={total} submitLabel={submitLabel} submitting={submitting} error={error} onSubmit={submit} tabs={tabs} tab={tab} setTab={setTab} reorder={reorder} voucher={voucherProps} />
-  const chips = (values: string[], current: string, set: (v: string) => void, label: string, extra?: (v: string) => number) => values.length > 0 && (
-    <fieldset className="mt-5">
+  const panel = <CartPanel cart={cart} setCart={setCart} total={total} submitLabel={submitLabel} submitting={submitting} error={error} onSubmit={submit} tabs={tabs} tab={tab} setTab={setTab} reorder={reorder} voucher={voucherProps} cartExtra={cartExtra} />
+  const chips = (values: string[], current: string, set: (v: string) => void, label: string) => (
+    <fieldset className="mt-4">
       <legend className="mb-2 text-sm font-medium text-text-primary">{label}</legend>
       <div className="flex flex-wrap gap-2">
-        {values.map((v) => {
-          const plus = extra?.(v) ?? 0
-          return (
-            <button key={v} type="button" aria-pressed={v === current} onClick={() => set(v)} className={`min-h-11 rounded-full border px-4 py-2 text-sm transition-colors ${v === current ? "border-espresso bg-espresso text-white" : "border-border bg-surface text-text-primary hover:border-clay"}`}>
-              {v}{plus > 0 && <span aria-hidden className={`ml-1.5 text-xs ${v === current ? "text-white/75" : "text-text-secondary"}`}>+{formatVND(plus)}</span>}
-            </button>
-          )
-        })}
+        {values.map((v) => (
+          <button key={v} type="button" aria-pressed={v === current} onClick={() => set(v)} className={`min-h-11 rounded-full border px-4 py-2 text-sm ${v === current ? "border-espresso bg-espresso text-white" : "border-border text-text-secondary"}`}>{v}</button>
+        ))}
       </div>
     </fieldset>
   )
-  const card = (p: MenuItem) => {
-    const n = inCart(p.id)
-    return (
-      <li key={p.id}>
-        <button disabled={p.soldOut} onClick={() => pick(p)} className="group flex w-full items-center gap-3 rounded-[18px] border border-border bg-surface p-3 text-left transition-colors hover:border-clay active:border-clay disabled:cursor-not-allowed disabled:bg-bg-base">
-          <span className="relative">
-            <ProductImage src={p.imageUrl} name={p.name} className={`h-20 w-20 ${p.soldOut ? "opacity-50 grayscale" : ""}`} />
-            {n > 0 && <span aria-hidden className="absolute -right-1.5 -top-1.5 flex h-6 min-w-6 items-center justify-center rounded-full bg-terracotta px-1.5 text-xs font-medium text-white">{n}</span>}
-          </span>
-          <span className="min-w-0 flex-1">
-            <span className={`block font-medium leading-snug ${p.soldOut ? "text-text-secondary" : "text-text-primary"}`}>{p.name}</span>
-            {p.description && <span className="mt-0.5 line-clamp-2 text-xs leading-relaxed text-text-secondary">{p.description}</span>}
-            <span className={`mt-1.5 block text-sm font-medium tabular-nums ${p.soldOut ? "text-text-secondary" : "text-clay"}`}>{formatVND(p.price)}</span>
-            {n > 0 && <span className="sr-only">, {n} trong giỏ</span>}
-          </span>
-          {p.soldOut ? <StatusPill tone="danger">Hết</StatusPill> : <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-espresso text-xl text-white transition-transform group-hover:scale-105" aria-hidden>+</span>}
-        </button>
-      </li>
-    )
-  }
-  const grid = (items: MenuItem[]) => <ul className="grid gap-3 sm:grid-cols-2">{items.map(card)}</ul>
 
   return (
-    <div className="grid gap-6 pb-24 lg:grid-cols-[minmax(0,1fr)_360px] lg:pb-0">
-      <div className="min-w-0">
+    <div className="grid gap-6 pb-20 lg:grid-cols-[1fr_360px] lg:pb-0">
+      <div>
         <div className="sticky top-0 z-20 -mx-4 mb-3 flex gap-2 overflow-x-auto bg-bg-base px-4 py-2 sm:-mx-8 sm:px-8 lg:static lg:mx-0 lg:mb-4 lg:px-0 lg:py-0 lg:pb-1" role="tablist" aria-label="Danh mục">
           {categories.map((c) => (
-            <button key={c} role="tab" aria-selected={c === category} onClick={() => setCategory(c)} className={`min-h-11 whitespace-nowrap rounded-full px-5 py-2 text-sm transition-colors ${c === category ? "bg-espresso text-white" : "bg-sand text-text-secondary hover:text-text-primary"}`}>{c}</button>
+            <button key={c} role="tab" aria-selected={c === category} onClick={() => setCategory(c)} className={`min-h-11 whitespace-nowrap rounded-full px-5 py-2 text-sm ${c === category ? "bg-espresso text-white" : "bg-sand text-text-secondary"}`}>{c}</button>
           ))}
         </div>
         {category === "Tất cả" && <>
           {strip("Gợi ý cho bạn", forYou, (q) => `Bạn đã gọi ${q} lần`)}
           {strip("Món bán chạy", bestSellers, (q) => `Đã bán ${q} ly`)}
         </>}
-        {shown.length === 0 ? <EmptyState title="Chưa có món nào" /> : category === "Tất cả" && categories.length > 2 ? (
-          // The whole menu reads like the board on the wall: one heading per category.
-          <div className="space-y-7">
-            {categories.slice(1).map((c) => {
-              const items = shown.filter((p) => p.category === c)
-              return items.length > 0 && (
-                <section key={c} aria-label={c}>
-                  <h2 className="mb-3 flex items-baseline gap-2 font-serif text-xl text-text-primary">{c}<span className="font-sans text-xs text-text-secondary">{items.length} món</span></h2>
-                  {grid(items)}
-                </section>
-              )
-            })}
-          </div>
-        ) : grid(shown)}
+        {shown.length === 0 ? <EmptyState title="Chưa có món nào" /> : (
+          <ul className="grid gap-3 sm:grid-cols-2">
+            {shown.map((p) => (
+              <li key={p.id}>
+                <button disabled={p.soldOut} onClick={() => pick(p)} className="flex w-full items-center gap-3 rounded-[16px] border border-border bg-surface p-3 text-left hover:border-clay active:border-clay disabled:opacity-50">
+                  <ProductImage src={p.imageUrl} name={p.name} className="h-20 w-20" />
+                  <span className="min-w-0 flex-1"><span className="block font-medium leading-snug text-text-primary">{p.name}</span>{p.description && <span className="line-clamp-1 text-xs text-text-secondary">{p.description}</span>}<span className="mt-1 block text-sm font-medium text-clay">{formatVND(p.price)}</span></span>
+                  {p.soldOut ? <StatusPill tone="danger">Hết</StatusPill> : <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-espresso text-xl text-white" aria-hidden>+</span>}
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
 
       <aside aria-label="Giỏ hàng" className="hidden h-fit max-h-[calc(100vh-3rem)] rounded-[16px] border border-border bg-surface p-5 lg:sticky lg:top-6 lg:block">{panel}</aside>
 
       <div className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-surface p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] lg:hidden">
-        <button
-          type="button" onClick={() => setDrawer(true)}
-          aria-label={`${tabs ? "Đơn của bạn" : "Giỏ hàng"}${count > 0 ? ` · ${count} món · ${formatVND(toPay)}` : ""}`}
-          className="flex min-h-13 w-full items-center gap-3 rounded-[14px] bg-terracotta px-4 py-3 text-left text-white active:bg-clay"
-        >
-          <span className="flex h-7 min-w-7 items-center justify-center rounded-full bg-white/20 px-2 text-sm font-medium tabular-nums">{count}</span>
-          <span className="flex-1 font-medium">{count > 0 ? "Xem giỏ hàng" : tabs ? "Đơn của bạn" : "Giỏ hàng trống"}</span>
-          {count > 0 && <span className="font-medium tabular-nums">{formatVND(toPay)}</span>}
-        </button>
+        <Button className="min-h-12 w-full" onClick={() => setDrawer(true)}>{tabs ? "Đơn của bạn" : "Giỏ hàng"}{count > 0 ? ` · ${count} món · ${formatVND(toPay)}` : ""}</Button>
       </div>
       {drawer && (
         <div className="fixed inset-0 z-50 flex items-end bg-[rgba(58,46,34,0.45)] lg:hidden" onMouseDown={() => setDrawer(false)}>
@@ -205,17 +176,17 @@ export function OrderComposer({ products, submitLabel, submitting, error, onSubm
       {picking && (
         <div className="fixed inset-0 z-50 flex items-end bg-[rgba(58,46,34,0.45)] sm:items-center" onMouseDown={() => setPicking(null)}>
           <div role="dialog" aria-modal="true" aria-label={picking.name} onMouseDown={(e) => e.stopPropagation()} className="mx-auto flex max-h-[92vh] w-full max-w-lg flex-col rounded-t-[24px] bg-surface sm:rounded-[24px]">
-            <div className="flex items-start gap-4 p-5 pb-2">
-              <ProductImage src={picking.imageUrl} name={picking.name} className="h-24 w-24" />
-              <div className="min-w-0 flex-1 pt-1"><h2 className="font-serif text-2xl leading-tight text-text-primary">{picking.name}</h2><p className="mt-1 text-sm leading-relaxed text-text-secondary">{picking.description || "Pha chế tại quán."}</p><p className="mt-2 font-medium tabular-nums text-clay">{formatVND(picking.price)}</p></div>
+            <div className="flex items-start gap-3 p-5 pb-2">
+              <ProductImage src={picking.imageUrl} name={picking.name} className="h-20 w-20" />
+              <div className="min-w-0 flex-1"><h2 className="font-serif text-xl leading-tight text-text-primary">{picking.name}</h2><p className="mt-1 text-sm text-text-secondary">{picking.description || "Pha chế tại quán."}</p></div>
               <button aria-label="Đóng" onClick={() => setPicking(null)} className="flex h-10 w-10 items-center justify-center text-2xl text-text-secondary">×</button>
             </div>
             <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-4">
-              {chips(picking.sizes.map((s) => s.label), size, setSize, "Kích cỡ", (v) => picking.sizes.find((s) => s.label === v)?.priceDelta ?? 0)}
+              {chips(picking.sizes.map((s) => s.label), size, setSize, "Kích cỡ")}
               {chips(picking.sugarLevels, sugar, setSugar, "Đường")}
               {chips(picking.iceLevels, ice, setIce, "Đá")}
-              <label className="mt-5 block text-sm font-medium text-text-primary">Ghi chú
-                <input value={note} maxLength={120} placeholder="Ví dụ: ít ngọt, thêm đá riêng" onChange={(e) => setNote(e.target.value)} className="mt-1.5 min-h-11 w-full rounded-[12px] border border-border bg-surface px-3 py-2 text-base" />
+              <label className="mt-4 block text-sm font-medium text-text-primary">Ghi chú
+                <input value={note} maxLength={120} onChange={(e) => setNote(e.target.value)} className="mt-1.5 min-h-11 w-full rounded-[10px] border border-border px-3 py-2 text-base" />
               </label>
             </div>
             <div className="flex items-center gap-3 border-t border-border p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">

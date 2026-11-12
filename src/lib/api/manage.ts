@@ -61,6 +61,8 @@ export const workShiftApi = {
   list: () => http.get<WorkShift[]>("/workforce/work-shifts"),
   save: (id: string | null, b: { name: string; startTime: string; endTime: string }) => (id ? http.put<WorkShift>(`/workforce/work-shifts/${id}`, b) : http.post<WorkShift>("/workforce/work-shifts", b)),
   setActive: (id: string, isActive: boolean) => http.patch<WorkShift>(`/workforce/work-shifts/${id}/status`, { isActive }),
+  /** Only a paused template that no coming shift uses; one with past shifts is hidden and kept for attendance and payroll. */
+  remove: (id: string) => http.delete<void>(`/workforce/work-shifts/${id}`),
 }
 
 export const attendanceApi = {

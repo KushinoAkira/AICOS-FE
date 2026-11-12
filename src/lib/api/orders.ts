@@ -124,6 +124,7 @@ const mockOrdersApi = {
   addTable: (b: { code: string; seats: number; floor: number }) => http.post<TableRow>(`${B}/tables`, b),
   orders: () => http.get<Order[]>(`${B}/orders`),
   ordersBetween: (_from: string, _to: string) => http.get<Order[]>(`${B}/orders`),
+  ordersInRange: (_from: string, _to: string) => http.get<Order[]>(`${B}/orders`),
   cupLabels: (id: string) => http.get<CupLabel[]>(`${B}/orders/${id}/cup-labels`),
   transition: (id: string, b: { status: OrderStatus; reason?: string }) => http.post<Order>(`${B}/orders/${id}/status`, b),
   place: (tableId: string, lines: LineInput[], promotionCode?: string) => http.post<Order>(`${B}/orders`, { tableId, lines, promotionCode: promotionCode || null }),

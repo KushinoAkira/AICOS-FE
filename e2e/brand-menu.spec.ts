@@ -7,7 +7,7 @@ import { expect, test } from "@playwright/test"
 test("Khách chọn món ở /b/demo trước khi đăng nhập, đăng nhập xong giỏ hàng vẫn còn", async ({ page }) => {
   await page.goto("/b/demo")
   await expect(page.getByRole("heading", { name: "Demo Coffee" })).toBeVisible()
-  await page.getByRole("radiogroup", { name: "Chi nhánh nhận hàng" }).getByRole("radio", { name: /Demo Quan 3/ }).click()
+  await page.getByLabel("Chi nhánh nhận hàng").selectOption({ label: "Demo Quan 3" })
   await page.getByRole("button", { name: /Ca phe sua/ }).last().click()
   await page.getByRole("button", { name: /^Thêm ·/ }).click()
 

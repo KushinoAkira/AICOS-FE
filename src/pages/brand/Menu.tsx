@@ -95,7 +95,7 @@ function BrandMenu({ rows, branches, onChanged }: { rows: Product[]; branches: B
       </div>
       <DataTable rows={rows} rowKey={(p) => p.id} columns={columns} pageSize={12} emptyTitle="Chưa có món nào" />
       {editing && (
-        <MenuEditor key={editing === "new" ? "new" : editing.id} product={editing === "new" ? null : editing} saving={save.isPending} serverError={serverError} onSave={(i) => save.mutate(i)} onClose={() => setEditing(null)} />
+        <MenuEditor key={editing === "new" ? "new" : editing.id} product={editing === "new" ? null : editing} categories={rows.map((p) => p.category)} branches={branches} saving={save.isPending} serverError={serverError} onSave={(i) => save.mutate(i)} onClose={() => setEditing(null)} />
       )}
       <ConfirmDialog open={!!removing} danger title={`Xóa món ${removing?.name ?? ""}?`} message="Món sẽ không còn trên thực đơn. Các đơn đã có vẫn giữ nguyên." confirmLabel="Xóa" onCancel={() => setRemoving(null)} onConfirm={() => removing && remove.mutate(removing.id)} />
       <ConfirmDialog open={confirmPublish} title="Publish thực đơn?" message={`${rows.length} món sẽ hiển thị cho khách tại ${branches.length} chi nhánh. Giá được backend tính lại khi khách đặt.`} confirmLabel="Publish" onCancel={() => setConfirmPublish(false)} onConfirm={() => publish.mutate()} />

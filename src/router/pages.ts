@@ -61,6 +61,8 @@ export const PAGE_PATHS = {
   "cashier-tables": "/:tenantSlug/cashier/tables",
   "cashier-serve": "/:tenantSlug/cashier/serve",
   "cashier-shift": "/:tenantSlug/cashier/shift",
+  /** Staff order lookup (Lam follow-up). */
+  "staff-orders": "/:tenantSlug/cashier/orders",
 
   /** Published floor plan viewer (Cashier / Barista / Brand Admin read-only). */
   "floor-plan-view": "/:tenantSlug/floor-plan",

@@ -164,13 +164,18 @@ export const handlers = [
   http.post("*/api/v1/identity/auth/register", async ({ request }) => {
     await delay(250)
     const b = (await request.json()) as { fullName: string; email: string; password: string }
-    const email = b.email?.trim().toLowerCase() || "register"
+    const email = b.email.trim().toLowerCase()
     if (!b.password || b.password.length < 8) return problem(422, "Mật khẩu phải có ít nhất 8 ký tự")
-    if (db.users.some((u) => u.email === email && u.role === "Customer")) {
-      return problem(409, "Email đã được đăng ký", { code: "email_taken" })
+    if (db.users.some((u) => u.email === email)) return problem(409, "Email đã được đăng ký", { code: "user.duplicate_email" })
+    // Lam: signup without OTP — create customer and return a session immediately.
+    const created: UserDto = {
+      id: `u${db.users.length + 1}`, fullName: b.fullName, email, username: null, phone: null, role: "Customer",
+      branchId: null, status: "Active", mustChangePassword: false, lockoutEndUtc: null, lastLoginAtUtc: null,
+      createdAtUtc: new Date().toISOString(), updatedAtUtc: null,
     }
-    pendingSignUps.set(email, { fullName: b.fullName, password: b.password })
-    return HttpResponse.json({ email, expiresInSeconds: 600, resendAfterSeconds: 60 }, { status: 202 })
+    db.users.push(created)
+    db.passwords[db.passwordKey(null, created.email)] = b.password
+    return HttpResponse.json(issueSession(created), { status: 201 })
   }),
   http.post("*/api/v1/identity/auth/register/verify", async ({ request }) => {
     await delay(250)

@@ -60,6 +60,7 @@ export const PAGE_ACCESS: Record<Page, Access> = {
   "cashier-serve": CASHIER,
   // Shared attendance / replacement screen (UC-47/48/31). Cash closing inside stays cashier-only.
   "cashier-shift": [...CASHIER, ...BARISTA],
+  "staff-orders": [...CASHIER, ...BARISTA],
   /** Published layout + live status; Brand Admin read-only with branch picker. */
   "floor-plan-view": [...CASHIER, ...BARISTA, ...BA],
 

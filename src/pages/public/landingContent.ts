@@ -25,3 +25,19 @@ export const FEATURES = [
   { title: "Nhiều chi nhánh, nhiều nhân sự", body: "Phân quyền theo vai trò, xếp ca, chấm công và tìm người thay ca giữa các chi nhánh." },
   { title: "Tích điểm và khuyến mãi", body: "Khách thân thiết tích điểm, đổi voucher. Chủ quán tự cấu hình mức tích và chương trình ưu đãi." },
 ]
+
+/** One order going through the shop: the home page tells the product as this sequence, one stop per role. */
+export const JOURNEY = [
+  { who: "Khách hàng", title: "Gọi món theo cách mình muốn", body: "Quét QR trên bàn, gọi ở kiosk tại quầy, hoặc đặt mang đi và hẹn giờ nhận. Khách ngồi tại quán không cần tài khoản." },
+  { who: "Pha chế", title: "Đơn hiện ngay ở quầy pha", body: "Barista thấy từng món với size, đường, đá; bấm đổi trạng thái và khách biết khi món sẵn sàng." },
+  { who: "Thu ngân", title: "Thu tiền và chốt ca gọn gàng", body: "Tính tiền theo bàn hoặc mã đơn, áp voucher, nhận tiền mặt hay chuyển khoản, chốt tiền cuối ca." },
+  { who: "Chủ quán", title: "Thấy số liệu của mọi chi nhánh", body: "Doanh thu, món bán chạy, hoàn tiền chờ duyệt và ca làm của từng chi nhánh trên một màn hình." },
+]
+
+/** What runs behind the counter, listed under the journey. */
+export const BEHIND = [
+  { title: "Nhiều chi nhánh, một thực đơn", body: "Giá và món hết theo từng chi nhánh, đăng thực đơn một lần cho cả chuỗi." },
+  { title: "Tích điểm và voucher", body: "Khách tích điểm theo hạng, đổi voucher; chủ quán tự đặt mức tích và ưu đãi." },
+  { title: "Ca làm và bảng lương", body: "Xếp ca, chấm công, đổi ca có duyệt và tính lương theo giờ làm." },
+  { title: "Hoàn tiền có người duyệt", body: "Thu ngân tạo yêu cầu, quản lý duyệt theo chính sách của thương hiệu, mọi bước đều được ghi lại." },
+]

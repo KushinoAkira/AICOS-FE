@@ -4,7 +4,7 @@ import type { Page } from "../../App"
 import { PageFrame } from "../../components/PageFrame"
 import { Banner, Button, EmptyState, Field, Modal, QueryBoundary, StatusPill } from "../../components/ui"
 import { useToast } from "../../context/ToastContext"
-import { PERIOD_LABEL, staffApi } from "../../lib/api/staff"
+import { shiftLabel, staffApi } from "../../lib/api/staff"
 import { dayLabel, mondayOf, todayKey } from "../../lib/dates"
 
 /** Replacement shifts: the manager opens a request, staff (including other branches of the brand, BR-51) apply, the manager picks one. */
@@ -22,13 +22,13 @@ export default function ShiftRequests({ navigate }: { navigate: (p: Page) => voi
   const approve = useMutation({ mutationFn: (v: { id: string; userId: string }) => staffApi.approve(v.id, v.userId), onSuccess: () => { refresh(); void qc.invalidateQueries({ queryKey: ["shifts"] }); showToast("Đã duyệt người thay ca", "success") }, onError: (e) => { showToast(e.message, "error"); refresh() } })
 
   return (
-    <PageFrame page="branch-shift-requests" navigate={navigate} uc="UC-47" title="Ca thay" subtitle="Mở ca thay khi có người nghỉ. Nhân viên cùng thương hiệu có thể đăng ký." action={<Button onClick={() => { setError(null); setOpen(true) }}>Mở ca thay</Button>}>
+    <PageFrame page="branch-shift-requests" navigate={navigate} uc="UC-47" title="Ca thay" subtitle="Mở ca thay khi có người nghỉ. Nhân viên cùng chi nhánh có thể đăng ký; bạn chọn một người." action={<Button onClick={() => { setError(null); setOpen(true) }}>Mở ca thay</Button>}>
       <QueryBoundary query={reqs}>
         {(rows) => rows.length === 0 ? <EmptyState title="Chưa có yêu cầu ca thay" /> : (
           <ul className="space-y-4">
             {rows.map((r) => (
               <li key={r.id} className="rounded-[16px] border border-border bg-surface p-5">
-                <div className="flex flex-wrap items-center justify-between gap-2"><p className="font-medium text-text-primary">{dayLabel(r.shift.date)} · {PERIOD_LABEL[r.shift.period]}</p><StatusPill tone={r.status === "open" ? "pending" : "success"}>{r.status === "open" ? "Đang nhận đăng ký" : `Đã có người thay: ${r.filledBy}`}</StatusPill></div>
+                <div className="flex flex-wrap items-center justify-between gap-2"><p className="font-medium text-text-primary">{dayLabel(r.shift.date)} · {shiftLabel(r.shift)}</p><StatusPill tone={r.status === "open" ? "pending" : "success"}>{r.status === "open" ? "Đang nhận đăng ký" : `Đã có người thay: ${r.filledBy}`}</StatusPill></div>
                 <p className="mt-1 text-sm text-text-secondary">Người nghỉ: {r.shift.userName} · Lý do: {r.reason}</p>
                 {r.status === "open" && (r.applicants.length === 0 ? <p className="mt-3 text-sm text-text-secondary">Chưa có ai đăng ký.</p> : (
                   <ul className="mt-3 divide-y divide-border text-sm">
@@ -46,7 +46,7 @@ export default function ShiftRequests({ navigate }: { navigate: (p: Page) => voi
           <label className="block text-sm font-medium text-text-primary">Ca cần thay
             <select value={shiftId} onChange={(e) => setShiftId(e.target.value)} className="mt-1.5 w-full rounded-[10px] border border-border bg-surface px-3 py-3 text-sm">
               <option value="">Chọn ca</option>
-              {(shifts.data ?? []).map((s) => <option key={s.id} value={s.id}>{dayLabel(s.date)} · {PERIOD_LABEL[s.period]} · {s.userName}</option>)}
+              {(shifts.data ?? []).map((s) => <option key={s.id} value={s.id}>{dayLabel(s.date)} · {shiftLabel(s)} · {s.userName}</option>)}
             </select>
           </label>
           <Field label="Lý do" value={reason} onChange={(e) => setReason(e.target.value)} />

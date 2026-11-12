@@ -24,6 +24,7 @@ export const PAGE_ACCESS: Record<Page, Access> = {
   privacy: "public",
   contact: "public",
   "staff-entry": "public",
+  "register-brand": "public",
   login: "public",
   "admin-login": "public",
   "auth-customer-register": "public",
@@ -33,10 +34,14 @@ export const PAGE_ACCESS: Record<Page, Access> = {
   "auth-reset-password": "public",
   "guest-menu": "public",
   "guest-order-status": "public",
+  "brand-menu": "public",
+  "order-start": "public",
 
   "account-settings": "authenticated",
+  "staff-notifications": ["superAdmin", "brandAdmin", "branchManager", "barista", "cashier"],
 
   "customer-shops": CUSTOMER,
+  "customer-brands": CUSTOMER,
   "customer-menu": CUSTOMER,
   "customer-tracking": CUSTOMER,
   "customer-loyalty": CUSTOMER,
@@ -48,10 +53,14 @@ export const PAGE_ACCESS: Record<Page, Access> = {
   "barista-queue": BARISTA,
 
   "cashier-pos": CASHIER,
+  /** A counter tablet turned to face the customer. Branch accounts order for their branch; a brand admin picks any branch. */
+  kiosk: ["cashier", "branchManager", "brandAdmin"],
   "cashier-payments": CASHIER,
   "cashier-tables": CASHIER,
+  "cashier-serve": CASHIER,
   // Shared attendance / replacement screen (UC-47/48/31). Cash closing inside stays cashier-only.
   "cashier-shift": [...CASHIER, ...BARISTA],
+  "staff-orders": [...CASHIER, ...BARISTA],
   /** Published layout + live status; Brand Admin read-only with branch picker. */
   "floor-plan-view": [...CASHIER, ...BARISTA, ...BA],
 
@@ -62,9 +71,12 @@ export const PAGE_ACCESS: Record<Page, Access> = {
   "manager-payroll": BM,
   "manager-payroll-detail": BM,
   "branch-tables": BRAND_AND_BRANCH,
+  "branch-tables-print": BRAND_AND_BRANCH,
   "branch-floor-plan": BM,
   "branch-pickup": BM,
   "branch-orders": BM,
+  "branch-attendance": BM,
+  "branch-cash-closings": BM,
 
   "manager-menu": BRAND_AND_BRANCH,
   "manager-reports": BRAND_AND_BRANCH,
@@ -82,6 +94,7 @@ export const PAGE_ACCESS: Record<Page, Access> = {
   "brand-pay-rules": BA,
   "brand-merchant": BA,
   "admin-logs": BA,
+  "brand-reconciliation": BA,
 
   "platform-tenants": SA,
   "platform-plans": SA,

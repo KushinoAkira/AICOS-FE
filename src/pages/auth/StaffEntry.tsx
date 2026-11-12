@@ -3,7 +3,7 @@ import type { CSSProperties } from "react"
 import type { Page } from "../../router/pages"
 import { AuthShell } from "../../components/AuthShell"
 import { ErrorState, LoadingState } from "../../components/ui"
-import { publicApi, type BrandPublic } from "../../lib/api/platform"
+import { publicApi, type BrandCard, type BrandPublic } from "../../lib/api/platform"
 import { setActiveBrandSlug } from "../../lib/brand"
 
 /** Marketing entry: pick a tenant, then open `/{slug}/login`. AICOS stays the product; brands are destinations. */
@@ -71,7 +71,7 @@ export default function StaffEntry({ navigate }: { navigate: (p: Page, params?: 
   )
 }
 
-function BrandRow({ brand, onPick }: { brand: BrandPublic; onPick: () => void }) {
+function BrandRow({ brand, onPick }: { brand: BrandPublic | BrandCard; onPick: () => void }) {
   const accent = brand.brandColor || "var(--color-terracotta)"
   return (
     <button

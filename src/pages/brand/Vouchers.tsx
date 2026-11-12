@@ -6,6 +6,10 @@ import { Banner, Button, DataTable, Field, Modal, QueryBoundary, StatusPill, typ
 import { useToast } from "../../context/ToastContext"
 import { brandApi, type Voucher, type VoucherInput } from "../../lib/api/brand"
 import { formatDate, formatVND } from "../../lib/format"
+import { env } from "../../config/env"
+
+/** The backend keeps one redemption per code (a voucher is used once), so the usage limit is only a mock-data feature. */
+const SINGLE_USE = !env.useMock
 
 const EMPTY = { code: "", kind: "percent" as const, value: "", minOrder: "0", expiresAt: "", maxUses: "100" }
 
@@ -39,16 +43,16 @@ export default function BrandVouchers({ navigate }: { navigate: (p: Page) => voi
     if (!/^[A-Za-z0-9]{4,16}$/.test(form.code)) return setError("Mã gồm 4-16 chữ và số")
     if (!(value > 0) || (form.kind === "percent" && value > 100)) return setError(form.kind === "percent" ? "Phần trăm giảm từ 1 đến 100" : "Số tiền giảm phải lớn hơn 0")
     if (!form.expiresAt || new Date(form.expiresAt) < new Date()) return setError("Chọn ngày hết hạn trong tương lai")
-    if (!(Number(form.maxUses) > 0)) return setError("Số lượt dùng tối đa phải lớn hơn 0")
+    if (!SINGLE_USE && !(Number(form.maxUses) > 0)) return setError("Số lượt dùng tối đa phải lớn hơn 0")
     setError(null)
-    create.mutate({ code: form.code, kind: form.kind as VoucherInput["kind"], value, minOrder: Number(form.minOrder) || 0, expiresAt: new Date(form.expiresAt).toISOString(), maxUses: Number(form.maxUses) })
+    create.mutate({ code: form.code, kind: form.kind as VoucherInput["kind"], value, minOrder: Number(form.minOrder) || 0, expiresAt: new Date(form.expiresAt).toISOString(), maxUses: SINGLE_USE ? 1 : Number(form.maxUses) })
   }
 
   const columns: Column<Voucher>[] = [
     { key: "code", header: "Mã", sort: (v) => v.code, render: (v) => <span className="font-mono font-medium text-text-primary">{v.code}</span> },
     { key: "value", header: "Giảm", render: (v) => (v.kind === "percent" ? `${v.value}%` : formatVND(v.value)) },
     { key: "min", header: "Đơn tối thiểu", render: (v) => (v.minOrder ? formatVND(v.minOrder) : "Không") },
-    { key: "uses", header: "Lượt dùng", sort: (v) => v.used, render: (v) => `${v.used}/${v.maxUses}` },
+    { key: "uses", header: SINGLE_USE ? "Đã dùng" : "Lượt dùng", sort: (v) => v.used, render: (v) => (SINGLE_USE ? (v.used ? "Đã dùng" : "Chưa dùng") : `${v.used}/${v.maxUses}`) },
     { key: "exp", header: "Hết hạn", sort: (v) => v.expiresAt, render: (v) => formatDate(v.expiresAt) },
     { key: "state", header: "Trạng thái", render: (v) => { const s = state(v); return <StatusPill tone={s.tone}>{s.label}</StatusPill> } },
     { key: "act", header: "", className: "text-right", render: (v) => <Button variant="ghost" className="px-3 py-1.5 text-xs" onClick={() => toggle.mutate({ id: v.id, active: !v.active })}>{v.active ? "Tắt" : "Bật"}</Button> },
@@ -73,7 +77,7 @@ export default function BrandVouchers({ navigate }: { navigate: (p: Page) => voi
           <Field label="Đơn tối thiểu (₫)" inputMode="numeric" value={form.minOrder} onChange={(e) => setForm({ ...form, minOrder: e.target.value.replace(/\D/g, "") })} />
           <div className="grid grid-cols-2 gap-3">
             <Field label="Hết hạn" type="date" value={form.expiresAt} onChange={(e) => setForm({ ...form, expiresAt: e.target.value })} />
-            <Field label="Số lượt tối đa" inputMode="numeric" value={form.maxUses} onChange={(e) => setForm({ ...form, maxUses: e.target.value.replace(/\D/g, "") })} />
+            {SINGLE_USE ? <p className="text-sm text-text-secondary">Mỗi mã dùng được một lần. Cần nhiều lượt thì tạo nhiều mã.</p> : <Field label="Số lượt tối đa" inputMode="numeric" value={form.maxUses} onChange={(e) => setForm({ ...form, maxUses: e.target.value.replace(/\D/g, "") })} />}
           </div>
         </div>
       </Modal>

@@ -1,4 +1,4 @@
-﻿/** The only place that decides which order transitions are legal. UI calls these, never guesses. */
+/** The only place that decides which order transitions are legal. UI calls these, never guesses. */
 export type OrderStatus =
   | "PendingPayment"
   | "Scheduled"

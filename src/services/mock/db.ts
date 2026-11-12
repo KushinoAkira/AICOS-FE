@@ -117,8 +117,8 @@ export const subscriptions: Subscription[] = [
 ]
 
 export const providers: PaymentProvider[] = [
-  { id: "pp1", name: "Mock Pay", mode: "mock", enabled: true, secretHint: "••••••••" },
-  { id: "pp2", name: "VNPay Sandbox", mode: "sandbox", enabled: false, secretHint: "••••••a91f" },
+  { id: "pp1", code: "Mock", name: "Mock Pay", mode: "mock", enabled: true, hasApiKey: false, hasSecretKey: false },
+  { id: "pp2", code: "VietQR", name: "VietQR Sandbox", mode: "sandbox", enabled: false, hasApiKey: true, apiKeyHint: "a91f", hasSecretKey: true },
 ]
 
 export const health = (): HealthItem[] => {

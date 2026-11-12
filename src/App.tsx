@@ -10,7 +10,6 @@ import {
   matchPage,
   pathFor,
   type NavigationState,
-  type OtpFlow,
   type Page,
 } from "./router/pages"
 import { getActiveBrandSlug, setActiveBrandSlug } from "./lib/brand"
@@ -28,9 +27,15 @@ const AdminLogin = lazy(() => import("./pages/auth/AdminLogin"))
 const CustomerRegister = lazy(() => import("./pages/auth/CustomerRegister"))
 const CustomerLogin = lazy(() => import("./pages/auth/CustomerLogin"))
 const OTPVerification = lazy(() => import("./pages/auth/OTPVerification"))
+const RegisterBrand = lazy(() => import("./pages/public/RegisterBrand"))
+const CustomerBrands = lazy(() => import("./pages/customer/Brands"))
+const BrandMenu = lazy(() => import("./pages/public/BrandMenu"))
+const OrderStart = lazy(() => import("./pages/public/OrderStart"))
+const Kiosk = lazy(() => import("./pages/kiosk/Kiosk"))
 const ForgotPassword = lazy(() => import("./pages/auth/ForgotPassword"))
 const ResetPassword = lazy(() => import("./pages/auth/ResetPassword"))
 const AccountSettings = lazy(() => import("./pages/shared/AccountSettings"))
+const StaffNotifications = lazy(() => import("./pages/shared/StaffNotifications"))
 
 const CustomerShops = lazy(() => import("./pages/customer/ShopPicker"))
 const CustomerMenu = lazy(() => import("./pages/customer/Takeaway"))
@@ -62,8 +67,11 @@ const GuestMenu = lazy(() => import("./pages/guest/GuestMenu"))
 const GuestStatus = lazy(() => import("./pages/guest/GuestStatus"))
 const BranchOrders = lazy(() => import("./pages/brand/BranchOrders"))
 const BranchTables = lazy(() => import("./pages/brand/BranchTables"))
+const TablesPrint = lazy(() => import("./pages/brand/TablesPrint"))
 const CashierTables = lazy(() => import("./pages/cashier/Tables"))
 const CashierShifts = lazy(() => import("./pages/cashier/Shifts"))
+const StaffOrderHistory = lazy(() => import("./pages/cashier/OrderHistory"))
+const CashierServe = lazy(() => import("./pages/cashier/Serve"))
 
 const ManagerDashboard = lazy(() => import("./pages/manager/Dashboard"))
 const ManagerReports = lazy(() => import("./pages/manager/Reports"))
@@ -73,6 +81,9 @@ const ManagerPayroll = lazy(() => import("./pages/manager/Payroll"))
 const ManagerPayrollDetail = lazy(() => import("./pages/manager/PayrollDetail"))
 const FloorPlanEditor = lazy(() => import("./pages/manager/FloorPlanEditor"))
 const FloorPlanViewer = lazy(() => import("./pages/staff/FloorPlanViewer"))
+const ManagerAttendance = lazy(() => import("./pages/manager/Attendance"))
+const ManagerCashClosings = lazy(() => import("./pages/manager/CashClosings"))
+const BrandReconciliation = lazy(() => import("./pages/brand/Reconciliation"))
 
 const AdminSystemLogs = lazy(() => import("./pages/admin/SystemLogs"))
 
@@ -117,7 +128,6 @@ export default function App() {
   const state = (location.state ?? {}) as NavigationState
   const matched = matchPage(location.pathname)
   const currentPage = matched?.page
-  const otpFlow: OtpFlow = state.otpFlow ?? "register"
   const returnPage: Page = state.from ?? (user ? homePageOf(user) : "staff-entry")
 
   useEffect(() => {
@@ -170,19 +180,24 @@ export default function App() {
     privacy: <Privacy navigate={navigate} />,
     contact: <Contact navigate={navigate} />,
     "staff-entry": <StaffEntry navigate={navigate} />,
+    "register-brand": <RegisterBrand navigate={navigate} />,
     login: <Login navigate={navigate} />,
     "admin-login": <AdminLogin navigate={navigate} />,
     "auth-customer-register": <CustomerRegister navigate={navigate} />,
     "auth-customer-login": <CustomerLogin navigate={navigate} />,
-    "auth-otp": <OTPVerification navigate={navigate} flow={otpFlow} />,
+    "auth-otp": <OTPVerification navigate={navigate} />,
     "auth-forgot-password": <ForgotPassword navigate={navigate} />,
     "auth-reset-password": <ResetPassword navigate={navigate} />,
     "account-settings": <AccountSettings navigate={navigate} returnPage={returnPage} />,
+    "staff-notifications": <StaffNotifications navigate={navigate} />,
 
     "guest-menu": <GuestMenu navigate={navigate} />,
     "guest-order-status": <GuestStatus navigate={navigate} />,
 
+    "brand-menu": <BrandMenu navigate={navigate} />,
+    "order-start": <OrderStart navigate={navigate} />,
     "customer-shops": <CustomerShops navigate={navigate} />,
+    "customer-brands": <CustomerBrands navigate={navigate} />,
     "customer-menu": <CustomerMenu navigate={navigate} />,
     "customer-tracking": <CustomerOrderTracking navigate={navigate} />,
     "customer-loyalty": <CustomerLoyalty navigate={navigate} />,
@@ -194,9 +209,12 @@ export default function App() {
     "barista-queue": <BaristaQueue navigate={navigate} />,
 
     "cashier-pos": <CashierPOS navigate={navigate} />,
+    kiosk: <Kiosk navigate={navigate} />,
     "cashier-payments": <CashierPayments navigate={navigate} />,
     "cashier-tables": <CashierTables navigate={navigate} />,
+    "cashier-serve": <CashierServe navigate={navigate} />,
     "cashier-shift": <CashierShifts navigate={navigate} />,
+    "staff-orders": <StaffOrderHistory navigate={navigate} />,
     "floor-plan-view": <FloorPlanViewer navigate={navigate} />,
 
     "manager-dashboard": <ManagerDashboard navigate={navigate} />,
@@ -206,9 +224,12 @@ export default function App() {
     "manager-payroll": <ManagerPayroll navigate={navigate} />,
     "manager-payroll-detail": <ManagerPayrollDetail navigate={navigate} />,
     "branch-tables": <BranchTables navigate={navigate} />,
+    "branch-tables-print": <TablesPrint />,
     "branch-floor-plan": <FloorPlanEditor navigate={navigate} />,
     "branch-pickup": <BranchPickupPage navigate={navigate} />,
     "branch-orders": <BranchOrders navigate={navigate} />,
+    "branch-attendance": <ManagerAttendance navigate={navigate} />,
+    "branch-cash-closings": <ManagerCashClosings navigate={navigate} />,
 
     "manager-menu": <ManagerMenuManagement navigate={navigate} />,
     "manager-reports": <ManagerReports navigate={navigate} />,
@@ -226,6 +247,7 @@ export default function App() {
     "brand-pay-rules": <BrandPayRules navigate={navigate} />,
     "brand-merchant": <BrandMerchant navigate={navigate} />,
     "admin-logs": <AdminSystemLogs navigate={navigate} />,
+    "brand-reconciliation": <BrandReconciliation navigate={navigate} />,
     "platform-tenants": <PlatformTenants navigate={navigate} />,
     "platform-plans": <PlatformPlans navigate={navigate} />,
     "platform-subscriptions": <PlatformSubscriptions navigate={navigate} />,
@@ -243,6 +265,19 @@ export default function App() {
       if (onStaffLogin && role === "customer") return <Navigate to={PAGE_PATHS.landing} replace />
       if (onStaffLogin && role !== null) return <Navigate to={pathFor(homePageOf(user))} replace />
       if (!onCustomerAuth && !onStaffLogin) return <Navigate to={pathFor(homePageOf(user))} replace />
+    }
+    // Path-tenant: customer pages under /:tenantSlug need an active slug (or shops picker).
+    if (
+      role === "customer" &&
+      page.startsWith("customer-") &&
+      page !== "customer-shops" &&
+      page !== "customer-brands" &&
+      pageNeedsTenantGuard(page) &&
+      !getActiveBrandSlug() &&
+      !tokenStore.get()?.tenantSlug &&
+      !tokenStore.get()?.activeBrandCode
+    ) {
+      return <Navigate to={PAGE_PATHS["customer-shops"]} replace />
     }
     if (canAccess(page, role)) return screens[page]
     if (!user) {
@@ -283,4 +318,8 @@ export default function App() {
       </ErrorBoundary>
     </ToastProvider>
   )
+}
+
+function pageNeedsTenantGuard(page: Page): boolean {
+  return PAGE_PATHS[page].includes(":tenantSlug")
 }

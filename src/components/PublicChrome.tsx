@@ -24,11 +24,12 @@ export function PublicHeader({ navigate }: { navigate: (p: Page) => void }) {
           <Link to="/#tinh-nang" className={`hidden md:block ${linkCls}`}>Tính năng</Link>
           <Link to="/#bang-gia" className={`hidden md:block ${linkCls}`}>Bảng giá</Link>
           <Link to="/#hoi-dap" className={`hidden lg:block ${linkCls}`}>Hỏi đáp</Link>
-          {/* B2B marketing only — never link into a brand's customer app (/menu). Customers enter via table QR. */}
+          {/* B2B marketing — staff via staff-entry; also offer self-serve brand register + order start from voucher. */}
           {role !== "customer" && (
             <button type="button" onClick={goStaffLogin} className={`min-h-10 ${linkCls}`}>Đăng nhập quán</button>
           )}
-          <Button className="min-h-10 px-4 py-2" onClick={() => navigate("contact")}>Liên hệ tư vấn</Button>
+          <Button variant="secondary" className="min-h-10 px-4 py-2" onClick={() => navigate("order-start")}>Đặt món</Button>
+          <Button className="min-h-10 px-4 py-2" onClick={() => navigate("register-brand")}>Đăng ký quán</Button>
         </nav>
       </div>
     </header>
@@ -76,11 +77,13 @@ export function PublicFooter({ navigate }: { navigate: (p: Page) => void }) {
           <li><Link to="/#hoi-dap" className={fl}>Câu hỏi thường gặp</Link></li>
         </Col>
         <Col title="Bắt đầu">
-          {btn("Liên hệ để được cấp quán", "contact")}
+          {btn("Đăng ký quán", "register-brand")}
           {role !== "customer" && (
             <li><button type="button" onClick={goStaffLogin} className={`text-left ${fl}`}>Đăng nhập quản lý và nhân viên</button></li>
           )}
-          <li className="text-white/50">Khách gọi món bằng QR tại quán (không dùng trang chủ này)</li>
+          {btn("Đăng nhập khách hàng", "auth-customer-login")}
+          {btn("Đăng ký khách hàng", "auth-customer-register")}
+          {btn("Liên hệ tư vấn", "contact")}
         </Col>
         <Col title="Hỗ trợ và pháp lý">
           {btn("Liên hệ", "contact")}

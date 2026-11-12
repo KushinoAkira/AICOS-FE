@@ -10,6 +10,8 @@ export interface StoredSession {
   tenantSlug?: string | null
   /** Tenant id claim (null for Super Admin / platform customer). */
   tenantId?: string | null
+  /** Customers: the brand chosen for this session. The account itself belongs to no brand. */
+  activeBrandCode?: string | null
 }
 
 const KEY = "aicos.session"

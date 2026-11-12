@@ -7,6 +7,7 @@ import { useToast } from "../../context/ToastContext"
 import { feedbackApi } from "../../lib/api/engage"
 import type { Order } from "../../lib/api/orders"
 import { formatDateTime } from "../../lib/format"
+import { orderTitle, shortOrderCode } from "../../lib/orderLabel"
 
 function Stars({ value, onChange }: { value: number; onChange?: (n: number) => void }) {
   return (
@@ -28,7 +29,7 @@ function Form({ order, onDone }: { order: Order; onDone: () => void }) {
   })
   return (
     <li className="rounded-[16px] border border-border bg-surface p-5">
-      <p className="font-medium text-text-primary">{order.code} <span className="text-sm font-normal text-text-secondary">· {order.lines.map((l) => l.name).join(", ")}</span></p>
+      <p className="font-medium text-text-primary">{orderTitle(order.lines)} <span className="text-sm font-normal text-text-secondary">· {shortOrderCode(order.code)}</span></p>
       <div className="mt-3"><Stars value={rating} onChange={setRating} /></div>
       <textarea aria-label="Góp ý" maxLength={500} value={comment} onChange={(e) => setComment(e.target.value)} placeholder="Góp ý thêm (không bắt buộc)" className="mt-3 w-full rounded-[10px] border border-border p-3 text-sm" rows={2} />
       {send.isError && <div className="mt-2"><Banner>{send.error.message}</Banner></div>}

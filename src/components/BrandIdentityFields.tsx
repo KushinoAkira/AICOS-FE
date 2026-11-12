@@ -1,7 +1,31 @@
 import { useRef, useState } from "react"
 import { BRAND_COLORS, DEFAULT_BRAND_COLOR, LOGO_TYPES, MAX_LOGO_BYTES, isHexColor } from "../lib/brand"
 
-/** Logo upload with preview. Value is a data URL (mock); real mode would upload the file and keep its URL. */
+/** Shrinks a picture to at most 256 px, so the logo stays small enough to be sent with every brand card. SVG stays as it is. */
+function shrink(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onerror = () => reject(new Error("read"))
+    reader.onload = () => {
+      const source = String(reader.result)
+      if (file.type === "image/svg+xml") return resolve(source)
+      const image = new Image()
+      image.onerror = () => reject(new Error("decode"))
+      image.onload = () => {
+        const scale = Math.min(1, 256 / Math.max(image.width, image.height))
+        const canvas = document.createElement("canvas")
+        canvas.width = Math.round(image.width * scale)
+        canvas.height = Math.round(image.height * scale)
+        canvas.getContext("2d")?.drawImage(image, 0, 0, canvas.width, canvas.height)
+        resolve(canvas.toDataURL("image/png"))
+      }
+      image.src = source
+    }
+    reader.readAsDataURL(file)
+  })
+}
+
+/** Logo upload with preview. The value is a small data URL kept with the brand. */
 export function LogoPicker({ value, onChange, name }: { value?: string; onChange: (v: string | undefined) => void; name: string }) {
   const input = useRef<HTMLInputElement>(null)
   const [error, setError] = useState<string | null>(null)
@@ -11,10 +35,7 @@ export function LogoPicker({ value, onChange, name }: { value?: string; onChange
     setError(null)
     if (!LOGO_TYPES.includes(file.type)) return setError("Chỉ nhận ảnh PNG, JPG, WebP hoặc SVG")
     if (file.size > MAX_LOGO_BYTES) return setError("Logo tối đa 512 KB")
-    const reader = new FileReader()
-    reader.onload = () => onChange(String(reader.result))
-    reader.onerror = () => setError("Không đọc được tệp ảnh")
-    reader.readAsDataURL(file)
+    shrink(file).then((url) => (url.length > 200_000 ? setError("Logo quá lớn, hãy chọn ảnh đơn giản hơn") : onChange(url))).catch(() => setError("Không đọc được tệp ảnh"))
   }
 
   return (

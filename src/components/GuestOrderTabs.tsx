@@ -1,41 +1,38 @@
 import { useState } from "react"
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { OrderStatusPill } from "./OrderStatusPill"
-import { Banner, Button, EmptyState, ErrorState, LoadingState } from "./ui"
+import { useQuery } from "@tanstack/react-query"
+import { GuestOrderCard } from "./GuestOrderCard"
+import { GuestPay } from "./GuestPay"
+import { Button, EmptyState, ErrorState, LoadingState } from "./ui"
 import { ordersApi, type LineInput, type Order } from "../lib/api/orders"
-import { formatDateTime, formatTime, formatVND } from "../lib/format"
+import { pollWhile } from "../lib/realtime"
+import { formatDateTime, formatVND } from "../lib/format"
 import { clearGuestHistory, readGuestHistory, type PastOrder } from "../lib/guestHistory"
 
-const linesText = (lines: Order["lines"]) => lines.map((l) => `${l.qty}× ${l.name} (${l.size})`).join(", ")
+const linesText = (lines: Order["lines"]) => lines.map((l) => `${l.qty}× ${l.name}${l.size ? ` (${l.size})` : ""}`).join(", ")
+
+/** A sitting that was paid has closed, so its channel is gone: these orders are followed by asking. */
+export const paidAndStillMaking = (o: Order) => o.paymentStatus === "Paid" && !["Served", "PickedUp", "Cancelled", "Unfulfillable", "NoShow"].includes(o.status)
 
 /** "Đã gọi": the table's open orders with live status and the bill request. */
-export function OrderedTab({ token }: { token: string }) {
-  const qc = useQueryClient()
-  const orders = useQuery({ queryKey: ["guest", token, "orders"], queryFn: () => ordersApi.guestOrders(token), refetchInterval: 5000, retry: false })
-  const bill = useMutation({ mutationFn: () => ordersApi.requestBill(token), onSuccess: () => void qc.invalidateQueries({ queryKey: ["guest", token] }) })
+export function OrderedTab({ token, channelUp = false }: { token: string; channelUp?: boolean }) {
+  const orders = useQuery({ queryKey: ["guest", token, "orders"], queryFn: () => ordersApi.guestOrders(token), refetchInterval: (q) => (q.state.data?.some(paidAndStillMaking) ? 5000 : pollWhile(channelUp, 5000)), retry: false })
   if (orders.isPending) return <LoadingState />
   if (orders.isError) return <ErrorState description={orders.error.message} onRetry={() => void orders.refetch()} />
   if (orders.data.length === 0) return <EmptyState title="Bàn chưa gọi món nào" description="Món đã gửi sẽ hiện ở đây cùng trạng thái." />
   const live = orders.data.filter((o) => o.status !== "Cancelled" && o.status !== "Unfulfillable")
   const total = live.reduce((s, o) => s + o.total, 0)
-  const allPaid = live.length > 0 && live.every((o) => o.paymentStatus === "Paid")
+  const due = live.filter((o) => o.paymentStatus === "Unpaid").reduce((s, o) => s + o.total, 0)
+  const allPaid = live.length > 0 && due === 0
   return (
     <div>
       <ul className="space-y-3">
-        {orders.data.map((o) => (
-          <li key={o.id} className="rounded-[14px] border border-border p-3 text-sm">
-            <div className="flex items-center justify-between"><b className="text-text-primary">{o.code} <span className="font-normal text-text-secondary">{formatTime(o.createdAtUtc)}</span></b><OrderStatusPill status={o.status} /></div>
-            <ul className="mt-2 text-text-secondary">{o.lines.map((l, i) => <li key={i}>{l.qty}× {l.name} ({l.size})</li>)}</ul>
-            {o.status === "Unfulfillable" && <div className="mt-2"><Banner>Quán không làm được đơn này{o.reason ? `: ${o.reason}` : ""}. Bạn không bị tính tiền.</Banner></div>}
-          </li>
-        ))}
+        {orders.data.map((o) => <li key={o.id}><GuestOrderCard order={o} compact /></li>)}
       </ul>
       {allPaid ? (
-        <div className="mt-4 rounded-[14px] bg-sand p-4"><p className="font-serif text-lg text-text-primary">Đã thanh toán {formatVND(total)}</p><p className="text-xs text-text-secondary">Cảm ơn bạn! Đơn sẽ được lưu vào lịch sử khi thu ngân hoàn thành bàn.</p></div>
+        <div className="mt-4 rounded-[14px] bg-sand p-4"><p className="font-serif text-lg text-text-primary">Đã thanh toán {formatVND(total)}</p><p className="text-xs text-text-secondary">{live.some(paidAndStillMaking) ? "Thanh toán thành công. Quán đang chuẩn bị món, bạn theo dõi tiến độ pha chế và giao món ngay tại đây." : "Thanh toán thành công. Món đã được phục vụ, cảm ơn bạn!"}</p></div>
       ) : (
-        <div className="mt-4 flex items-center justify-between rounded-[14px] bg-sand p-4"><div><p className="text-xs text-text-secondary">Tạm tính</p><p className="font-serif text-lg text-text-primary">{formatVND(total)}</p></div><Button loading={bill.isPending} disabled={bill.isSuccess} onClick={() => bill.mutate()}>{bill.isSuccess ? "Đã gọi thanh toán" : "Gọi thanh toán"}</Button></div>
+        <GuestPay token={token} due={due} />
       )}
-      {bill.isError && <div className="mt-2"><Banner>{bill.error.message}</Banner></div>}
     </div>
   )
 }

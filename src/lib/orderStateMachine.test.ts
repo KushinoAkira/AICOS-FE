@@ -1,4 +1,4 @@
-﻿import { describe, expect, it } from "vitest"
+import { describe, expect, it } from "vitest"
 import { canTransition, maxRefundable, tableStateOf } from "./orderStateMachine"
 import { formatVND } from "./format"
 

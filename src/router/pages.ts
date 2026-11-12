@@ -21,6 +21,7 @@ export const PAGE_PATHS = {
   login: "/:tenantSlug/login",
   /** Super Admin — no tenant. */
   "admin-login": "/admin/login",
+  "register-brand": "/register-brand",
 
   "auth-customer-register": "/sign-up",
   "auth-customer-login": "/customer-login",
@@ -29,13 +30,19 @@ export const PAGE_PATHS = {
   "auth-reset-password": "/reset-password/:token",
 
   "account-settings": "/account-settings",
+  "staff-notifications": "/staff/notifications",
 
   // Guest (no account, table QR) — token is globally unique
   "guest-menu": "/t/:token",
   "guest-order-status": "/t/:token/status",
 
+  // Public menu of one brand: anyone browses, ordering needs a customer account
+  "brand-menu": "/b/:brandSlug",
+  "order-start": "/dat-mon",
+
   // Customer (after shop pick → under slug)
   "customer-shops": "/shops",
+  "customer-brands": "/brands",
   "customer-menu": "/:tenantSlug/menu",
   "customer-tracking": "/:tenantSlug/orders",
   "customer-loyalty": "/:tenantSlug/loyalty",
@@ -49,8 +56,10 @@ export const PAGE_PATHS = {
 
   // Cashier
   "cashier-pos": "/:tenantSlug/cashier/pos",
+  kiosk: "/:tenantSlug/kiosk",
   "cashier-payments": "/:tenantSlug/cashier/payments",
   "cashier-tables": "/:tenantSlug/cashier/tables",
+  "cashier-serve": "/:tenantSlug/cashier/serve",
   "cashier-shift": "/:tenantSlug/cashier/shift",
 
   /** Published floor plan viewer (Cashier / Barista / Brand Admin read-only). */
@@ -64,9 +73,12 @@ export const PAGE_PATHS = {
   "manager-payroll": "/:tenantSlug/branch/payroll",
   "manager-payroll-detail": "/:tenantSlug/branch/payroll-detail",
   "branch-tables": "/:tenantSlug/branch/tables",
+  "branch-tables-print": "/:tenantSlug/branch/tables/print",
   "branch-floor-plan": "/:tenantSlug/branch/floor-plan",
   "branch-pickup": "/:tenantSlug/branch/pickup-settings",
   "branch-orders": "/:tenantSlug/branch/orders",
+  "branch-attendance": "/:tenantSlug/branch/attendance",
+  "branch-cash-closings": "/:tenantSlug/branch/cash-closings",
 
   // Shared Brand Admin + Branch Manager
   "manager-menu": "/:tenantSlug/menu-management",
@@ -86,6 +98,7 @@ export const PAGE_PATHS = {
   "brand-pay-rules": "/:tenantSlug/brand/pay-rules",
   "brand-merchant": "/:tenantSlug/brand/merchant",
   "admin-logs": "/:tenantSlug/brand/audit",
+  "brand-reconciliation": "/:tenantSlug/brand/reconciliation",
 
   // Super Admin (platform) — no tenant
   "platform-tenants": "/platform/tenants",

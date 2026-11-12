@@ -1,6 +1,6 @@
 import { currentBrandSlug } from "../../brand"
 import { http, type PagedResponse } from "../http"
-import type { BranchDto, BranchInput, BranchStatus, UserDto, UserInput, UserStatus } from "../identity"
+import type { BranchDto, BranchInput, BranchStatus, SignUpInput, SignUpPending, UserDto, UserInput, UserStatus } from "../identity"
 import { tokenStore, type StoredSession } from "../tokenStore"
 import { itemsOf } from "./util"
 
@@ -18,15 +18,33 @@ export const beAuthApi = {
     tokenStore.set(session)
     return session
   },
-  /** Platform customer account — shop is chosen after login, not at register. */
-  register: (body: { fullName: string; email: string; phone?: string; password: string; confirmPassword: string }) =>
-    http.post<UserDto>(`${BASE}/auth/register`, { ...body, tenantCode: currentBrandSlug() ?? "" }, { anonymous: true }),
+  /** One customer account works at every brand; the brand is chosen after signing in (`selectBrand`). */
+  register: (body: SignUpInput) => http.post<SignUpPending>(`${BASE}/auth/register`, body, { anonymous: true }),
+  async verifyRegistration(email: string, code: string): Promise<StoredSession> {
+    const session = await http.post<StoredSession>(`${BASE}/auth/register/verify`, { email, code }, { anonymous: true })
+    tokenStore.set(session)
+    return session
+  },
+  resendRegistration: (email: string) =>
+    http.post<SignUpPending>(`${BASE}/auth/register/resend`, { email }, { anonymous: true }),
+  async selectBrand(target: { code?: string; tenantId?: string }): Promise<StoredSession> {
+    const session = await http.post<StoredSession>(`${BASE}/auth/select-brand`, { refreshToken: tokenStore.get()?.refreshToken, tenantCode: target.code, tenantId: target.tenantId })
+    tokenStore.set(session)
+    return session
+  },
+  async loginWithGoogle(idToken: string): Promise<StoredSession> {
+    const session = await http.post<StoredSession>(`${BASE}/auth/google`, { idToken }, { anonymous: true })
+    tokenStore.set(session)
+    return session
+  },
   async logout(): Promise<void> {
     const session = tokenStore.get()
     tokenStore.clear()
     if (session) await http.post<void>(`${BASE}/auth/logout`, { refreshToken: session.refreshToken }, { anonymous: true }).catch(() => undefined)
   },
   me: () => http.get<UserDto>(`${BASE}/auth/me`),
+  updateProfile: (body: { fullName: string; phone: string | null; username: string | null }) => http.put<UserDto>(`${BASE}/auth/me`, body),
+  deleteMyData: (password: string) => http.post<void>(`${BASE}/auth/me/delete`, { password }),
   changePassword: (body: { currentPassword: string; newPassword: string; confirmNewPassword: string }) =>
     http.post<void>(`${BASE}/auth/change-password`, body),
   forgotPassword: (email: string) =>
@@ -53,7 +71,9 @@ export const beBranchesApi = {
     if (!Array.isArray(res)) return res
     return paged(res.filter((b) => (!q.search || b.name.toLowerCase().includes(q.search.toLowerCase())) && (!q.status || b.status === q.status)), q.page, q.pageSize)
   },
-  listActive: () => http.get<BranchDto[]>(`${BASE}/branches/active`).then(itemsOf),
+  listActive: () => http.get<BranchDto[]>(`${BASE}/branches/active`, { anonymous: !tokenStore.get(), query: { tenantCode: currentBrandSlug() } }).then(itemsOf),
+  /** Always anonymous, so the brand in the link decides and not the brand of whoever is signed in. */
+  listActiveOf: (brandSlug: string) => http.get<BranchDto[]>(`${BASE}/branches/active`, { anonymous: true, query: { tenantCode: brandSlug } }).then(itemsOf),
   get: async (id: string): Promise<BranchDto> => {
     const all = itemsOf(await http.get<List<BranchDto>>(`${BASE}/branches`))
     const found = all.find((b) => b.id === id)

@@ -1,4 +1,3 @@
-import { currentBrandSlug } from "../../brand"
 import type {
   BrandProfile, BrandSubscription, CancelPolicy, LoyaltySettings, MerchantSettings, OptionChoice, PayRules,
   PickupSettings, Product, ProductInput, Topping, Voucher, VoucherInput,
@@ -19,20 +18,20 @@ export function toProduct(p: Raw, categories: Map<string, string>): Product {
   const choice = (o: Raw): OptionChoice => ({ id: str(o.id) || str(o.name), label: str(o.name), priceDelta: num(o.priceDelta) })
   return {
     id: str(p.id),
-    branchId: str(p.branchId),
     name: str(p.name),
     category: str(p.categoryName) || categories.get(str(p.categoryId)) || "",
     description: str(p.description),
     imageUrl: str(p.imageUrl) || undefined,
     basePrice: num(p.basePrice),
-    branchPrices: {},
+    branchId: str(p.branchId),
+    branchPrices: Object.fromEntries(recs(p.branchPrices).map((b) => [str(b.branchId), num(b.price)])),
     sizes: groupOf(p, OPTION_KINDS.size).map(choice),
     sugarLevels: groupOf(p, OPTION_KINDS.sugar).map((o) => str(o.name)),
     iceLevels: groupOf(p, OPTION_KINDS.ice).map((o) => str(o.name)),
     toppings: groupOf(p, OPTION_KINDS.topping).map((o): Topping => choice(o)),
     published: bool(p.isActive, true),
     dirty: false,
-    soldOutAt: [],
+    soldOutAt: Array.isArray(p.soldOutBranchIds) ? p.soldOutBranchIds.map((b) => str(b)) : [],
   }
 }
 
@@ -47,10 +46,21 @@ async function categoryId(name: string): Promise<string> {
   return str(rec(await http.post<Raw>("/menu/categories", { name: name.trim(), sortOrder: list.length + 1 })).id)
 }
 
+/** Every product of the brand. The API serves at most 100 per page, so a long menu takes several calls. */
+async function allProducts(): Promise<Raw[]> {
+  const out: Raw[] = []
+  for (let page = 1; ; page++) {
+    const r = rec(await http.get<Raw>("/menu/products", { query: { page, pageSize: 100 } }))
+    const items = recs(r.items)
+    out.push(...items)
+    if (items.length === 0 || out.length >= num(r.totalCount)) return out
+  }
+}
+
 async function listProducts(): Promise<Product[]> {
-  const [products, cats] = await Promise.all([http.get<Raw[]>("/menu/products"), http.get<Raw[]>("/menu/categories")])
+  const [products, cats] = await Promise.all([allProducts(), http.get<Raw[]>("/menu/categories")])
   const names = new Map(recs(itemsOf(cats)).map((c) => [str(c.id), str(c.name)]))
-  return recs(itemsOf(products)).map((p) => toProduct(p, names))
+  return products.map((p) => toProduct(p, names))
 }
 
 function productBody(catId: string, b: ProductInput) {
@@ -65,14 +75,21 @@ function productBody(catId: string, b: ProductInput) {
 
 export const beMenuApi = {
   products: listProducts,
+  removeProduct: (id: string) => http.delete<void>(`/menu/products/${id}`),
   async saveProduct(id: string | null, body: ProductInput): Promise<Product> {
     const payload = productBody(await categoryId(body.category), body)
     const saved = rec(id ? await http.put<Raw>(`/menu/products/${id}`, payload) : await http.post<Raw>("/menu/products", payload))
     const productId = str(saved.id) || (id ?? "")
-    // Per-branch price overrides are written on the branch publication (the API has no separate "price" call).
-    await Promise.all(Object.entries(body.branchPrices).map(([branchId, price]) =>
-      http.put<Raw>(`/menu/products/${productId}/branches/${branchId}`, { isPublished: true, priceOverride: price })))
-    return { ...toProduct(saved, new Map([[str(saved.categoryId), body.category]])), id: productId, branchId: str(saved.branchId), branchPrices: body.branchPrices }
+    // A branch price lives on the branch publication, so what the branch sells stays as it is. A price left blank goes back to the base price.
+    const settings = recs(itemsOf(await http.get<Raw[]>(`/menu/products/${productId}/branches`)))
+    const changed = new Set([...Object.keys(body.branchPrices), ...settings.filter((s) => s.priceOverride != null).map((s) => str(s.branchId))])
+    await Promise.all([...changed].map((branchId) => {
+      const current = settings.find((s) => str(s.branchId) === branchId)
+      const price = body.branchPrices[branchId] ?? null
+      if (current && (current.priceOverride == null ? null : num(current.priceOverride)) === price) return null
+      return http.put<Raw>(`/menu/products/${productId}/branches/${branchId}`, { isPublished: current ? bool(current.isPublished) : false, priceOverride: price })
+    }))
+    return { ...toProduct(saved, new Map([[str(saved.categoryId), body.category]])), id: productId, branchPrices: body.branchPrices }
   },
   async publish(branchIds: string[]): Promise<{ published: number }> {
     const products = await listProducts()
@@ -158,10 +175,10 @@ export const bePolicyApi = {
   },
   async merchant(): Promise<MerchantSettings> {
     const s = recs(itemsOf(await http.get<Raw[]>("/payments/merchant-settings")))[0] ?? {}
-    return { merchantName: str(s.accountName), merchantId: str(s.merchantCode), acceptCash: true, acceptQr: bool(s.isEnabled) }
+    return { merchantName: str(s.accountName), merchantId: str(s.merchantCode), bankCode: str(s.bankCode), accountNumber: "", acceptCash: true, acceptQr: bool(s.isEnabled) }
   },
   async saveMerchant(v: MerchantSettings): Promise<MerchantSettings> {
-    await http.put<Raw>("/payments/merchant-settings", { branchId: null, providerCode: "VietQR", isEnabled: v.acceptQr, accountName: v.merchantName, merchantCode: v.merchantId || null })
+    await http.put<Raw>("/payments/merchant-settings", { branchId: null, providerCode: "VietQR", isEnabled: v.acceptQr, accountName: v.merchantName, merchantCode: v.merchantId || null, bankCode: v.bankCode?.trim() || null, accountNumber: v.accountNumber?.trim() || null })
     return v
   },
 }
@@ -196,14 +213,17 @@ export const beSubscriptionApi = {
 function toBrandSubscription(s: Raw): BrandSubscription {
   const health = str(s.health)
   return {
-    planName: str(s.planName), monthlyFee: num(s.fee), maxBranches: num(s.maxBranches), maxUsers: num(s.maxStaffAccounts),
+    planName: str(s.planName), monthlyFee: num(s.fee), maxBranches: num(s.maxBranches), maxUsers: num(s.maxStaffAccounts), maxTablesPerBranch: num(s.maxTablesPerBranch),
     usedBranches: num(s.activeBranches), usedUsers: num(s.staffAccounts), renewsAtUtc: str(s.periodEndUtc),
     status: str(s.status) === "Suspended" ? "Suspended" : health === "Overdue" || health === "GracePeriod" ? "PastDue" : "Active",
   }
 }
 
-// ---------- profile (no endpoint: logo and colour are not stored by the backend) ----------
+// ---------- profile ----------
+const toProfile = (p: Raw): BrandProfile => ({ name: str(p.name), slug: str(p.code), logoUrl: str(p.logoUrl) || undefined, brandColor: str(p.primaryColor) || undefined, description: str(p.description) || undefined })
+
 export const beProfileApi = {
-  profile: async (): Promise<BrandProfile> => ({ name: currentBrandSlug() ?? "", slug: currentBrandSlug() ?? "" }),
-  saveProfile: (): Promise<BrandProfile> => unsupported("lưu logo và màu thương hiệu"),
+  profile: async (): Promise<BrandProfile> => toProfile(rec(await http.get<Raw>("/identity/brand/profile"))),
+  saveProfile: async (v: { logoUrl?: string; brandColor?: string; description?: string }): Promise<BrandProfile> =>
+    toProfile(rec(await http.put<Raw>("/identity/brand/profile", { description: v.description ?? null, logoUrl: v.logoUrl ?? null, primaryColor: v.brandColor ?? null, secondaryColor: null }))),
 }

@@ -41,6 +41,7 @@ export function CustomerFrame({
   subtitle,
   hideTitle,
   headerExtra,
+  action,
   children,
 }: {
   page: Page
@@ -50,6 +51,8 @@ export function CustomerFrame({
   subtitle?: ReactNode
   hideTitle?: boolean
   headerExtra?: ReactNode
+  /** Optional header action (e.g. mark-all-read on notifications). */
+  action?: ReactNode
   children: ReactNode
 }) {
   const { role } = useAuth()
@@ -157,7 +160,12 @@ export function CustomerFrame({
         {headerExtra && <div className="mx-auto mt-3 max-w-5xl">{headerExtra}</div>}
       </header>
       <main className="mx-auto max-w-5xl px-4 py-6 sm:px-8 sm:py-8">
-        {!hideTitle && title && <h1 className="mb-2 font-serif text-3xl text-text-primary">{title}</h1>}
+        {(!hideTitle && title || action) && (
+          <div className="mb-2 flex flex-wrap items-start justify-between gap-3">
+            {!hideTitle && title && <h1 className="font-serif text-3xl text-text-primary">{title}</h1>}
+            {action}
+          </div>
+        )}
         {subtitle && <div className="mb-6 text-sm text-text-secondary">{subtitle}</div>}
         {children}
       </main>

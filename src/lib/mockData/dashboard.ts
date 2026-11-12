@@ -1,4 +1,4 @@
-﻿/** Seeded demo data for dashboards. Replace with API calls (GET /reports/summary) when available. */
+/** Seeded demo data for dashboards. Replace with API calls (GET /reports/summary) when available. */
 import type { OrderStatus } from "../orderStateMachine"
 
 export interface DaySales { date: string; label: string; revenue: number; orders: number }

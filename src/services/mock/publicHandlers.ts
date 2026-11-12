@@ -19,8 +19,22 @@ export const publicHandlers = [
   http.get("*/api/v1/public/brands", () => {
     const list = db.tenants
       .filter((t) => t.status === "Active")
-      .map((t) => ({ name: t.name, slug: t.slug, status: "Active" as const, logoUrl: t.logoUrl, brandColor: t.brandColor }))
+      .map((t) => ({
+        id: t.id,
+        name: t.name,
+        slug: t.slug,
+        status: "Active" as const,
+        logoUrl: t.logoUrl,
+        brandColor: t.brandColor,
+        branchCount: t.branchCount,
+        description: t.applicantName ? undefined : undefined,
+      }))
     return ok(list)
+  }),
+  http.post("*/api/v1/public/register-brand", async ({ request }) => {
+    const b = (await request.json()) as { code: string; brandName?: string }
+    await delay(300)
+    return HttpResponse.json({ code: b.code, message: "Đang chờ duyệt" }, { status: 202 })
   }),
   http.get("*/api/v1/public/brands/:slug", ({ params }) => {
     const slug = String(params.slug ?? "").trim()

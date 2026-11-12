@@ -37,7 +37,7 @@ export interface BranchPickup { inherited: boolean; values: PickupSettings; defa
 export interface LoyaltySettings { earnPer10k: number; redeemPoints: number; voucherValue: number; expiryMonths: number }
 export interface CancelPolicy { freeCancelBeforeMinutes: number; refundPercentAfterLock: number; autoRefund: boolean; exceptionNeedsApproval: boolean }
 export interface PayRules { fullTimeDailyRate: number; partTimeHourlyRate: number; replacementMultiplier: number; lateDeductPerHour: number }
-export interface MerchantSettings { merchantName: string; merchantId: string; acceptCash: boolean; acceptQr: boolean }
+export interface MerchantSettings { merchantName: string; merchantId: string; bankCode?: string; accountNumber?: string; acceptCash: boolean; acceptQr: boolean }
 
 export interface Voucher {
   id: string
@@ -58,6 +58,8 @@ export interface BrandSubscription {
   monthlyFee: number
   maxBranches: number
   maxUsers: number
+  /** 0 is unlimited. */
+  maxTablesPerBranch?: number
   usedBranches: number
   usedUsers: number
   renewsAtUtc: string
@@ -65,12 +67,13 @@ export interface BrandSubscription {
 
 const B = "/brand"
 
-export interface BrandProfile { name: string; slug: string; logoUrl?: string; brandColor?: string }
+export interface BrandProfile { description?: string; name: string; slug: string; logoUrl?: string; brandColor?: string }
 
 const mockBrandApi = {
   profile: () => http.get<BrandProfile>(`${B}/profile`),
-  saveProfile: (v: { logoUrl?: string; brandColor?: string }) => http.put<BrandProfile>(`${B}/profile`, v),
+  saveProfile: (v: { logoUrl?: string; brandColor?: string; description?: string }) => http.put<BrandProfile>(`${B}/profile`, v),
   products: () => http.get<Product[]>(`${B}/menu/products`),
+  removeProduct: (id: string) => http.delete<void>(`${B}/menu/products/${id}`),
   saveProduct: (id: string | null, body: ProductInput) => (id ? http.put<Product>(`${B}/menu/products/${id}`, body) : http.post<Product>(`${B}/menu/products`, body)),
   publish: (branchIds: string[]) => http.post<{ published: number }>(`${B}/menu/publish`, { branchIds }),
   setAvailability: (productId: string, branchId: string, available: boolean) => http.patch<Product>(`${B}/menu/products/${productId}/availability`, { branchId, available }),

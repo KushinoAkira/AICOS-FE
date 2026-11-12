@@ -42,7 +42,11 @@ export interface RequestOptions {
   body?: unknown
   /** Skip the Authorization header and the refresh-on-401 logic (login, register, ...). */
   anonymous?: boolean
+  /** Extra request headers (for example the table-session header of the QR ordering endpoints). */
+  headers?: Record<string, string>
   signal?: AbortSignal
+  /** Hand back the response itself (a file to download) instead of its JSON. */
+  raw?: boolean
 }
 
 function mockHref(path: string): string {
@@ -65,7 +69,10 @@ async function toApiError(res: Response): Promise<ApiError> {
   } catch {
     /* non-JSON body */
   }
+  // A validation answer says what is wrong in `errors`; its title only says that something is.
+  const firstFieldError = Object.values((data?.errors as Record<string, string[]> | undefined) ?? {})[0]?.[0]
   const message =
+    firstFieldError ??
     (data?.detail as string | undefined) ?? (data?.title as string | undefined) ?? `Yêu cầu thất bại (${res.status})`
   return new ApiError(
     res.status,
@@ -103,6 +110,15 @@ function refreshSession(): Promise<StoredSession | null> {
   return refreshing
 }
 
+/** The access token for a long-lived connection (SignalR): renewed first when it is about to expire. Empty when signed out. */
+export async function freshAccessToken(): Promise<string> {
+  const current = tokenStore.get()
+  if (!current) return ""
+  const expires = Date.parse(current.accessTokenExpiresAtUtc)
+  if (Number.isFinite(expires) && expires - Date.now() < 60_000) return (await refreshSession())?.accessToken ?? ""
+  return current.accessToken
+}
+
 /**
  * Mock mode only: the API calls are answered by a service worker. If this tab lost it (hard reload, restored tab,
  * cleared site data) the request falls through to a gateway that is not running. One reload brings the worker back.
@@ -127,7 +143,7 @@ async function restartMockWorker(): Promise<void> {
 }
 
 async function send(method: string, path: string, opts: RequestOptions, token: string | null, retried = false): Promise<Response> {
-  const headers: Record<string, string> = { Accept: "application/json" }
+  const headers: Record<string, string> = { Accept: "application/json", ...opts.headers }
   if (opts.body !== undefined) headers["Content-Type"] = "application/json"
   if (token && !opts.anonymous) headers.Authorization = `Bearer ${token}`
   const brand = currentBrandSlug()
@@ -186,6 +202,7 @@ export async function request<T>(method: string, path: string, opts: RequestOpti
     }
     throw err
   }
+  if (opts.raw) return res as T
   if (res.status === 204) return undefined as T
 
   // Hosting SPA rewrite serves index.html when MSW missed the call — restart worker once and retry.
@@ -219,4 +236,15 @@ export interface PagedResponse<T> {
   page: number
   pageSize: number
   totalCount: number
+}
+
+/** Saves a file the API produces (CSV, Excel). A link cannot carry the token, so it is fetched and handed to the browser. */
+export async function downloadFile(path: string, query: Query, filename: string): Promise<void> {
+  const res = await request<Response>("GET", path, { query, raw: true })
+  const url = URL.createObjectURL(await res.blob())
+  const link = document.createElement("a")
+  link.href = url
+  link.download = filename
+  link.click()
+  URL.revokeObjectURL(url)
 }

@@ -1,196 +1,166 @@
+import { useState } from "react"
+import { useMutation, useQuery } from "@tanstack/react-query"
 import type { Page } from "../../App"
+import { CustomerFrame } from "../../components/CustomerFrame"
+import { Banner, Button, Field, Modal, QueryBoundary } from "../../components/ui"
 import { useAuth } from "../../context/AuthContext"
+import { useToast } from "../../context/ToastContext"
+import { customerApi, type Preferences } from "../../lib/api/customer"
+import { ApiError } from "../../lib/api/http"
+import { formatVND } from "../../lib/format"
 
-interface Props {
-  navigate: (p: Page) => void
+const ICE = [{ value: "", label: "Chưa chọn" }, { value: "NoIce", label: "Không đá" }, { value: "Less", label: "Ít đá" }, { value: "Normal", label: "Bình thường" }]
+
+/** Account, preferences and vouchers of the customer; deleting the personal data is here too. */
+export default function CustomerProfile({ navigate }: { navigate: (p: Page) => void }) {
+  return (
+    <CustomerFrame page="customer-profile" navigate={navigate} uc="UC-03" title="Hồ sơ của bạn">
+      <div className="grid gap-6 lg:grid-cols-2">
+        <AccountCard />
+        <PreferencesCard />
+        <VouchersCard />
+        <DeleteCard navigate={navigate} />
+      </div>
+    </CustomerFrame>
+  )
 }
 
-const HISTORY = [
-  { items: "Cà phê sữa đá, Bánh croissant", date: "Hôm nay, 09:15", points: +45 },
-  { items: "Cappuccino, Trà đào cam sả", date: "Hôm qua, 14:30", points: +52 },
-  { items: "Latte nghệ", date: "12/11, 11:00", points: +30 },
-  { items: "Đá xay matcha x2", date: "10/11, 16:20", points: +60 },
-]
+const cardCls = "rounded-[16px] border border-border bg-surface p-6"
 
-const VOUCHERS = [
-  { title: "Giảm 20% đơn tiếp theo", code: "AICOS20", expire: "31/12/2025", desc: "Áp dụng cho tất cả đồ uống" },
-  { title: "1 bánh croissant miễn phí", code: "FREECRS", expire: "15/12/2025", desc: "Khi mua bất kỳ đồ uống" },
-]
-
-export default function CustomerProfile({ navigate }: Props) {
-  const { logout } = useAuth()
-  const points = 840
-  const maxPoints = 1000
-  const pct = (points / maxPoints) * 100
-
+function AccountCard() {
+  const { user, updateProfile } = useAuth()
+  const { showToast } = useToast()
+  const [fullName, setFullName] = useState(user?.fullName ?? "")
+  const [phone, setPhone] = useState(user?.phone ?? "")
+  const [errors, setErrors] = useState<{ fullName?: string; phone?: string }>({})
+  const save = useMutation({
+    mutationFn: () => updateProfile({ fullName: fullName.trim(), phone: phone.trim() || null, username: user?.username ?? null }),
+    onSuccess: () => showToast("Đã lưu thông tin.", "success"),
+    onError: (e) => showToast(e instanceof ApiError ? e.message : "Không thể kết nối máy chủ", "error"),
+  })
+  const submit = () => {
+    const found: typeof errors = {}
+    if (!fullName.trim()) found.fullName = "Vui lòng nhập họ và tên"
+    if (phone.trim() && !/^0\d{9}$/.test(phone.trim())) found.phone = "Số điện thoại gồm 10 số, bắt đầu bằng 0"
+    setErrors(found)
+    if (Object.keys(found).length === 0) save.mutate()
+  }
   return (
-    <div className="min-h-screen" style={{ backgroundColor: "#FAF6F0" }}>
-      {/* Header */}
-      <header
-        className="sticky top-0 z-30 flex items-center justify-between px-6 py-4"
-        style={{ backgroundColor: "rgba(250,246,240,0.92)", backdropFilter: "blur(8px)", borderBottom: "1px solid #E6DCCB" }}
-      >
-        <button
-          onClick={() => navigate("customer-menu")}
-          className="flex items-center gap-2 text-sm"
-          style={{ background: "none", border: "none", cursor: "pointer", color: "#8A7A6C" }}
-        >
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M10 3L5 8l5 5"/></svg>
-          Menu
-        </button>
-        <span className="font-serif text-base font-medium" style={{ color: "#3A2E22", fontFamily: "'Literata', 'Inter', system-ui, sans-serif" }}>Hồ sơ</span>
-        <button
-          onClick={() => void logout()}
-          className="text-sm"
-          style={{ background: "none", border: "none", cursor: "pointer", color: "#8B5E3C", minWidth: "60px", textAlign: "right" }}
-        >
-          Đăng xuất
-        </button>
-      </header>
+    <section aria-label="Thông tin tài khoản" className={cardCls}>
+      <h2 className="font-serif text-xl text-text-primary">Thông tin tài khoản</h2>
+      <form noValidate onSubmit={(e) => { e.preventDefault(); submit() }} className="mt-4 space-y-4">
+        <Field label="Email" value={user?.email ?? ""} disabled hint="Email dùng để đăng nhập, không đổi được." />
+        <Field label="Họ và tên" autoComplete="name" value={fullName} error={errors.fullName} onChange={(e) => setFullName(e.target.value)} />
+        <Field label="Số điện thoại" autoComplete="tel" value={phone} error={errors.phone} onChange={(e) => setPhone(e.target.value)} />
+        <Button type="submit" loading={save.isPending} className="min-h-11">Lưu thay đổi</Button>
+      </form>
+    </section>
+  )
+}
 
-      <div className="max-w-lg mx-auto px-6 py-10">
-        {/* Avatar + name */}
-        <div className="flex flex-col items-center mb-8">
-          <div
-            className="w-20 h-20 rounded-full overflow-hidden mb-4 flex-shrink-0"
-            style={{ border: "3px solid #E6DCCB" }}
-          >
-            <img
-              src="/media/photo-1438761681033-6461ffad8d80.jpg?v=lfs2"
-              alt="Avatar"
-              className="w-full h-full object-cover"
-              style={{ backgroundColor: "#F5EFE6" }}
-            />
-          </div>
-          <h1
-            className="font-serif text-2xl font-medium mb-2"
-            style={{ color: "#3A2E22", fontFamily: "'Literata', 'Inter', system-ui, sans-serif" }}
-          >
-            Linh Nguyễn
-          </h1>
-          <span
-            className="text-xs font-medium px-3 py-1 rounded-full"
-            style={{ backgroundColor: "#EAEDE0", color: "#7A8450" }}
-          >
-            Thành viên Bạc
-          </span>
-        </div>
+function PreferencesCard() {
+  const prefs = useQuery({ queryKey: ["customer", "preferences"], queryFn: customerApi.preferences })
+  return (
+    <section aria-label="Khẩu vị" className={cardCls}>
+      <h2 className="font-serif text-xl text-text-primary">Khẩu vị tại quán này</h2>
+      <QueryBoundary query={prefs}>{(data) => <PreferencesForm key={JSON.stringify(data)} initial={data} />}</QueryBoundary>
+    </section>
+  )
+}
 
-        {/* Points card */}
-        <div
-          className="p-6 rounded-2xl mb-6"
-          style={{ backgroundColor: "#FFFFFF", border: "1px solid #E6DCCB", boxShadow: "0 4px 16px rgba(111,78,55,0.06)" }}
-        >
-          <div className="flex items-end justify-between mb-4">
-            <div>
-              <p className="text-xs mb-1" style={{ color: "#8A7A6C" }}>Điểm tích lũy</p>
-              <span
-                className="font-serif text-5xl font-medium"
-                style={{ color: "#3A2E22", fontFamily: "'Literata', 'Inter', system-ui, sans-serif" }}
-              >
-                {points}
-              </span>
-              <span className="text-lg ml-1" style={{ color: "#8A7A6C" }}>điểm</span>
-            </div>
-            <div className="text-right">
-              <p className="text-xs" style={{ color: "#8A7A6C" }}>Đến hạng Vàng</p>
-              <p className="text-sm font-medium" style={{ color: "#C97B4A" }}>{maxPoints - points} điểm nữa</p>
-            </div>
-          </div>
+const SUGAR = [0, 30, 50, 70, 100]
 
-          {/* Progress bar */}
-          <div className="relative">
-            <div
-              className="w-full rounded-full overflow-hidden"
-              style={{ height: "8px", backgroundColor: "#F5EFE6" }}
-            >
-              <div
-                className="h-full rounded-full transition-all duration-500"
-                style={{ width: `${pct}%`, backgroundColor: "#C97B4A" }}
-              />
-            </div>
-            <div className="flex justify-between mt-1.5">
-              <span className="text-xs" style={{ color: "#8A7A6C" }}>Bạc</span>
-              <span className="text-xs" style={{ color: "#8A7A6C" }}>Vàng</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Vouchers */}
-        <div className="mb-8">
-          <h2
-            className="font-serif text-xl font-medium mb-4"
-            style={{ color: "#3A2E22", fontFamily: "'Literata', 'Inter', system-ui, sans-serif" }}
+/** A row of choices that look like the size chips on the menu; one can be picked, "Chưa chọn" clears it. */
+function ChipGroup({ label, options, value, onChange }: { label: string; options: { value: string; label: string }[]; value: string; onChange: (v: string) => void }) {
+  return (
+    <fieldset>
+      <legend className="mb-1.5 text-sm font-medium text-text-primary">{label}</legend>
+      <div className="flex flex-wrap gap-2">
+        {options.map((o) => (
+          <button
+            key={o.value} type="button" aria-pressed={value === o.value} onClick={() => onChange(o.value)}
+            className={`min-h-10 rounded-full border px-4 text-sm transition-colors ${value === o.value ? "border-espresso bg-espresso text-white" : "border-border bg-surface text-text-primary hover:border-clay"}`}
           >
-            Ưu đãi dành cho bạn
-          </h2>
-          <div className="space-y-3">
-            {VOUCHERS.map((v) => (
-              <div
-                key={v.code}
-                className="flex items-center gap-4 p-4 rounded-2xl"
-                style={{
-                  backgroundColor: "#FAF6F0",
-                  border: "1.5px dashed #E6DCCB",
-                }}
-              >
-                <div
-                  className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
-                  style={{ backgroundColor: "#EAEDE0" }}
-                >
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#7A8450" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M20 12v10H4V12"/>
-                    <path d="M22 7H2v5h20V7z"/>
-                    <path d="M12 22V7"/>
-                    <path d="M12 7H7.5a2.5 2.5 0 010-5C11 2 12 7 12 7z"/>
-                    <path d="M12 7h4.5a2.5 2.5 0 000-5C13 2 12 7 12 7z"/>
-                  </svg>
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium" style={{ color: "#3A2E22" }}>{v.title}</p>
-                  <p className="text-xs mt-0.5" style={{ color: "#8A7A6C" }}>{v.desc} · HSD: {v.expire}</p>
-                </div>
-                <div
-                  className="text-xs font-medium px-2.5 py-1 rounded-full flex-shrink-0"
-                  style={{ backgroundColor: "#C97B4A", color: "#FAF6F0" }}
-                >
-                  {v.code}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Order history */}
-        <div>
-          <h2
-            className="font-serif text-xl font-medium mb-4"
-            style={{ color: "#3A2E22", fontFamily: "'Literata', 'Inter', system-ui, sans-serif" }}
-          >
-            Lịch sử đơn hàng
-          </h2>
-          <div className="space-y-0">
-            {HISTORY.map((h, i) => (
-              <div
-                key={i}
-                className="flex items-center justify-between py-3"
-                style={{ borderBottom: i < HISTORY.length - 1 ? "1px solid #E6DCCB" : "none" }}
-              >
-                <div>
-                  <p className="text-sm font-medium" style={{ color: "#3A2E22" }}>{h.items}</p>
-                  <p className="text-xs mt-0.5" style={{ color: "#8A7A6C" }}>{h.date}</p>
-                </div>
-                <span
-                  className="text-sm font-medium flex-shrink-0"
-                  style={{ color: "#5C7A52" }}
-                >
-                  +{h.points} điểm
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
+            {o.label}
+          </button>
+        ))}
       </div>
-    </div>
+    </fieldset>
+  )
+}
+
+function PreferencesForm({ initial }: { initial: Preferences }) {
+  const { showToast } = useToast()
+  const [sugar, setSugar] = useState(initial.sugarPercent === null ? "" : String(initial.sugarPercent))
+  const [ice, setIce] = useState(initial.ice ?? "")
+  const [notes, setNotes] = useState(initial.notes ?? "")
+  const save = useMutation({
+    mutationFn: () => customerApi.savePreferences({ sugarPercent: sugar === "" ? null : Number(sugar), ice: ice || null, favoriteToppings: initial.favoriteToppings, notes: notes.trim() || null }),
+    onSuccess: () => showToast("Đã lưu khẩu vị.", "success"),
+    onError: (e) => showToast(e instanceof ApiError ? e.message : "Không thể kết nối máy chủ", "error"),
+  })
+  // A value saved earlier that is not one of the usual steps (say 40%) stays on the list so it is not lost.
+  const sugarSteps = initial.sugarPercent !== null && !SUGAR.includes(initial.sugarPercent) ? [...SUGAR, initial.sugarPercent].sort((x, y) => x - y) : SUGAR
+  return (
+    <form noValidate onSubmit={(e) => { e.preventDefault(); save.mutate() }} className="mt-4 space-y-5">
+      <p className="text-sm text-text-secondary">Quán dùng khẩu vị này làm mặc định khi bạn chọn món.</p>
+      <ChipGroup label="Mức đường" value={sugar} onChange={setSugar} options={[{ value: "", label: "Chưa chọn" }, ...sugarSteps.map((n) => ({ value: String(n), label: `${n}%` }))]} />
+      <ChipGroup label="Mức đá" value={ice} onChange={setIce} options={ICE} />
+      <Field label="Ghi chú" value={notes} placeholder="Ví dụ: ít ngọt, không ống hút" onChange={(e) => setNotes(e.target.value)} />
+      <Button type="submit" variant="secondary" loading={save.isPending} className="min-h-11">Lưu khẩu vị</Button>
+    </form>
+  )
+}
+
+function VouchersCard() {
+  const vouchers = useQuery({ queryKey: ["customer", "vouchers"], queryFn: customerApi.vouchers })
+  return (
+    <section aria-label="Voucher của bạn" className={cardCls}>
+      <h2 className="font-serif text-xl text-text-primary">Voucher tại quán này</h2>
+      <QueryBoundary query={vouchers}>
+        {(rows) => rows.length === 0 ? <p className="mt-4 text-sm text-text-secondary">Bạn chưa có voucher. Đổi điểm ở mục Tích điểm để nhận voucher.</p> : (
+          <ul className="mt-4 space-y-3">
+            {rows.map((v) => (
+              <li key={v.id} className={`rounded-[12px] border border-border p-3 ${v.usable ? "" : "bg-bg-base opacity-70"}`}>
+                <p className="font-medium text-text-primary">{v.discountLabel}</p>
+                <p className="text-sm text-text-secondary">Mã <strong>{v.code}</strong>{v.minOrderAmount ? ` · Đơn từ ${formatVND(v.minOrderAmount)}` : ""}</p>
+                <p className="text-xs text-text-secondary">{v.usable ? `Hạn dùng ${new Date(v.expiresAtUtc).toLocaleDateString("vi-VN")}` : "Đã dùng hoặc hết hạn"}</p>
+              </li>
+            ))}
+          </ul>
+        )}
+      </QueryBoundary>
+    </section>
+  )
+}
+
+function DeleteCard({ navigate }: { navigate: (p: Page) => void }) {
+  const { deleteMyData } = useAuth()
+  const { showToast } = useToast()
+  const [open, setOpen] = useState(false)
+  const [password, setPassword] = useState("")
+  const remove = useMutation({
+    mutationFn: () => deleteMyData(password),
+    onSuccess: () => { showToast("Đã xóa dữ liệu cá nhân của bạn.", "success"); navigate("landing") },
+  })
+  return (
+    <section aria-label="Xóa dữ liệu cá nhân" className={cardCls}>
+      <h2 className="font-serif text-xl text-text-primary">Xóa dữ liệu cá nhân</h2>
+      <p className="mt-2 text-sm text-text-secondary">Tên, email, số điện thoại và khẩu vị của bạn sẽ bị xóa ở mọi quán, và bạn không thể đăng nhập lại bằng tài khoản này. Lịch sử giao dịch vẫn được quán lưu nhưng không còn gắn với bạn.</p>
+      <Button variant="secondary" className="mt-4 min-h-11" onClick={() => setOpen(true)}>Yêu cầu xóa dữ liệu</Button>
+      <Modal
+        open={open}
+        title="Xóa dữ liệu cá nhân?"
+        onClose={() => { setOpen(false); remove.reset() }}
+        footer={<>
+          <Button variant="secondary" onClick={() => { setOpen(false); remove.reset() }}>Hủy</Button>
+          <Button variant="danger" loading={remove.isPending} onClick={() => remove.mutate()}>Xóa vĩnh viễn</Button>
+        </>}
+      >
+        <p className="mb-3 text-sm text-text-secondary">Không thể hoàn tác. Nhập mật khẩu để xác nhận (tài khoản đăng nhập bằng Google có thể bỏ trống).</p>
+        {remove.isError && <Banner>{remove.error instanceof ApiError ? remove.error.message : "Chưa xóa được. Hãy thử lại."}</Banner>}
+        <Field label="Mật khẩu" type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} />
+      </Modal>
+    </section>
   )
 }

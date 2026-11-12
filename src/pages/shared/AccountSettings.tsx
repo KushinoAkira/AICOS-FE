@@ -3,7 +3,8 @@ import { useToast } from "../../context/ToastContext"
 import { useAuth } from "../../context/AuthContext"
 import { ApiError } from "../../lib/api/http"
 import { authApi } from "../../lib/api/identity"
-import { ROLE_LABEL, type Role } from "../../router/roles"
+import { DeviceSessions } from "../../components/DeviceSessions"
+import { ROLE_LABEL } from "../../router/roles"
 import type { Page } from "../../App"
 
 interface Props {
@@ -13,48 +14,18 @@ interface Props {
 
 type Section = "profile" | "password" | "notifications" | "security"
 
-const SESSIONS = [
-  { device: "Chrome · macOS", location: "TP. Hồ Chí Minh", time: "Hôm nay, 09:14" },
-  { device: "Safari · iPhone 15", location: "TP. Hồ Chí Minh", time: "Hôm qua, 21:30" },
-  { device: "Chrome · Windows", location: "Hà Nội", time: "03/09/2026, 14:55" },
-]
-
-const NOTIF_ITEMS: { id: string; label: string; roles: Role[] }[] = [
-  // Staff
-  { id: "new-order", label: "Đơn hàng mới", roles: ["cashier", "barista", "branchManager"] },
-  { id: "shift", label: "Nhắc lịch làm việc", roles: ["cashier", "barista", "branchManager"] },
-  { id: "shift-request", label: "Yêu cầu đổi ca / nghỉ", roles: ["branchManager"] },
-  { id: "subscription", label: "Gói đăng ký sắp hết hạn", roles: ["brandAdmin"] },
-  { id: "tenant", label: "Cảnh báo hệ thống và tenant", roles: ["superAdmin"] },
-  // Customer
-  { id: "order-status", label: "Trạng thái đơn hàng", roles: ["customer"] },
-  { id: "promo", label: "Ưu đãi và voucher mới", roles: ["customer"] },
-  { id: "loyalty", label: "Điểm tích lũy và hạng thành viên", roles: ["customer"] },
-]
-
 export default function AccountSettings({ navigate, returnPage }: Props) {
   const { showToast } = useToast()
   const [section, setSection] = useState<Section>("profile")
 
   const { user, role } = useAuth()
   const isCustomer = role === "customer"
-  const notifItems = NOTIF_ITEMS.filter((i) => role !== null && i.roles.includes(role))
   const [name, setName] = useState(user?.fullName ?? "")
   const [phone, setPhone] = useState(user?.phone ?? "")
 
   const [curPass, setCurPass] = useState("")
   const [newPass, setNewPass] = useState("")
   const [confirmPass, setConfirmPass] = useState("")
-
-  const [notifs, setNotifs] = useState<Record<string, boolean>>({
-    "new-order": true,
-    "low-stock": true,
-    "shift": false,
-    "suggestion": true,
-    "order-status": true,
-    "promo": true,
-    "loyalty": false,
-  })
 
   async function handleChangePassword(e: React.FormEvent) {
     e.preventDefault()
@@ -273,21 +244,17 @@ export default function AccountSettings({ navigate, returnPage }: Props) {
               <h2 className="font-serif text-xl font-medium mb-6" style={{ color: "#3A2E22", fontFamily: "'Literata', 'Inter', system-ui, sans-serif" }}>
                 Thông báo
               </h2>
-              <div className="max-w-md space-y-0 rounded-2xl overflow-hidden" style={{ border: "1px solid #E6DCCB" }}>
-                {notifItems.map((item, idx) => (
-                  <div
-                    key={item.id}
-                    className="flex items-center justify-between px-5 py-4"
-                    style={{ borderBottom: idx < notifItems.length - 1 ? "1px solid #E6DCCB" : "none", backgroundColor: "#FFFFFF" }}
-                  >
-                    <span className="text-sm font-medium" style={{ color: "#3A2E22" }}>{item.label}</span>
-                    <Toggle
-                      checked={notifs[item.id]}
-                      onChange={(v) => setNotifs((n) => ({ ...n, [item.id]: v }))}
-                    />
-                  </div>
-                ))}
-              </div>
+              <p className="text-sm mb-4 max-w-md" style={{ color: "#8A7A6C" }}>
+                {isCustomer ? "Trạng thái đơn hàng của bạn được gửi về hộp thư thông báo." : "Đơn mới, yêu cầu duyệt và cảnh báo theo vai trò của bạn được gửi về hộp thư thông báo."}
+              </p>
+              <button
+                type="button"
+                onClick={() => navigate(isCustomer ? "customer-notifications" : "staff-notifications")}
+                className="px-5 py-2.5 text-sm font-medium"
+                style={{ backgroundColor: "#6F4E37", color: "#FAF6F0", borderRadius: "10px", border: "none", cursor: "pointer" }}
+              >
+                Xem thông báo
+              </button>
             </div>
           )}
 
@@ -298,51 +265,7 @@ export default function AccountSettings({ navigate, returnPage }: Props) {
                 Bảo mật
               </h2>
 
-              <button
-                type="button"
-                className="px-5 py-2.5 text-sm font-medium transition-all duration-150 mb-8"
-                style={{
-                  backgroundColor: "transparent",
-                  color: "#A6534B",
-                  borderRadius: "10px",
-                  border: "1.5px solid #A6534B",
-                  cursor: "pointer",
-                }}
-                onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = "#FAE8E6" }}
-                onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = "transparent" }}
-              >
-                Đăng xuất khỏi tất cả thiết bị
-              </button>
-
-              <h3 className="text-sm font-medium mb-3" style={{ color: "#3A2E22" }}>Phiên đăng nhập gần đây</h3>
-              <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid #E6DCCB", backgroundColor: "#FFFFFF" }}>
-                {SESSIONS.map((s, idx) => (
-                  <div
-                    key={idx}
-                    className="flex items-center gap-4 px-5 py-4"
-                    style={{ borderBottom: idx < SESSIONS.length - 1 ? "1px solid #E6DCCB" : "none" }}
-                  >
-                    <div
-                      className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
-                      style={{ backgroundColor: "#F5EFE6" }}
-                    >
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8B5E3C" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-                        <rect x="5" y="2" width="14" height="20" rx="2" />
-                        <line x1="12" y1="18" x2="12" y2="18" strokeWidth="2" />
-                      </svg>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate" style={{ color: "#3A2E22" }}>{s.device}</p>
-                      <p className="text-xs" style={{ color: "#8A7A6C" }}>{s.location} · {s.time}</p>
-                    </div>
-                    {idx === 0 && (
-                      <span className="text-xs px-2.5 py-1 rounded-full" style={{ backgroundColor: "#EAEDE0", color: "#5C7A52" }}>
-                        Hiện tại
-                      </span>
-                    )}
-                  </div>
-                ))}
-              </div>
+              <DeviceSessions />
             </div>
           )}
         </div>
@@ -407,39 +330,5 @@ function PasswordInput({ value, onChange, placeholder }: { value: string; onChan
         )}
       </button>
     </div>
-  )
-}
-
-function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={checked}
-      onClick={() => onChange(!checked)}
-      className="relative flex-shrink-0 transition-colors duration-200"
-      style={{
-        width: "42px",
-        height: "24px",
-        borderRadius: "999px",
-        backgroundColor: checked ? "#7A8450" : "#D6C5B3",
-        border: "none",
-        cursor: "pointer",
-        padding: 0,
-      }}
-    >
-      <span
-        className="absolute top-1 transition-transform duration-200"
-        style={{
-          left: "4px",
-          width: "16px",
-          height: "16px",
-          borderRadius: "50%",
-          backgroundColor: "#FFFFFF",
-          transform: checked ? "translateX(18px)" : "translateX(0)",
-          display: "block",
-        }}
-      />
-    </button>
   )
 }

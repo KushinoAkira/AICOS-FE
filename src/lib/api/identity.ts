@@ -71,6 +71,20 @@ export interface UserInput {
   branchId?: string | null
 }
 
+/** The answer to a sign-up step that mails a code: where it went and how long before another code can be asked for. */
+export interface SignUpPending {
+  email: string
+  expiresInSeconds: number
+  resendAfterSeconds: number
+}
+
+export interface SignUpInput {
+  fullName: string
+  email: string
+  password: string
+  confirmPassword: string
+}
+
 const BASE = "/identity"
 
 export type LoginOpts = {
@@ -91,14 +105,36 @@ const mockAuthApi = {
     tokenStore.set(session)
     return session
   },
-  register: (body: { fullName: string; email: string; phone?: string; password: string; confirmPassword: string }) =>
-    http.post<UserDto>(`${BASE}/auth/register`, body, { anonymous: true }),
+  /** Step 1 of the sign-up: creates the pending account and mails a 6-digit code. */
+  register: (body: SignUpInput) => http.post<SignUpPending>(`${BASE}/auth/register`, body, { anonymous: true }),
+  /** Step 2: the code from the email activates the account and signs the customer in. */
+  async verifyRegistration(email: string, code: string): Promise<StoredSession> {
+    const session = await http.post<StoredSession>(`${BASE}/auth/register/verify`, { email, code }, { anonymous: true })
+    tokenStore.set(session)
+    return session
+  },
+  resendRegistration: (email: string) => http.post<SignUpPending>(`${BASE}/auth/register/resend`, { email }, { anonymous: true }),
+  /** A signed-in customer picks the brand to order from, by code or (from a table QR) by id. */
+  async selectBrand(target: { code?: string; tenantId?: string }): Promise<StoredSession> {
+    const current = tokenStore.get()
+    const session = await http.post<StoredSession>(`${BASE}/auth/select-brand`, { refreshToken: current?.refreshToken, tenantCode: target.code, tenantId: target.tenantId })
+    tokenStore.set(session)
+    return session
+  },
+  /** Signs in with a Google credential (ID token); creates the customer account the first time. */
+  async loginWithGoogle(idToken: string): Promise<StoredSession> {
+    const session = await http.post<StoredSession>(`${BASE}/auth/google`, { idToken }, { anonymous: true })
+    tokenStore.set(session)
+    return session
+  },
   async logout(): Promise<void> {
     const session = tokenStore.get()
     tokenStore.clear()
     if (session) await http.post<void>(`${BASE}/auth/logout`, { refreshToken: session.refreshToken }, { anonymous: true }).catch(() => undefined)
   },
   me: () => http.get<UserDto>(`${BASE}/auth/me`),
+  updateProfile: (body: { fullName: string; phone: string | null; username: string | null }) => http.put<UserDto>(`${BASE}/auth/me`, body),
+  deleteMyData: (password: string) => http.post<void>(`${BASE}/auth/me/delete`, { password }),
   changePassword: (body: { currentPassword: string; newPassword: string; confirmNewPassword: string }) =>
     http.post<void>(`${BASE}/auth/change-password`, body),
   forgotPassword: (email: string) => http.post<{ message: string; devToken?: string }>(`${BASE}/auth/forgot-password`, { email }, { anonymous: true }),
@@ -110,7 +146,9 @@ const mockAuthApi = {
 const mockBranchesApi = {
   list: (q: { search?: string; status?: BranchStatus; page?: number; pageSize?: number } = {}) =>
     http.get<PagedResponse<BranchDto>>(`${BASE}/branches`, { query: q }),
-  listActive: () => http.get<BranchDto[]>(`${BASE}/branches/active`),
+  listActive: () => http.get<BranchDto[]>(`${BASE}/branches/active`, { anonymous: true }),
+  /** Active branches of a named brand, for anyone (the public brand page `/b/:brandSlug`). The demo data has one brand. */
+  listActiveOf: (_brandSlug: string) => http.get<BranchDto[]>(`${BASE}/branches/active`, { anonymous: true }),
   get: (id: string) => http.get<BranchDto>(`${BASE}/branches/${id}`),
   create: (body: BranchInput) => http.post<BranchDto>(`${BASE}/branches`, body),
   update: (id: string, body: BranchInput) => http.put<BranchDto>(`${BASE}/branches/${id}`, body),

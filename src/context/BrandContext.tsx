@@ -30,6 +30,8 @@ function slugForChrome(pathname: string, pathSlug: string | null, storedSlug: st
     pathname.startsWith("/t/")
     || pathname === "/shops"
     || pathname.startsWith("/shops/")
+    || pathname === "/brands"
+    || pathname.startsWith("/brands/")
     || pathname === "/account-settings"
   ) {
     return storedSlug
@@ -45,7 +47,7 @@ async function resolveBrand(slug: string): Promise<BrandPublic> {
     if (err instanceof ApiError && err.status === 404) {
       const list = await publicApi.brands()
       const hit = list.find((b) => b.slug === slug)
-      if (hit) return hit
+      if (hit) return { name: hit.name, slug: hit.slug, status: "Active" as const, logoUrl: hit.logoUrl, brandColor: hit.brandColor }
     }
     throw err
   }
@@ -59,7 +61,11 @@ export function BrandProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const sync = () => setStoredSlug(getActiveBrandSlug())
     window.addEventListener(BRAND_CHANGE_EVENT, sync)
-    return () => window.removeEventListener(BRAND_CHANGE_EVENT, sync)
+    window.addEventListener("aicos:brand-changed", sync)
+    return () => {
+      window.removeEventListener(BRAND_CHANGE_EVENT, sync)
+      window.removeEventListener("aicos:brand-changed", sync)
+    }
   }, [])
 
   useEffect(() => {

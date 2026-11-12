@@ -12,6 +12,9 @@ const LOCK_SECONDS = 15 * 60
 /** Lockout key = `tenantSlug|email` or `admin|email` / `platform|email`. */
 const attempts = new Map<string, { count: number; lockedUntil: number }>()
 const resetTokens = new Map<string, { email: string; tenantSlug: string | null; expiresAt: number }>()
+/** Demo sign-ups waiting for their code; the demo accepts the code 123456 (no mail is sent). */
+const pendingSignUps = new Map<string, { fullName: string; password: string }>()
+const DEMO_CODE = "123456"
 
 const problem = (status: number, title: string, extra: Record<string, unknown> = {}) => HttpResponse.json({ title, detail: title, ...extra }, { status })
 const ok = <T,>(body: T) => HttpResponse.json(body as never)
@@ -159,32 +162,49 @@ export const handlers = [
     return ok({ message: "Đã đặt lại mật khẩu" })
   }),
   http.post("*/api/v1/identity/auth/register", async ({ request }) => {
+    await delay(250)
     const b = (await request.json()) as { fullName: string; email: string; password: string }
-    const login = b.email?.trim().toLowerCase() || "register"
-    const state = attempts.get(`reg:${login}`) ?? { count: 0, lockedUntil: 0 }
-    if (state.lockedUntil > Date.now()) {
-      return problem(423, "Quá nhiều lần đăng ký. Thử lại sau.", { code: "rate_limited", retryAfterSeconds: Math.ceil((state.lockedUntil - Date.now()) / 1000) })
-    }
+    const email = b.email?.trim().toLowerCase() || "register"
     if (!b.password || b.password.length < 8) return problem(422, "Mật khẩu phải có ít nhất 8 ký tự")
-    if (db.users.some((u) => u.email === login && u.role === "Customer")) {
-      state.count += 1
-      if (state.count >= MAX_ATTEMPTS) {
-        state.count = 0
-        state.lockedUntil = Date.now() + LOCK_SECONDS * 1000
-      }
-      attempts.set(`reg:${login}`, state)
+    if (db.users.some((u) => u.email === email && u.role === "Customer")) {
       return problem(409, "Email đã được đăng ký", { code: "email_taken" })
     }
-    attempts.delete(`reg:${login}`)
+    pendingSignUps.set(email, { fullName: b.fullName, password: b.password })
+    return HttpResponse.json({ email, expiresInSeconds: 600, resendAfterSeconds: 60 }, { status: 202 })
+  }),
+  http.post("*/api/v1/identity/auth/register/verify", async ({ request }) => {
+    await delay(250)
+    const b = (await request.json()) as { email: string; code: string }
+    const email = b.email.trim().toLowerCase()
+    const pending = pendingSignUps.get(email)
+    if (!pending || b.code !== DEMO_CODE) {
+      return problem(422, "Mã xác thực không đúng hoặc đã hết hạn. Hãy yêu cầu mã mới.", { code: "auth.verification_code_invalid" })
+    }
     const created: UserDto = {
-      id: `u${db.users.length + 1}`, fullName: b.fullName, email: login, username: null, phone: null, role: "Customer",
+      id: `u${db.users.length + 1}`, fullName: pending.fullName, email, username: null, phone: null, role: "Customer",
       branchId: null, status: "Active", mustChangePassword: false, lockoutEndUtc: null, lastLoginAtUtc: null,
       createdAtUtc: new Date().toISOString(), updatedAtUtc: null,
     }
     db.users.push(created)
-    db.passwords[db.passwordKey(null, created.email)] = b.password
-    return ok(created)
+    db.passwords[db.passwordKey(null, created.email)] = pending.password
+    pendingSignUps.delete(email)
+    return ok(issueSession(created))
   }),
+  http.post("*/api/v1/identity/auth/register/resend", async ({ request }) => {
+    const b = (await request.json()) as { email: string }
+    return HttpResponse.json({ email: b.email.trim().toLowerCase(), expiresInSeconds: 600, resendAfterSeconds: 60 }, { status: 202 })
+  }),
+  http.post("*/api/v1/identity/auth/select-brand", async ({ request }) => {
+    const b = (await request.json()) as { tenantCode?: string; tenantId?: string }
+    const brand = db.tenants.find((t) => t.slug === b.tenantCode || t.id === b.tenantId)
+    if (!brand) return problem(404, "Không tìm thấy quán")
+    const actor = userFromRequest(request)
+    const user = actor ?? db.users.find((u) => u.role === "Customer")
+    if (!user) return problem(401, "Chưa đăng nhập")
+    return ok({ ...issueSession(user), activeBrandCode: brand.slug, tenantSlug: brand.slug })
+  }),
+  http.post("*/api/v1/identity/auth/google", () =>
+    problem(422, "Đăng nhập Google không có trong bản demo.", { code: "auth.google_not_configured" })),
 
   http.get("*/api/v1/identity/branches/active", ({ request }) => {
     // Floor staff may read their own branch (label in sidebar); Brand Admin sees all of the tenant.

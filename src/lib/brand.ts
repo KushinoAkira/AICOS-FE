@@ -8,6 +8,8 @@ export const BRAND_CHANGE_EVENT = "aicos:brand-change"
 
 function notifyBrandChange() {
   window.dispatchEvent(new Event(BRAND_CHANGE_EVENT))
+  // Alias event kept for voucher-era listeners (`aicos:brand-changed`).
+  window.dispatchEvent(new Event("aicos:brand-changed"))
 }
 
 /** Currently selected brand slug (session), or null on the platform with no shop chosen. */
@@ -38,6 +40,11 @@ export function clearActiveBrandSlug() {
 /** @deprecated Prefer clearActiveBrandSlug */
 export function clearRememberedBrand() {
   clearActiveBrandSlug()
+}
+
+/** Tells the app the current brand changed (the customer chose another one, or signed out). */
+export function brandChanged() {
+  notifyBrandChange()
 }
 
 /** Ready-made brand colours (data, not styling). The owner can also pick any colour. */

@@ -1,8 +1,9 @@
-import { type ReactNode, useRef, useLayoutEffect, useState } from "react"
+import { type ReactNode, useEffect, useRef, useState } from "react"
 import { useAuth } from "../context/AuthContext"
 import { useBrand } from "../context/BrandContext"
 import { useActiveBranch } from "../hooks/useActiveBranch"
 import UserMenu from "./CustomerUserMenu"
+import NotificationBell from "./NotificationBell"
 import type { Page } from "../router/pages"
 import type { Role } from "../router/roles"
 
@@ -46,60 +47,91 @@ const ic = (name: string): ReactNode => (
 
 const item = (id: string, label: string, icon: string): NavItem => ({ id, label, icon: ic(icon) })
 
-const navMap: Record<StaffRole, NavItem[]> = {
+/** A labelled part of the menu. Short menus have one group without a label. */
+interface NavGroup {
+  label?: string
+  items: NavItem[]
+}
+
+const navMap: Record<StaffRole, NavGroup[]> = {
   superAdmin: [
-    item("platform-tenants", "Tenant", "building"),
-    item("platform-plans", "Gói dịch vụ", "tag"),
-    item("platform-subscriptions", "Đăng ký", "card"),
-    item("platform-providers", "Cổng thanh toán", "plug"),
-    item("platform-health", "Sức khỏe hệ thống", "pulse"),
-    item("platform-revenue", "Doanh thu nền tảng", "chart"),
-    item("platform-audit", "Nhật ký", "shield"),
+    { items: [
+      item("platform-tenants", "Tenant", "building"),
+      item("platform-plans", "Gói dịch vụ", "tag"),
+      item("platform-subscriptions", "Đăng ký", "card"),
+      item("platform-providers", "Cổng thanh toán", "plug"),
+      item("platform-health", "Sức khỏe hệ thống", "pulse"),
+      item("platform-revenue", "Doanh thu nền tảng", "chart"),
+      item("platform-audit", "Nhật ký", "shield"),
+    ] },
   ],
   brandAdmin: [
-    item("brand-dashboard", "Tổng quan", "grid"),
-    item("brand-profile", "Thương hiệu", "cup"),
-    item("admin-branches", "Chi nhánh", "building"),
-    item("admin-users", "Tài khoản", "users"),
-    item("manager-menu", "Thực đơn", "menu"),
-    item("branch-tables", "Bàn & QR", "table"),
-    item("floor-plan-view", "Sơ đồ tầng", "map"),
-    item("brand-pickup", "Khung giờ lấy hàng", "clock"),
-    item("brand-promotions", "Khuyến mãi", "tag"),
-    item("brand-loyalty", "Tích điểm", "heart"),
-    item("manager-reports", "Báo cáo", "chart"),
-    item("manager-feedback", "Phản hồi", "heart"),
-    item("brand-cancel-policy", "Chính sách hủy", "clock"),
-    item("brand-pay-rules", "Quy tắc thanh toán", "card"),
-    item("brand-merchant", "Cổng thanh toán", "card"),
-    item("brand-subscription", "Gói đăng ký", "card"),
-    item("admin-logs", "Nhật ký", "shield"),
+    { label: "Cửa hàng", items: [
+      item("brand-dashboard", "Tổng quan", "grid"),
+      item("brand-profile", "Thương hiệu", "cup"),
+      item("admin-branches", "Chi nhánh", "building"),
+      item("branch-tables", "Bàn & QR", "table"),
+      item("floor-plan-view", "Sơ đồ tầng", "map"),
+      item("kiosk", "Kiosk khách tự gọi", "cup"),
+      item("admin-users", "Tài khoản", "users"),
+    ] },
+    { label: "Bán hàng", items: [
+      item("manager-menu", "Thực đơn", "menu"),
+      item("brand-pickup", "Khung giờ lấy hàng", "clock"),
+      item("brand-promotions", "Khuyến mãi", "tag"),
+      item("brand-loyalty", "Tích điểm", "heart"),
+    ] },
+    { label: "Theo dõi", items: [
+      item("manager-reports", "Báo cáo", "chart"),
+      item("manager-feedback", "Phản hồi", "heart"),
+      item("admin-logs", "Nhật ký", "shield"),
+    ] },
+    { label: "Thanh toán và gói", items: [
+      item("brand-cancel-policy", "Chính sách hủy", "clock"),
+      item("brand-pay-rules", "Quy tắc thanh toán", "card"),
+      item("brand-merchant", "Cổng thanh toán", "card"),
+      item("brand-reconciliation", "Đối soát", "list"),
+      item("brand-subscription", "Gói đăng ký", "card"),
+    ] },
   ],
   branchManager: [
-    item("manager-dashboard", "Tổng quan", "grid"),
-    item("branch-orders", "Đơn hàng", "list"),
-    item("manager-menu", "Thực đơn", "menu"),
-    item("manager-staff", "Nhân sự", "users"),
-    item("branch-schedule", "Lịch làm việc", "calendar"),
-    item("branch-shift-requests", "Ca thay", "swap"),
-    item("manager-payroll", "Bảng lương", "cash"),
-    item("branch-tables", "Bàn & QR", "table"),
-    item("branch-floor-plan", "Sơ đồ tầng", "map"),
-    item("branch-pickup", "Khung giờ lấy hàng", "clock"),
-    item("manager-reports", "Báo cáo", "chart"),
-    item("manager-feedback", "Phản hồi", "heart"),
+    { label: "Hằng ngày", items: [
+      item("manager-dashboard", "Tổng quan", "grid"),
+      item("branch-orders", "Đơn hàng", "list"),
+      item("manager-menu", "Tình trạng món", "menu"),
+      item("branch-tables", "Bàn & QR", "table"),
+      item("branch-floor-plan", "Sơ đồ tầng", "map"),
+      item("kiosk", "Kiosk khách tự gọi", "cup"),
+      item("branch-pickup", "Khung giờ lấy hàng", "clock"),
+    ] },
+    { label: "Nhân sự", items: [
+      item("manager-staff", "Nhân sự", "users"),
+      item("branch-schedule", "Lịch làm việc", "calendar"),
+      item("branch-shift-requests", "Ca thay", "swap"),
+      item("branch-attendance", "Chấm công", "calendar"),
+      item("manager-payroll", "Bảng lương", "cash"),
+      item("branch-cash-closings", "Chốt két", "cash"),
+    ] },
+    { label: "Theo dõi", items: [
+      item("manager-reports", "Báo cáo", "chart"),
+      item("manager-feedback", "Phản hồi", "heart"),
+    ] },
   ],
-  barista: [
+  barista: [{ items: [
     item("barista-queue", "Hàng đợi pha chế", "cup"),
     item("floor-plan-view", "Sơ đồ tầng", "map"),
     item("cashier-shift", "Ca làm việc", "clock2"),
-  ],
+  ] }],
   cashier: [
-    item("cashier-pos", "Tạo đơn", "cash"),
-    item("cashier-payments", "Thanh toán cần xử lý", "card"),
-    item("cashier-tables", "Bàn và bill", "table"),
-    item("floor-plan-view", "Sơ đồ tầng", "map"),
-    item("cashier-shift", "Ca làm việc", "clock2"),
+    { items: [
+      item("cashier-pos", "Tạo đơn", "cash"),
+      item("kiosk", "Kiosk khách tự gọi", "cup"),
+      item("cashier-payments", "Thanh toán cần xử lý", "card"),
+      item("cashier-tables", "Bàn và bill", "table"),
+      item("floor-plan-view", "Sơ đồ tầng", "map"),
+      item("cashier-serve", "Phục vụ và giao món", "cup"),
+      item("cashier-shift", "Ca làm việc", "clock2"),
+    ] },
   ],
 }
 
@@ -110,6 +142,16 @@ const roleLabel: Record<StaffRole, string> = {
   barista: "Pha chế",
   cashier: "Thu ngân",
 }
+
+/** The menu entry (and its group) of the page on screen, to name it in the top bar. */
+export function currentNavEntry(role: StaffRole, page: string): { group?: string; label: string } | null {
+  for (const g of navMap[role]) {
+    const hit = g.items.find((i) => i.id === page)
+    if (hit) return { group: g.label, label: hit.label }
+  }
+  return null
+}
+
 interface Props {
   /** Ignored: the sidebar always follows the signed-in user's role. Kept so existing pages compile. */
   role?: string
@@ -119,207 +161,175 @@ interface Props {
   headerRight?: ReactNode
 }
 
+/**
+ * The staff frame: a sidebar menu grouped by topic on wide screens, a drawer behind a menu button on tablets and phones,
+ * and a top bar that always says where you are.
+ * BR-05: locked roles show branch name/address; brand admins can switch branch.
+ */
 export default function InternalLayout({ activePage, navigate, children, headerRight }: Props) {
-  const { user, role: userRole, logout } = useAuth()
-  const brand = useBrand()
+  const { role: userRole } = useAuth()
   const role: StaffRole = userRole && userRole !== "customer" ? userRole : "cashier"
-  const { branches, branchId, canSwitch, select, branch, branchesLoading } = useActiveBranch()
-  const nav = navMap[role]
-  const navContainerRef = useRef<HTMLDivElement>(null)
-  const [pillStyle, setPillStyle] = useState<{ top: number; height: number }>({ top: 0, height: 40 })
-  const shop = role !== "superAdmin" && brand.kind === "ready" ? brand.brand : null
-  const markColor = shop?.brandColor || "#C97B4A"
+  const [drawer, setDrawer] = useState(false)
+  const here = currentNavEntry(role, activePage)
 
-  useLayoutEffect(() => {
-    if (!navContainerRef.current) return
-    const active = navContainerRef.current.querySelector("[data-active='true']") as HTMLElement | null
-    if (active) {
-      setPillStyle({ top: active.offsetTop, height: active.offsetHeight })
-    }
-  }, [activePage])
+  useEffect(() => {
+    if (!drawer) return
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setDrawer(false) }
+    window.addEventListener("keydown", onKey)
+    return () => window.removeEventListener("keydown", onKey)
+  }, [drawer])
+
+  const go = (p: Page) => { setDrawer(false); navigate(p) }
 
   return (
-    <div className="flex h-screen overflow-hidden" style={{ backgroundColor: "#FAF6F0" }}>
-      {/* Sidebar */}
-      <aside
-        className="flex flex-col flex-shrink-0 w-56 h-screen overflow-y-auto"
-        style={{ backgroundColor: "#6F4E37" }}
-      >
-        {/* Brand / platform mark */}
-        <div className="px-6 pt-7 pb-8">
+    <div className="flex h-screen overflow-hidden bg-bg-base">
+      <aside aria-label="Menu" className="hidden w-60 shrink-0 lg:flex">
+        <Sidebar role={role} activePage={activePage} navigate={go} />
+      </aside>
+
+      {drawer && (
+        <div className="fixed inset-0 z-40 flex lg:hidden" role="dialog" aria-modal="true" aria-label="Menu">
+          <button type="button" aria-label="Đóng menu" className="absolute inset-0 bg-text-primary/40" onClick={() => setDrawer(false)} />
+          <div className="relative flex w-72 max-w-[85vw] shadow-xl">
+            <Sidebar role={role} activePage={activePage} navigate={go} onClose={() => setDrawer(false)} />
+          </div>
+        </div>
+      )}
+
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+        <header className="flex shrink-0 items-center justify-between gap-3 border-b border-border bg-bg-base px-4 py-3 sm:px-6 lg:px-8 lg:py-4">
+          <div className="flex min-w-0 items-center gap-3">
+            <button
+              type="button" aria-label="Mở menu" aria-expanded={drawer} onClick={() => setDrawer(true)}
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px] border border-border bg-surface text-espresso lg:hidden"
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" aria-hidden><path d="M4 7h16M4 12h16M4 17h16" /></svg>
+            </button>
+            <p className="min-w-0 truncate text-sm text-text-secondary" data-testid="where">
+              {here?.group && <span className="hidden sm:inline">{here.group} <span aria-hidden>/</span> </span>}
+              <span className="font-medium text-text-primary">{here?.label ?? roleLabel[role]}</span>
+            </p>
+          </div>
+          <div className="flex shrink-0 items-center gap-2 sm:gap-4">
+            {headerRight}
+            <NotificationBell navigate={navigate} />
+            <UserMenu variant="staff" navigate={navigate} />
+          </div>
+        </header>
+        <main className="flex-1 overflow-auto p-4 sm:p-6 lg:p-8">{children}</main>
+      </div>
+    </div>
+  )
+}
+
+function Sidebar({ role, activePage, navigate, onClose }: { role: StaffRole; activePage: string; navigate: (p: Page) => void; onClose?: () => void }) {
+  const { user, logout } = useAuth()
+  const brand = useBrand()
+  const { branches, branchId, canSwitch, select, branch, branchesLoading } = useActiveBranch()
+  const closeRef = useRef<HTMLButtonElement>(null)
+  const shop = role !== "superAdmin" && brand.kind === "ready" ? brand.brand : null
+  const markColor = shop?.brandColor || "#C97B4A"
+  useEffect(() => { closeRef.current?.focus() }, [])
+  return (
+    <div className="flex h-full w-full flex-col overflow-y-auto bg-espresso text-bg-base">
+      <div className="flex items-start justify-between px-6 pb-6 pt-7">
+        <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2.5 min-w-0">
             {shop?.logoUrl ? (
               <img
                 src={shop.logoUrl}
                 alt=""
-                className="h-8 w-8 shrink-0 rounded-[10px] object-contain"
-                style={{ backgroundColor: "rgba(250,246,240,0.12)" }}
+                className="h-8 w-8 shrink-0 rounded-[10px] object-contain bg-white/10"
               />
             ) : shop ? (
               <span
                 aria-hidden
-                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px] font-serif text-sm font-medium"
-                style={{ backgroundColor: markColor, color: "#FAF6F0" }}
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px] font-serif text-sm font-medium text-bg-base"
+                style={{ backgroundColor: markColor }}
               >
                 {shop.name.charAt(0)}
               </span>
             ) : (
               <CoffeeBean />
             )}
-            <span
-              className="truncate font-serif text-xl font-medium"
-              style={{ color: "#FAF6F0", fontFamily: "'Literata', 'Inter', system-ui, sans-serif" }}
-              title={shop?.name ?? "AICOS"}
-            >
+            <span className="truncate font-serif text-xl font-medium" title={shop?.name ?? "AICOS"}>
               {shop?.name ?? "AICOS"}
             </span>
           </div>
-          <div
-            className="mt-1 text-xs font-medium tracking-widest uppercase"
-            style={{ color: "rgba(250,246,240,0.45)", fontSize: "10px", letterSpacing: "0.08em" }}
-          >
-            {roleLabel[role]}
-          </div>
+          <p className="mt-1 text-xs text-bg-base/60">{roleLabel[role]}</p>
           {canSwitch && (
             <label className="mt-4 block">
-              <span className="mb-1 block text-[10px] uppercase tracking-wide" style={{ color: "rgba(250,246,240,0.45)" }}>Chi nhánh đang xem</span>
+              <span className="mb-1 block text-[10px] uppercase tracking-wide text-bg-base/45">Chi nhánh đang xem</span>
               <select
                 value={branchId ?? ""}
                 onChange={(e) => select(e.target.value)}
-                className="w-full rounded-[10px] border-0 px-2 py-2 text-sm"
-                style={{ backgroundColor: "rgba(250,246,240,0.12)", color: "#FAF6F0" }}
+                className="w-full rounded-[10px] border-0 bg-white/12 px-2 py-2 text-sm text-bg-base"
               >
                 <option value="" disabled>Chọn chi nhánh</option>
                 {branches.map((b) => (
-                  <option key={b.id} value={b.id} style={{ color: "#3A2E22" }}>{b.name}</option>
+                  <option key={b.id} value={b.id} className="text-espresso">{b.name}</option>
                 ))}
               </select>
             </label>
           )}
           {!canSwitch && role !== "superAdmin" && (
             <div className="mt-3 space-y-0.5">
-              <p className="truncate text-xs font-medium" style={{ color: "rgba(250,246,240,0.85)" }} title={branch?.name}>
+              <p className="truncate text-xs font-medium text-bg-base/85" title={branch?.name}>
                 {branch?.name
                   ?? (branchesLoading ? "Đang tải chi nhánh…" : user?.branchId ? "Không tải được chi nhánh" : "Chưa gán chi nhánh")}
               </p>
               {branch?.address && (
-                <p className="line-clamp-2 text-[11px] leading-snug" style={{ color: "rgba(250,246,240,0.5)" }} title={branch.address}>
+                <p className="line-clamp-2 text-[11px] leading-snug text-bg-base/50" title={branch.address}>
                   {branch.address}
                 </p>
               )}
             </div>
           )}
         </div>
-
-        {/* Nav */}
-        <nav className="flex-1 px-3 space-y-1 relative" ref={navContainerRef}>
-          {/* Sliding active pill */}
-          <div
-            aria-hidden="true"
-            style={{
-              position: "absolute",
-              left: 0,
-              right: 0,
-              top: pillStyle.top,
-              height: pillStyle.height,
-              backgroundColor: "rgba(250,246,240,0.15)",
-              borderRadius: "10px",
-              transition: "top 260ms cubic-bezier(0.16,1,0.3,1), height 160ms cubic-bezier(0.16,1,0.3,1)",
-              pointerEvents: "none",
-            }}
-          />
-          {nav.map((item) => {
-            const active = activePage === item.id
-            return (
-              <button
-                key={item.id}
-                data-active={active ? "true" : "false"}
-                onClick={() => navigate(item.id as Page)}
-                className="flex items-center gap-3 w-full px-3 py-2.5 text-left relative"
-                style={{
-                  backgroundColor: "transparent",
-                  color: active ? "#FAF6F0" : "rgba(250,246,240,0.6)",
-                  borderRadius: "10px",
-                  border: "none",
-                  cursor: "pointer",
-                  transition: "color 160ms",
-                }}
-                onMouseEnter={(e) => {
-                  if (!active) (e.currentTarget as HTMLButtonElement).style.color = "rgba(250,246,240,0.85)"
-                }}
-                onMouseLeave={(e) => {
-                  if (!active) (e.currentTarget as HTMLButtonElement).style.color = "rgba(250,246,240,0.6)"
-                }}
-              >
-                <span style={{ opacity: active ? 1 : 0.75 }}>{item.icon}</span>
-                <span className="text-sm font-medium">{item.label}</span>
-                {item.id === "manager-suggestions" || item.id === "admin-ai-config" ? (
-                  <span
-                    className="ml-auto w-2 h-2 rounded-full flex-shrink-0"
-                    style={{ backgroundColor: "#7A8450" }}
-                  />
-                ) : null}
-              </button>
-            )
-          })}
-        </nav>
-
-        {/* Bottom avatar */}
-        <div className="p-4 mt-4">
-          <button
-            type="button"
-            onClick={() => navigate("account-settings")}
-            className="flex items-center gap-3 p-3 rounded-xl w-full text-left transition-all duration-150"
-            style={{ backgroundColor: "rgba(250,246,240,0.08)", border: "none", cursor: "pointer" }}
-            onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = "rgba(250,246,240,0.15)" }}
-            onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = "rgba(250,246,240,0.08)" }}
-          >
-            <div
-              className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium flex-shrink-0"
-              style={{ backgroundColor: "#C97B4A", color: "#FAF6F0", fontFamily: "'Literata', 'Inter', system-ui, sans-serif" }}
-            >
-              {(user?.fullName ?? "?").charAt(0).toUpperCase()}
-            </div>
-            <div className="min-w-0 flex-1">
-              <div className="text-xs font-medium truncate" style={{ color: "#FAF6F0" }}>
-                {user?.fullName ?? "Tài khoản"}
-              </div>
-              <div className="text-xs truncate" style={{ color: "rgba(250,246,240,0.5)" }}>
-                {roleLabel[role]}
-              </div>
-            </div>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(250,246,240,0.35)" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0">
-              <circle cx="12" cy="12" r="3"/>
-              <path d="M12 2v2M12 20v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M2 12h2M20 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
-            </svg>
+        {onClose && (
+          <button ref={closeRef} type="button" aria-label="Đóng menu" onClick={onClose} className="-mr-2 flex h-10 w-10 items-center justify-center rounded-[10px] text-bg-base/80 hover:bg-white/10">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" aria-hidden><path d="M6 6l12 12M18 6L6 18" /></svg>
           </button>
-          <button
-            type="button"
-            onClick={() => void logout()}
-            className="mt-2 w-full p-2 rounded-xl text-xs font-medium text-left transition-colors duration-150"
-            style={{ backgroundColor: "transparent", border: "none", cursor: "pointer", color: "rgba(250,246,240,0.6)" }}
-            onMouseEnter={(e) => { e.currentTarget.style.color = "#FAF6F0" }}
-            onMouseLeave={(e) => { e.currentTarget.style.color = "rgba(250,246,240,0.6)" }}
-          >
-            Đăng xuất
-          </button>
-        </div>
-      </aside>
+        )}
+      </div>
 
-      {/* Main content */}
-      <div className="flex-1 flex flex-col min-w-0 min-h-0">
-        {/* Top header */}
-        <header
-          className="flex items-center justify-between px-8 py-4 flex-shrink-0"
-          style={{ borderBottom: "1px solid #E6DCCB", backgroundColor: "#FAF6F0" }}
-        >
-          <div />
-          <div className="flex items-center gap-4">
-            {headerRight}
-            <UserMenu variant="staff" navigate={navigate} />
+      <nav aria-label="Chức năng" className="flex-1 space-y-5 px-3">
+        {navMap[role].map((g, gi) => (
+          <div key={g.label ?? gi}>
+            {g.label && <p className="mb-1 px-3 text-xs font-medium text-bg-base/50">{g.label}</p>}
+            <ul className="space-y-0.5">
+              {g.items.map((it) => {
+                const active = activePage === it.id
+                return (
+                  <li key={it.id}>
+                    <button
+                      type="button"
+                      aria-current={active ? "page" : undefined}
+                      onClick={() => navigate(it.id as Page)}
+                      className={`flex w-full items-center gap-3 rounded-[10px] px-3 py-2 text-left text-sm font-medium transition-colors ${active ? "bg-white/15 text-bg-base" : "text-bg-base/70 hover:bg-white/5 hover:text-bg-base"}`}
+                    >
+                      <span className={active ? "" : "opacity-75"}>{it.icon}</span>
+                      {it.label}
+                    </button>
+                  </li>
+                )
+              })}
+            </ul>
           </div>
-        </header>
-        <main className="flex-1 overflow-auto p-8">{children}</main>
+        ))}
+      </nav>
+
+      <div className="mt-6 p-4">
+        <button type="button" onClick={() => navigate("account-settings")} className="flex w-full items-center gap-3 rounded-xl bg-white/5 p-3 text-left transition-colors hover:bg-white/15">
+          <span aria-hidden className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-terracotta font-serif text-sm">{(user?.fullName ?? "?").charAt(0).toUpperCase()}</span>
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-xs font-medium">{user?.fullName ?? "Tài khoản"}</span>
+            <span className="block truncate text-xs text-bg-base/55">Cài đặt tài khoản</span>
+          </span>
+        </button>
+        <button type="button" onClick={() => void logout()} className="mt-2 w-full rounded-xl p-2 text-left text-xs font-medium text-bg-base/65 hover:text-bg-base">
+          Đăng xuất
+        </button>
       </div>
     </div>
   )
@@ -327,9 +337,9 @@ export default function InternalLayout({ activePage, navigate, children, headerR
 
 function CoffeeBean() {
   return (
-    <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
-      <ellipse cx="14" cy="14" rx="10" ry="13" fill="#C97B4A" />
-      <path d="M14 4 Q16 14 14 24" stroke="#6F4E37" strokeWidth="1.5" strokeLinecap="round" fill="none" />
+    <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden>
+      <ellipse cx="14" cy="14" rx="10" ry="13" fill="var(--color-terracotta)" />
+      <path d="M14 4 Q16 14 14 24" stroke="var(--color-espresso)" strokeWidth="1.5" strokeLinecap="round" fill="none" />
     </svg>
   )
 }

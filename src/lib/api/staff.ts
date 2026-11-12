@@ -5,19 +5,32 @@ import { http } from "./http"
 export type Period = "morning" | "afternoon"
 export const PERIOD_LABEL: Record<Period, string> = { morning: "Ca sáng (07:00-14:30)", afternoon: "Ca chiều (14:30-22:00)" }
 
-export interface Shift { id: string; date: string; period: Period; userId: string; userName: string; branchId: string; checkInAtUtc: string | null; checkOutAtUtc: string | null }
+export interface Shift { id: string; date: string; period: Period; workShiftId?: string; shiftName?: string; startTime?: string; endTime?: string; userId: string; userName: string; branchId: string; checkInAtUtc: string | null; checkOutAtUtc: string | null; reviewed?: boolean; absent?: boolean }
+/** The name and hours of the template the shift came from. */
+export const shiftLabel = (s: Pick<Shift, "period" | "shiftName" | "startTime" | "endTime">) =>
+  (s.shiftName ? `${s.shiftName} (${s.startTime}-${s.endTime})` : PERIOD_LABEL[s.period])
+
 export interface Applicant { userId: string; name: string; branchName: string }
 export interface Replacement { id: string; shift: Shift; reason: string; status: "open" | "filled"; applicants: Applicant[]; filledBy?: string; applied: boolean }
 export interface CashClosing { id: string; date: string; userName: string; expected: number; counted: number; variance: number; reason: string }
 
-export interface LoyaltyVoucher { id: string; code: string; title: string; value: number; expiresAtUtc: string }
-export interface LoyaltyMe { points: number; tier: string; nextTier: string | null; pointsToNext: number; redeemPoints: number; vouchers: LoyaltyVoucher[]; history: { id: string; delta: number; reason: string; atUtc: string }[] }
+export interface LoyaltyVoucher {
+  id: string; code: string; title: string; value: number; expiresAtUtc: string
+  /** What it takes off, already worded: "Giảm 10%" or "Giảm 20.000 đ". */
+  label?: string
+  /** Smallest order it works on; 0 when there is none. */
+  minOrder?: number
+}
+export interface LoyaltyMe { points: number; tier: string; nextTier: string | null; pointsToNext: number; /** Points the next tier starts at, for the progress bar. */ nextTierAt?: number; redeemPoints: number; vouchers: LoyaltyVoucher[]; history: { id: string; delta: number; reason: string; atUtc: string }[] }
 export interface Notice { id: string; title: string; body: string; atUtc: string; read: boolean }
+
+/** What the cashier closes next. `noShift`: they have not checked in to any shift yet. */
+export interface CashExpected { expected: number; closed: boolean; noShift?: boolean; shiftLabel?: string }
 
 const S = "/api/v1/staff"
 const mockStaffApi = {
   shifts: (from: string) => http.get<Shift[]>(`${S}/shifts?from=${from}`),
-  assign: (b: { date: string; period: Period; userId: string }) => http.post<Shift>(`${S}/shifts`, b),
+  assign: (b: { date: string; period: Period; userId: string; workShiftId?: string }) => http.post<Shift>(`${S}/shifts`, b),
   unassign: (id: string) => http.delete<{ ok: true }>(`${S}/shifts/${id}`),
   myShifts: () => http.get<Shift[]>(`${S}/my-shifts`),
   checkIn: (id: string) => http.post<Shift>(`${S}/shifts/${id}/check-in`, {}),
@@ -26,7 +39,7 @@ const mockStaffApi = {
   openReplacement: (b: { shiftId: string; reason: string }) => http.post<Replacement>(`${S}/replacements`, b),
   apply: (id: string) => http.post<Replacement>(`${S}/replacements/${id}/apply`, {}),
   approve: (id: string, userId: string) => http.post<Replacement>(`${S}/replacements/${id}/approve`, { userId }),
-  cashExpected: () => http.get<{ expected: number; closed: boolean }>(`${S}/cash/expected`),
+  cashExpected: () => http.get<CashExpected>(`${S}/cash/expected`),
   cashClosings: () => http.get<CashClosing[]>(`${S}/cash/closings`),
   closeCash: (b: { counted: number; reason: string }) => http.post<CashClosing>(`${S}/cash/close`, b),
 }

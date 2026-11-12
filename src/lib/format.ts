@@ -7,6 +7,12 @@ export function formatVND(amount: number): string {
   return `${vnd.format(Math.max(0, Math.round(amount)))} ₫`
 }
 
+/** Signed amount for payroll / cash closing deltas. */
+export function formatSignedVND(amount: number): string {
+  const rounded = Math.round(amount)
+  return `${rounded < 0 ? "-" : ""}${vnd.format(Math.abs(rounded))} ₫`
+}
+
 /** Compact for charts: 7400000 -> "7,4 tr", 45000 -> "45k". */
 export function formatVNDShort(amount: number): string {
   if (amount >= 1_000_000) return `${(amount / 1_000_000).toLocaleString("vi-VN", { maximumFractionDigits: 1 })} tr`

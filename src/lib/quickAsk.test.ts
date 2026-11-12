@@ -1,4 +1,4 @@
-﻿import { describe, expect, it } from "vitest"
+import { describe, expect, it } from "vitest"
 import type { Plan } from "./api/platform"
 import { fold, quickAsk } from "./quickAsk"
 

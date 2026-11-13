@@ -427,7 +427,7 @@ function toQrOrder(o: Raw, tableCode: string): Order {
     return {
       ...order.lines[n]!,
       // Options of a menu this tab has not opened (the page was reloaded) are listed by name so the line still tells what was ordered.
-      size: known ? label("size") : options.map((x) => str(x.name)).join(", "),
+      size: known ? [label("size"), ...options.map((x) => optionOf(str(x.optionId))).filter((x) => x?.kind === "topping").map((x) => `+${x!.label}`)].filter(Boolean).join(", ") : options.map((x) => str(x.name)).join(", "),
       sugar: known ? label("sugar") : "",
       ice: known ? label("ice") : "",
     }

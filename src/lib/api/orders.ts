@@ -14,7 +14,8 @@ export interface OrderLine {
   unitPrice: number
   note: string
 }
-export interface LineInput { productId: string; size: string; sugar: string; ice: string; qty: number; note: string }
+/** `toppings`: the topping names picked for this drink (several allowed); each adds its price. */
+export interface LineInput { productId: string; size: string; sugar: string; ice: string; qty: number; note: string; toppings?: string[] }
 
 export interface Order {
   id: string

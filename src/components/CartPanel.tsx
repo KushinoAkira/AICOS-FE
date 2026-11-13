@@ -60,7 +60,7 @@ export function CartPanel({ cart, setCart, total, submitLabel, submitting, error
                   {cart.map((l, i) => (
                     <li key={i} className="py-3 text-sm">
                       <div className="flex items-start justify-between gap-2">
-                        <span><span className="font-medium text-text-primary">{l.name}</span><br /><span className="text-xs text-text-secondary">{[l.size, l.sugar && `đường ${l.sugar}`, l.ice, l.note].filter(Boolean).join(" · ")}</span></span>
+                        <span><span className="font-medium text-text-primary">{l.name}</span><br /><span className="text-xs text-text-secondary">{[l.size, ...(l.toppings ?? []).map((t) => `+${t}`), l.sugar && `đường ${l.sugar}`, l.ice, l.note].filter(Boolean).join(" · ")}</span></span>
                         <span className="font-medium text-text-primary">{formatVND(l.unit * l.qty)}</span>
                       </div>
                       <div className="mt-2 flex items-center gap-2">

@@ -145,6 +145,8 @@ export const staffHandlers = [
     return ok(c)
   }),
   http.get("*/api/v1/loyalty/me", ({ request }) => ok(loyalty(meOf(request)))),
+  http.get("*/api/v1/loyalty/hunts", () => ok([])),
+  http.post("*/api/v1/loyalty/hunts/:id/claim", () => problem(404, "Không tìm thấy voucher")),
   http.post("*/api/v1/loyalty/redeem", ({ request }) => {
     const me = meOf(request)
     const cur = loyalty(me)

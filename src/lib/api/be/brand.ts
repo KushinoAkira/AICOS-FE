@@ -193,14 +193,19 @@ export const bePolicyApi = {
 const toVoucher = (v: Raw): Voucher => ({
   id: str(v.id), code: str(v.code), kind: str(v.discountType) === "Percentage" ? "percent" : "amount", value: num(v.value), minOrder: num(v.minOrderAmount),
   expiresAt: str(v.expiresAtUtc) || str(v.expiresAt), maxUses: 1, used: str(v.status) === "Redeemed" ? 1 : 0, active: str(v.status, "Active") === "Active",
+  hunt: v.requiredOrders == null ? undefined : { orders: num(v.requiredOrders), perOrder: num(v.requiredOrderAmount), from: str(v.countOrdersFromUtc), claimed: num(v.claimedCount) },
+  issuedTo: str(v.issuedToName) || undefined,
 })
 export const beVoucherApi = {
   vouchers: async () => recs(itemsOf(await http.get<Raw[]>("/customers/vouchers"))).map(toVoucher),
   createVoucher: async (v: VoucherInput) =>
-    toVoucher(rec(await http.post<Raw>("/customers/vouchers", { branchId: null, code: v.code, type: "Voucher", discountType: v.kind === "percent" ? "Percentage" : "FixedAmount", value: v.value, minOrderAmount: v.minOrder, expiresAt: v.expiresAt }))),
+    toVoucher(rec(await http.post<Raw>("/customers/vouchers", {
+      branchId: null, code: v.code || null, type: "Voucher", discountType: v.kind === "percent" ? "Percentage" : "FixedAmount", value: v.value, minOrderAmount: v.minOrder, expiresAt: v.expiresAt,
+      requiredOrders: v.hunt?.orders ?? null, requiredOrderAmount: v.hunt ? v.hunt.perOrder : null, countOrdersFrom: v.hunt?.from || null,
+    }))),
   async setVoucherActive(id: string, active: boolean): Promise<Voucher> {
     if (active) return unsupported("kích hoạt lại voucher đã thu hồi")
-    await http.post<Raw>(`/customers/vouchers/${id}/revoke`, {})
+    await http.post<Raw>(`/customers/vouchers/${id}/revoke`, { reason: "Tắt trên trang Khuyến mãi" })
     return toVoucher({ ...rec(await http.get<Raw>(`/customers/vouchers/${id}`)) })
   },
 }

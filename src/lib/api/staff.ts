@@ -21,7 +21,12 @@ export interface Replacement { id: string; shift: Shift; reason: string; status:
 export const replacementOver = (r: Replacement, now = new Date()) => new Date(`${r.shift.date}T${r.shift.endTime ?? "23:59"}:00`) <= now
 export interface CashClosing { id: string; date: string; userName: string; expected: number; counted: number; variance: number; reason: string }
 
-export interface LoyaltyVoucher { id: string; code: string; title: string; value: number; expiresAtUtc: string }
+export interface LoyaltyVoucher { id: string; code: string; title: string; value: number; expiresAtUtc: string; minOrder?: number }
+/** A voucher the member earns with orders: `counted` of `requiredOrders` so far; `claimedCode` once taken. */
+export interface HuntVoucher {
+  id: string; code: string; discountLabel: string; minOrder: number; expiresAtUtc: string
+  requiredOrders: number; perOrder: number; countFromUtc: string; counted: number; claimed: boolean; claimedCode: string | null; canClaim: boolean
+}
 export interface LoyaltyMe { points: number; tier: string; nextTier: string | null; pointsToNext: number; redeemPoints: number; vouchers: LoyaltyVoucher[]; history: { id: string; delta: number; reason: string; atUtc: string }[] }
 export interface Notice { id: string; title: string; body: string; atUtc: string; read: boolean }
 
@@ -49,6 +54,8 @@ const mockStaffApi = {
 const mockLoyaltyApi = {
   me: () => http.get<LoyaltyMe>("/api/v1/loyalty/me"),
   redeem: () => http.post<LoyaltyMe>("/api/v1/loyalty/redeem", {}),
+  hunts: () => http.get<HuntVoucher[]>("/api/v1/loyalty/hunts"),
+  claim: (id: string) => http.post<{ code: string }>(`/api/v1/loyalty/hunts/${id}/claim`, {}),
 }
 const mockNoticeApi = {
   mine: () => http.get<Notice[]>("/api/v1/notifications/mine"),

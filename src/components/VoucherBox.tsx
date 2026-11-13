@@ -8,7 +8,7 @@ export interface VoucherSuggestion { code: string; label: string; minOrderAmount
 
 /** Turns the voucher field on for a menu. Every field is optional: without `preview` the discount is only known once the order is placed. */
 export interface VoucherOptions {
-  /** Staff only: what the server says the code takes off this amount. Nothing is redeemed by a preview. */
+  /** What the server says the code takes off this amount (staff at the counter, or a member on their own order). Nothing is redeemed by a preview. */
   preview?: (code: string, amount: number) => Promise<VoucherQuote>
   suggestions?: VoucherSuggestion[]
   /** Under the field when there is no preview. */

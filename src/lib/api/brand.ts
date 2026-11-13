@@ -47,8 +47,12 @@ export interface Voucher {
   maxUses: number
   used: number
   active: boolean
+  /** A voucher customers hunt for: they need `orders` paid orders of at least `perOrder` (paid from `from`), then claim a personal code. */
+  hunt?: { orders: number; perOrder: number; from: string; claimed?: number }
+  /** A personal code (claimed from a hunt, or bought with points): the member's name. */
+  issuedTo?: string
 }
-export type VoucherInput = Omit<Voucher, "id" | "used" | "active">
+export type VoucherInput = Omit<Voucher, "id" | "used" | "active" | "issuedTo">
 
 export interface BrandSubscription {
   planName: string

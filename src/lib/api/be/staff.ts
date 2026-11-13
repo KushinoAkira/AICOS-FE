@@ -1,6 +1,6 @@
 import { http } from "../http"
 import { pickClosingShift } from "../../closingShift"
-import { shiftLabel, type CashClosing, type CashExpected, type LoyaltyMe, type Notice, type Period, type Replacement, type Shift } from "../staff"
+import { shiftLabel, type CashClosing, type CashExpected, type HuntVoucher, type LoyaltyMe, type Notice, type Period, type Replacement, type Shift } from "../staff"
 import { tokenStore } from "../tokenStore"
 import { bool, itemsOf, num, rec, recs, str, unsupported, ymd, type Raw } from "./util"
 
@@ -134,13 +134,26 @@ async function loyaltyMe(): Promise<LoyaltyMe> {
   const points = num(m.pointsBalance), tier = str(m.tier, "Member")
   return {
     points, tier, nextTier: m.nextTierAt == null ? null : tier === "Member" ? "Silver" : "Gold", pointsToNext: num(m.pointsToNextTier), redeemPoints: num(m.minPointsToRedeem, 10),
-    vouchers: recs(itemsOf(vouchers)).map((v) => ({ id: str(v.id), code: str(v.code), title: `Voucher ${str(v.code)}`, value: num(v.value), expiresAtUtc: str(v.expiresAtUtc) })),
+    vouchers: recs(itemsOf(vouchers)).filter((v) => !v.isExpired).map((v) => ({ id: str(v.id), code: str(v.code), title: discountLabel(v), value: num(v.value), expiresAtUtc: str(v.expiresAtUtc), minOrder: num(v.minOrderAmount) })),
     history: recs(rec(m.history).items).map((h) => ({ id: str(h.id), delta: num(h.points), reason: str(h.note) || str(h.type), atUtc: str(h.createdAtUtc) })),
   }
 }
 
+/** "Giảm 20.000 ₫" or "Giảm 10%". */
+const discountLabel = (v: Raw) => (str(v.discountType) === "Percentage" ? `Giảm ${num(v.value)}%` : `Giảm ${num(v.value).toLocaleString("vi-VN")} ₫`)
+
 export const beLoyaltyApi = {
   me: loyaltyMe,
+  async hunts(): Promise<HuntVoucher[]> {
+    return recs(itemsOf(await http.get<Raw[]>("/customers/vouchers/hunt"))).map((h) => ({
+      id: str(h.id), code: str(h.code), discountLabel: discountLabel(h), minOrder: num(h.minOrderAmount), expiresAtUtc: str(h.expiresAtUtc),
+      requiredOrders: num(h.requiredOrders), perOrder: num(h.requiredOrderAmount), countFromUtc: str(h.countOrdersFromUtc), counted: num(h.countedOrders),
+      claimed: bool(h.claimed), claimedCode: str(h.claimedCode) || null, canClaim: bool(h.canClaim),
+    }))
+  },
+  async claim(id: string): Promise<{ code: string }> {
+    return { code: str(rec(await http.post<Raw>(`/customers/vouchers/hunt/${id}/claim`, {})).code) }
+  },
   async redeem(): Promise<LoyaltyMe> {
     const me = rec(await http.get<Raw>("/customers/me/loyalty"))
     await http.post<Raw>("/customers/me/redemptions", { points: num(me.minPointsToRedeem, 10) })

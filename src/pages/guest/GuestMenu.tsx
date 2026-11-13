@@ -136,7 +136,7 @@ export default function GuestMenu({ navigate }: { navigate: (p: Page, params?: R
                 {takeaway && <div className="mt-3">{pickup.picker(`Giờ nhận hàng · ${menu.data.branchName}`, true)}</div>}
               </div>
             ) : undefined}
-            voucher={env.useMock || (featureFlags.voucherAtQr && role === "customer") ? { hint: "Giảm giá được trừ khi đặt món." } : undefined}
+            voucher={env.useMock || (featureFlags.voucherAtQr && role === "customer") ? { preview: (code, amount) => ordersApi.previewVoucher(code, amount, branchId), hint: "Giảm giá được trừ khi đặt món." } : undefined}
             tabs={{
               orderedCount: orderedCount.data?.length ?? 0,
               ordered: <OrderedTab token={token} channelUp={live} />,

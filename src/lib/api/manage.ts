@@ -51,6 +51,9 @@ export interface AssignmentRow {
   id: string; branchId: string; employeeId: string; employeeName: string; shiftName: string; workDate: string; startTime: string; endTime: string
   isReplacement: boolean; checkInAtUtc: string | null; checkOutAtUtc: string | null; reviewStatus: "Unreviewed" | "Approved"; isAbsent: boolean
   adjustedCheckInAtUtc: string | null; adjustedCheckOutAtUtc: string | null; reviewNote: string | null; workedHours: number
+  /** Set by the manager over the automatic status: Late, LeftEarly, ExcusedAbsence, UnexcusedAbsence, Other. */
+  managerStatus?: string | null
+  managerNote?: string | null
 }
 export type AttendanceState = "Upcoming" | "InProgress" | "Worked" | "MissingCheckOut" | "NoShow" | string
 export interface AttendanceRow { shift: AssignmentRow; state: AttendanceState; isLate: boolean; lateMinutes: number; leftEarly: boolean; scheduledHours: number; workedHours: number }
@@ -71,6 +74,8 @@ export const attendanceApi = {
   approveRange: (b: { from: string; to: string }) => http.post<{ approved: number; needsAttention: number }>("/workforce/attendance/approve-range", b),
   adjust: (id: string, b: { checkInAt: string | null; checkOutAt: string | null; reason: string }) => http.post<Raw>(`/workforce/attendance/${id}/adjust`, b),
   absent: (id: string, reason: string) => http.post<Raw>(`/workforce/attendance/${id}/absent`, { reason }),
+  /** Empty status goes back to the automatic status (from check-in and check-out). */
+  setStatus: (id: string, b: { status: string; note: string }) => http.post<Raw>(`/workforce/attendance/${id}/status`, { status: b.status || null, note: b.note.trim() || null }),
 }
 
 // ---------- cash closing

@@ -12,6 +12,24 @@ const STATE_TEXT: Record<string, string> = { Upcoming: "Sắp tới", InProgress
 /** Shifts nobody works under this name any more (an approved colleague took it, or the employee declined it): nothing to review. */
 const notReviewable = (state: string) => state === "Replaced" || state === "Declined"
 
+/** What the manager can set by hand. Empty keeps the automatic status, which follows check-in and check-out. */
+const MANAGER_STATUS: Record<string, string> = { "": "Tự động (theo chấm công)", Late: "Đi trễ", LeftEarly: "Về sớm", ExcusedAbsence: "Vắng có phép", UnexcusedAbsence: "Vắng không phép", Other: "Khác" }
+
+/** The automatic status in words: a shift that has started without a check-in reads "Chưa vào ca", one that ended reads "Không đến". */
+function autoStatus(r: AttendanceRow): string {
+  const inAt = r.shift.adjustedCheckInAtUtc ?? r.shift.checkInAtUtc
+  if (r.state === "InProgress" && !inAt) return "Chưa vào ca"
+  if (r.state === "NoShow") return "Không đến"
+  return STATE_TEXT[r.state] ?? r.state
+}
+
+/** Needs the manager now (started or ended, not reviewed) first, then shifts still to come, then the ones already handled. */
+function orderOf(r: AttendanceRow): number {
+  if (notReviewable(r.state) || r.shift.reviewStatus === "Approved") return 2
+  if (r.state === "Upcoming") return 1
+  return 0
+}
+
 /** `2026-11-02T08:15` in the browser's local time, for a date-time input. */
 const checkedIn = (r: AttendanceRow) => r.shift.adjustedCheckInAtUtc ?? r.shift.checkInAtUtc
 
@@ -27,7 +45,7 @@ export default function ManagerAttendance({ navigate }: { navigate: (p: Page) =>
   const { showToast } = useToast()
   const [to, setTo] = useState(today())
   const [from, setFrom] = useState(addDays(today(), -6))
-  const [onlyPending, setOnlyPending] = useState(true)
+  const [onlyPending, setOnlyPending] = useState(false)
   const report = useQuery({ queryKey: ["attendance", from, to, onlyPending], queryFn: () => attendanceApi.report({ from, to, reviewStatus: onlyPending ? "Unreviewed" : undefined }) })
   const [adjusting, setAdjusting] = useState<AttendanceRow | null>(null)
   const [checkIn, setCheckIn] = useState("")
@@ -55,6 +73,15 @@ export default function ManagerAttendance({ navigate }: { navigate: (p: Page) =>
     onSuccess: () => { refresh(); setAbsent(null); setAbsentReason(""); showToast("Đã ghi vắng.", "success") },
     onError: fail,
   })
+  const [editing, setEditing] = useState<AttendanceRow | null>(null)
+  const [status, setStatus] = useState("")
+  const [note, setNote] = useState("")
+  const saveStatus = useMutation({
+    mutationFn: () => attendanceApi.setStatus(editing?.shift.id ?? "", { status, note }),
+    onSuccess: () => { refresh(); setEditing(null); showToast(status ? "Đã cập nhật tình trạng." : "Đã trả về tình trạng tự động.", "success") },
+    onError: fail,
+  })
+  const openStatus = (r: AttendanceRow) => { setEditing(r); setStatus(r.shift.managerStatus ?? ""); setNote(r.shift.managerNote ?? "") }
   const openAdjust = (r: AttendanceRow) => {
     setAdjusting(r)
     setError(null)
@@ -75,7 +102,27 @@ export default function ManagerAttendance({ navigate }: { navigate: (p: Page) =>
     { key: "s", header: "Ca", render: (r) => `${r.shift.startTime.slice(0, 5)}-${r.shift.endTime.slice(0, 5)}` },
     { key: "i", header: "Vào / Ra", render: (r) => { const a = r.shift.adjustedCheckInAtUtc ?? r.shift.checkInAtUtc, b = r.shift.adjustedCheckOutAtUtc ?? r.shift.checkOutAtUtc; return `${a ? formatTime(a) : "-"} / ${b ? formatTime(b) : "-"}` } },
     { key: "w", header: "Giờ", render: (r) => r.workedHours.toFixed(1) },
-    { key: "f", header: "Tình trạng", render: (r) => <span>{r.shift.isAbsent ? "Vắng" : STATE_TEXT[r.state] ?? r.state}{r.isLate && <span className="ml-1 text-xs text-state-warning">trễ {r.lateMinutes} phút</span>}{r.leftEarly && <span className="ml-1 text-xs text-state-warning">về sớm</span>}</span> },
+    {
+      key: "f", header: "Tình trạng", render: (r) => {
+        const manual = r.shift.managerStatus ? MANAGER_STATUS[r.shift.managerStatus] ?? r.shift.managerStatus : null
+        return (
+          <div className="min-w-[150px]">
+            <div className="flex flex-wrap items-center gap-1">
+              {manual
+                ? <StatusPill tone={r.shift.managerStatus?.endsWith("Absence") ? "danger" : "pending"}>{manual}</StatusPill>
+                : <span>{r.shift.isAbsent ? "Vắng" : autoStatus(r)}</span>}
+              {!manual && r.isLate && <span className="text-xs text-state-warning">trễ {r.lateMinutes} phút</span>}
+              {!manual && r.leftEarly && <span className="text-xs text-state-warning">về sớm</span>}
+              {!notReviewable(r.state) && r.state !== "Upcoming" && (
+                <button type="button" onClick={() => openStatus(r)} aria-label={`Chỉnh tình trạng ca của ${r.shift.employeeName}`} className="rounded-full px-1.5 text-xs text-clay hover:underline">Chỉnh ▾</button>
+              )}
+            </div>
+            {manual && <p className="text-[11px] text-text-secondary">Tự động: {autoStatus(r)}</p>}
+            {(r.shift.managerNote || r.shift.reviewNote) && <p className="mt-0.5 max-w-[240px] text-xs italic text-text-secondary">Ghi chú: {r.shift.managerNote ?? r.shift.reviewNote}</p>}
+          </div>
+        )
+      },
+    },
     { key: "r", header: "Duyệt", render: (r) => notReviewable(r.state) ? <span className="text-xs text-text-secondary">Không cần duyệt</span> : <StatusPill tone={r.shift.reviewStatus === "Approved" ? "success" : "pending"}>{r.shift.reviewStatus === "Approved" ? "Đã duyệt" : "Chờ duyệt"}</StatusPill> },
     {
       key: "a", header: "", className: "text-right", render: (r) => notReviewable(r.state) ? null : (
@@ -94,7 +141,25 @@ export default function ManagerAttendance({ navigate }: { navigate: (p: Page) =>
         <div className="w-40"><Field label="Đến ngày" type="date" value={to} min={from} onChange={(e) => setTo(e.target.value)} /></div>
         <label className="mb-3 flex items-center gap-2 text-sm text-text-primary"><input type="checkbox" checked={onlyPending} onChange={(e) => setOnlyPending(e.target.checked)} /> Chỉ ca chờ duyệt</label>
       </div>
-      <QueryBoundary query={report}>{(r) => <DataTable rows={r.rows} rowKey={(x) => x.shift.id} columns={columns} emptyTitle={onlyPending ? "Không có ca nào chờ duyệt" : "Không có ca trong khoảng này"} />}</QueryBoundary>
+      <p className="mb-3 text-xs text-text-secondary">Ca cần duyệt nằm trên cùng, ca đã duyệt hoặc không cần duyệt xếp xuống dưới. Tình trạng tự đổi theo việc nhân viên bấm Vào ca / Kết thúc ca; chỉ bấm "Chỉnh" khi cần ghi khác (đi trễ, về sớm, vắng có phép…) kèm ghi chú.</p>
+      <QueryBoundary query={report}>{(r) => <DataTable rows={[...r.rows].sort((a, b) => orderOf(a) - orderOf(b))} rowKey={(x) => x.shift.id} columns={columns} emptyTitle={onlyPending ? "Không có ca nào chờ duyệt" : "Không có ca trong khoảng này"} />}</QueryBoundary>
+      <Modal open={!!editing} title={`Tình trạng ca: ${editing?.shift.employeeName ?? ""}`} onClose={() => setEditing(null)} footer={<><Button variant="secondary" onClick={() => setEditing(null)}>Hủy</Button><Button loading={saveStatus.isPending} onClick={() => saveStatus.mutate()}>Lưu</Button></>}>
+        {editing && (
+          <div className="space-y-4">
+            <p className="text-sm text-text-secondary">{formatDate(editing.shift.workDate)} · {editing.shift.startTime.slice(0, 5)}-{editing.shift.endTime.slice(0, 5)} · Tự động đang là <b className="text-text-primary">{autoStatus(editing)}</b></p>
+            <label className="block text-sm font-medium text-text-primary">Tình trạng
+              <select value={status} onChange={(e) => setStatus(e.target.value)} className="mt-1.5 w-full rounded-[10px] border border-border bg-surface px-3 py-3 text-sm">
+                {Object.entries(MANAGER_STATUS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+              </select>
+            </label>
+            {status.endsWith("Absence") && <Banner tone="warn">Vắng thì ca này không được tính công (giống Ghi vắng). Chỉ chọn được khi nhân viên chưa vào ca.</Banner>}
+            <label className="block text-sm font-medium text-text-primary">Ghi chú
+              <textarea value={note} maxLength={500} rows={3} onChange={(e) => setNote(e.target.value)} placeholder="Ví dụ: xin về sớm 30 phút vì có việc gia đình" className="mt-1.5 w-full rounded-[10px] border border-border p-3 text-sm font-normal" />
+            </label>
+            <p className="text-xs text-text-secondary">Chọn "Tự động" để tình trạng quay lại theo việc nhân viên bấm Vào ca / Kết thúc ca.</p>
+          </div>
+        )}
+      </Modal>
 
       <Modal open={!!adjusting} title={`Sửa giờ công: ${adjusting?.shift.employeeName ?? ""}`} onClose={() => setAdjusting(null)} footer={<><Button variant="secondary" onClick={() => setAdjusting(null)}>Hủy</Button><Button loading={adjust.isPending} onClick={submitAdjust}>Lưu</Button></>}>
         <div className="space-y-4">

@@ -11,8 +11,14 @@ import { env } from "../../config/env"
 /** The backend keeps one redemption per code (a voucher is used once), so the usage limit is only a mock-data feature. */
 const SINGLE_USE = !env.useMock
 
-const today = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}` }
-const EMPTY = { code: "", kind: "percent" as const, value: "", minOrder: "0", expiresAt: "", maxUses: "100", hunt: "", huntOrders: "10", huntPerOrder: "30000", huntFrom: today() }
+/** A local calendar day as YYYY-MM-DD, `days` from today. */
+const dayFromNow = (days = 0) => { const d = new Date(); d.setDate(d.getDate() + days); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}` }
+const today = () => dayFromNow(0)
+/** A new form: the voucher runs 30 days unless the admin picks another last day. */
+const emptyForm = () => ({ code: "", kind: "percent", value: "", minOrder: "0", expiresAt: dayFromNow(30), maxUses: "100", hunt: "", huntOrders: "10", huntPerOrder: "30000", huntFrom: today() })
+
+/** Why the last day cannot be used, or undefined when it is fine. */
+const expiryProblem = (day: string) => (!day ? "Chưa chọn ngày hết hạn (ngày cuối khách còn dùng được mã)." : day <= today() ? "Ngày hết hạn phải từ ngày mai trở đi." : undefined)
 
 /** "Cần 10 đơn, mỗi đơn từ 30.000 ₫" */
 export const huntText = (h: { orders: number; perOrder: number }) => `Cần ${h.orders} đơn${h.perOrder > 0 ? `, mỗi đơn từ ${formatVND(h.perOrder)}` : ""}`
@@ -29,12 +35,12 @@ export default function BrandVouchers({ navigate }: { navigate: (p: Page) => voi
   const { showToast } = useToast()
   const vouchers = useQuery({ queryKey: ["brand", "vouchers"], queryFn: brandApi.vouchers })
   const [open, setOpen] = useState(false)
-  const [form, setForm] = useState<Record<string, string>>(EMPTY)
+  const [form, setForm] = useState<Record<string, string>>(emptyForm)
   const [error, setError] = useState<string | null>(null)
 
   const create = useMutation({
     mutationFn: (v: VoucherInput) => brandApi.createVoucher(v),
-    onSuccess: () => { void qc.invalidateQueries({ queryKey: ["brand", "vouchers"] }); showToast("Đã tạo voucher", "success"); setOpen(false); setForm(EMPTY) },
+    onSuccess: () => { void qc.invalidateQueries({ queryKey: ["brand", "vouchers"] }); showToast("Đã tạo voucher", "success"); setOpen(false); setForm(emptyForm()) },
     onError: (e) => setError(e.message),
   })
   const toggle = useMutation({
@@ -48,9 +54,11 @@ export default function BrandVouchers({ navigate }: { navigate: (p: Page) => voi
     const max = hunt ? 25 : 30
     if (form.code && !new RegExp(`^[A-Z0-9-]{4,${max}}$`).test(form.code)) return setError(`Mã gồm 4-${max} ký tự: chữ không dấu A-Z, số và dấu gạch ngang (-). Hoặc để trống để hệ thống tự tạo.`)
     if (hunt && !(Number(form.huntOrders) >= 1 && Number(form.huntOrders) <= 1000)) return setError("Số đơn cần mua từ 1 đến 1000")
-    if (hunt && form.expiresAt && form.huntFrom >= form.expiresAt) return setError("Ngày bắt đầu tính đơn phải trước ngày hết hạn")
+
     if (!(value > 0) || (form.kind === "percent" && value > 100)) return setError(form.kind === "percent" ? "Phần trăm giảm từ 1 đến 100" : "Số tiền giảm phải lớn hơn 0")
-    if (!form.expiresAt || new Date(form.expiresAt) < new Date()) return setError("Chọn ngày hết hạn trong tương lai")
+    const expiry = expiryProblem(form.expiresAt)
+    if (expiry) return setError(expiry)
+    if (hunt && form.huntFrom >= form.expiresAt) return setError("Ngày bắt đầu tính đơn phải trước ngày hết hạn")
     if (!SINGLE_USE && !(Number(form.maxUses) > 0)) return setError("Số lượt dùng tối đa phải lớn hơn 0")
     setError(null)
     create.mutate({
@@ -78,7 +86,7 @@ export default function BrandVouchers({ navigate }: { navigate: (p: Page) => voi
   ]
 
   return (
-    <PageFrame page="brand-promotions" navigate={navigate} uc="UC-17" title="Khuyến mãi" subtitle="Voucher hết hạn, hết lượt hoặc sai điều kiện sẽ bị từ chối khi khách áp dụng." action={<Button onClick={() => setOpen(true)}>Tạo voucher</Button>}>
+    <PageFrame page="brand-promotions" navigate={navigate} uc="UC-17" title="Khuyến mãi" subtitle="Voucher hết hạn, hết lượt hoặc sai điều kiện sẽ bị từ chối khi khách áp dụng." action={<Button onClick={() => { setForm(emptyForm()); setError(null); setOpen(true) }}>Tạo voucher</Button>}>
       <QueryBoundary query={vouchers}>{(rows) => <DataTable rows={rows} rowKey={(v) => v.id} columns={columns} emptyTitle="Chưa có voucher nào" />}</QueryBoundary>
       <Modal open={open} title="Tạo voucher" onClose={() => setOpen(false)} footer={<><Button variant="secondary" onClick={() => setOpen(false)}>Hủy</Button><Button loading={create.isPending} onClick={submit}>Tạo</Button></>}>
         <div className="space-y-4">
@@ -97,7 +105,8 @@ export default function BrandVouchers({ navigate }: { navigate: (p: Page) => voi
           </div>
           <Field label="Đơn tối thiểu (₫)" inputMode="numeric" value={form.minOrder} onChange={(e) => setForm({ ...form, minOrder: e.target.value.replace(/\D/g, "") })} />
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Hết hạn" type="date" value={form.expiresAt} onChange={(e) => setForm({ ...form, expiresAt: e.target.value })} />
+            <Field label="Hết hạn" type="date" min={dayFromNow(1)} value={form.expiresAt} onChange={(e) => setForm({ ...form, expiresAt: e.target.value })}
+              error={error ? expiryProblem(form.expiresAt) : undefined} hint={form.expiresAt && !expiryProblem(form.expiresAt) ? `Dùng được đến hết ngày ${form.expiresAt.split("-").reverse().join("/")}` : undefined} />
             {form.hunt === "1" ? <p className="text-sm text-text-secondary">Mỗi khách đủ điều kiện lấy được một mã riêng, dùng một lần.</p>
               : SINGLE_USE ? <p className="text-sm text-text-secondary">Mỗi mã dùng được một lần. Cần nhiều lượt thì tạo nhiều mã, hoặc bật "Cho khách săn".</p> : <Field label="Số lượt tối đa" inputMode="numeric" value={form.maxUses} onChange={(e) => setForm({ ...form, maxUses: e.target.value.replace(/\D/g, "") })} />}
           </div>

@@ -23,26 +23,29 @@ function ProfileForm({ initial }: { initial: Profile }) {
   const [logo, setLogo] = useState<string | undefined>(initial.logoUrl)
   const [color, setColor] = useState<string | undefined>(initial.brandColor)
   const [description, setDescription] = useState(initial.description ?? "")
+  const [name, setName] = useState(initial.name)
+  const nameError = name.trim().length < 2 ? "Tên thương hiệu cần ít nhất 2 ký tự" : undefined
   const save = useMutation({
-    mutationFn: () => brandApi.saveProfile({ logoUrl: logo, brandColor: color, description: description.trim() || undefined }),
+    mutationFn: () => brandApi.saveProfile({ logoUrl: logo, brandColor: color, description: description.trim() || undefined, name: name.trim() }),
     onSuccess: () => { void qc.invalidateQueries({ queryKey: ["brand", "profile"] }); void qc.invalidateQueries({ queryKey: ["public"] }); showToast("Đã lưu thương hiệu", "success") },
     onError: (e) => showToast(e.message, "error"),
   })
-  const dirty = logo !== initial.logoUrl || color !== initial.brandColor || description.trim() !== (initial.description ?? "")
+  const dirty = logo !== initial.logoUrl || color !== initial.brandColor || description.trim() !== (initial.description ?? "") || name.trim() !== initial.name
 
   return (
     <div className="grid max-w-4xl gap-6 lg:grid-cols-[1fr_320px]">
       <div className="space-y-6 rounded-[16px] border border-border bg-surface p-5 sm:p-6">
-        <div><p className="text-sm text-text-secondary">Tên thương hiệu</p><p className="font-serif text-xl text-text-primary">{initial.name}</p><p className="text-xs text-text-secondary">{initial.slug}.aicos.app</p></div>
+        <Field label="Tên thương hiệu" maxLength={200} value={name} onChange={(e) => setName(e.target.value)} error={name !== initial.name ? nameError : undefined}
+          hint={`Hiện cho khách và nhân viên. Mã quán ${initial.slug} (đường dẫn, mã QR) giữ nguyên khi đổi tên.`} />
         <LogoPicker name={initial.name} value={logo} onChange={setLogo} />
         <ColorPicker value={color} onChange={setColor} />
         <Field label="Giới thiệu ngắn" hint="Hiện trên thẻ quán khi khách chọn quán." maxLength={500} value={description} onChange={(e) => setDescription(e.target.value)} />
         <div className="flex flex-wrap gap-3">
-          <Button loading={save.isPending} disabled={!dirty} disabledReason="Chưa có thay đổi" onClick={() => save.mutate()}>Lưu thay đổi</Button>
+          <Button loading={save.isPending} disabled={!dirty || !!nameError} disabledReason={nameError ?? "Chưa có thay đổi"} onClick={() => save.mutate()}>Lưu thay đổi</Button>
           <Button variant="secondary" onClick={() => window.open(`/login?brand=${initial.slug}`, "_blank", "noopener")}>Mở trang đăng nhập của quán</Button>
         </div>
       </div>
-      <BrandPreview name={initial.name} logo={logo} color={color} />
+      <BrandPreview name={name.trim() || initial.name} logo={logo} color={color} />
     </div>
   )
 }

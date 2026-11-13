@@ -230,6 +230,6 @@ const toProfile = (p: Raw): BrandProfile => ({ name: str(p.name), slug: str(p.co
 
 export const beProfileApi = {
   profile: async (): Promise<BrandProfile> => toProfile(rec(await http.get<Raw>("/identity/brand/profile"))),
-  saveProfile: async (v: { logoUrl?: string; brandColor?: string; description?: string }): Promise<BrandProfile> =>
-    toProfile(rec(await http.put<Raw>("/identity/brand/profile", { description: v.description ?? null, logoUrl: v.logoUrl ?? null, primaryColor: v.brandColor ?? null, secondaryColor: null }))),
+  saveProfile: async (v: { logoUrl?: string; brandColor?: string; description?: string; name?: string }): Promise<BrandProfile> =>
+    toProfile(rec(await http.put<Raw>("/identity/brand/profile", { description: v.description ?? null, logoUrl: v.logoUrl ?? null, primaryColor: v.brandColor ?? null, secondaryColor: null, name: v.name ?? null }))),
 }

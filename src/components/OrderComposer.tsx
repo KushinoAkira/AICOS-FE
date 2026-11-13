@@ -6,15 +6,19 @@ import type { Product } from "../lib/api/brand"
 import type { LineInput, Recommendations, RecommendedItem } from "../lib/api/orders"
 import { formatVND } from "../lib/format"
 
-/** Warm tints for drinks without a photo, so a menu without pictures does not read as one beige block. */
-const TINTS = ["bg-sand text-clay", "bg-[#E9DCCB] text-espresso", "bg-[#E4E8DA] text-[#4F6B45]", "bg-[#F3DCCB] text-[#9A5A33]"]
-
-/** Photo with a lettered fallback so a broken URL never leaves a hole in the grid. */
-export function ProductImage({ src, name, className = "h-16 w-16" }: { src?: string; name: string; className?: string }) {
+/** A drink without a photo, or whose photo fails to load, shows a cup drawing. `name` stays for the callers that pass it. */
+export function ProductImage({ src, className = "h-16 w-16" }: { src?: string; name: string; className?: string }) {
   const [failed, setFailed] = useState(false)
   if (!src || failed) {
-    const tint = TINTS[(name.codePointAt(0) ?? 0) % TINTS.length]
-    return <span aria-hidden className={`${className} flex shrink-0 items-center justify-center rounded-[14px] font-serif text-2xl ${tint}`}>{name.charAt(0)}</span>
+    return (
+      <span aria-hidden className={`${className} flex shrink-0 items-center justify-center rounded-[12px] bg-sand text-clay`}>
+        <svg viewBox="0 0 48 48" className="h-3/5 w-3/5" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M18 6c0 2-2 3-2 5s2 3 2 5M25 4c0 2-2 3-2 5s2 3 2 5M32 6c0 2-2 3-2 5s2 3 2 5" />
+          <path d="M9 21h28v8a12 12 0 0 1-12 12h-4A12 12 0 0 1 9 29z" fill="currentColor" fillOpacity="0.15" />
+          <path d="M37 24h2.5a5 5 0 0 1 0 10H36" />
+        </svg>
+      </span>
+    )
   }
   return <img src={src} alt="" loading="lazy" onError={() => setFailed(true)} className={`${className} shrink-0 rounded-[12px] object-cover`} />
 }
@@ -22,7 +26,7 @@ export function ProductImage({ src, name, className = "h-16 w-16" }: { src?: str
 export type MenuItem = Product & { soldOut: boolean; price: number }
 
 /** Shared by the guest QR menu, takeaway and the cashier POS. Prices shown here are estimates; the server recomputes (BR). */
-export function OrderComposer({ products, submitLabel, submitting, error, onSubmit, tabs, clearSignal = 0, recommendations, voucher, initialCart }: {
+export function OrderComposer({ products, submitLabel, submitting, error, onSubmit, tabs, clearSignal = 0, recommendations, voucher, initialCart, cartExtra }: {
   products: MenuItem[]
   submitLabel: string
   submitting: boolean
@@ -38,6 +42,8 @@ export function OrderComposer({ products, submitLabel, submitting, error, onSubm
   voucher?: VoucherOptions
   /** What the cart starts with (a cart chosen on the public brand page before signing in). Read once, when the composer mounts. */
   initialCart?: CartLine[]
+  /** Shown in the cart above the submit button. */
+  cartExtra?: React.ReactNode
 }) {
   const [cart, setCart] = useState<CartLine[]>(() => initialCart ?? [])
   const [tab, setTab] = useState<CartTab>("cart")
@@ -113,7 +119,7 @@ export function OrderComposer({ products, submitLabel, submitting, error, onSubm
   const submit = () => onSubmit(cart.map(({ name: _n, unit: _u, ...l }) => l), voucher ? voucherState.applied : "")
   const voucherProps = voucher ? { options: voucher, state: voucherState, setState: setVoucherState } : undefined
   const toPay = voucher ? liveQuote(voucherState, total)?.amountToPay ?? total : total
-  const panel = <CartPanel cart={cart} setCart={setCart} total={total} submitLabel={submitLabel} submitting={submitting} error={error} onSubmit={submit} tabs={tabs} tab={tab} setTab={setTab} reorder={reorder} voucher={voucherProps} />
+  const panel = <CartPanel cart={cart} setCart={setCart} total={total} submitLabel={submitLabel} submitting={submitting} error={error} onSubmit={submit} tabs={tabs} tab={tab} setTab={setTab} reorder={reorder} voucher={voucherProps} cartExtra={cartExtra} />
   const chips = (values: string[], current: string, set: (v: string) => void, label: string, extra?: (v: string) => number) => values.length > 0 && (
     <fieldset className="mt-5">
       <legend className="mb-2 text-sm font-medium text-text-primary">{label}</legend>

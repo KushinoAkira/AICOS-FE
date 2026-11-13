@@ -87,8 +87,10 @@ export const handlers = [
     const b = (await request.json()) as { fullName: string; email: string; password: string }
     const email = b.email.trim().toLowerCase()
     if (db.users.some((u) => u.email === email)) return problem(409, "Email đã được đăng ký", { code: "user.duplicate_email" })
-    pendingSignUps.set(email, { fullName: b.fullName, password: b.password })
-    return HttpResponse.json({ email, expiresInSeconds: 600, resendAfterSeconds: 60 }, { status: 202 })
+    const created: UserDto = { ...db.users[5], id: `u${db.users.length + 1}`, fullName: b.fullName, email }
+    db.users.push(created)
+    db.passwords[email] = b.password
+    return HttpResponse.json(session(created), { status: 201 })
   }),
   http.post("*/api/v1/identity/auth/register/verify", async ({ request }) => {
     await delay(250)

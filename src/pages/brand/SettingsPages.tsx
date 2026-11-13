@@ -2,17 +2,21 @@
 import { SettingsForm } from "../../components/SettingsForm"
 import { brandApi, type CancelPolicy, type LoyaltySettings, type MerchantSettings, type PayRules, type PickupSettings } from "../../lib/api/brand"
 import type { Page } from "../../App"
+import { env } from "../../config/env"
 
 interface P { navigate: (p: Page) => void }
 
-export const PICKUP_FIELDS = [
+const ALL_PICKUP_FIELDS = [
   { key: "slotMinutes", label: "Độ dài mỗi khung giờ", kind: "number", suffix: "phút", min: 5, max: 60 },
   { key: "capacityPerSlot", label: "Số đơn tối đa mỗi khung giờ", kind: "number", suffix: "đơn", min: 1, max: 200, hint: "Quá số này khung giờ hiển thị Đầy." },
   { key: "cutoffMinutes", label: "Giờ chốt đặt (trước giờ nhận)", kind: "number", suffix: "phút", min: 0, max: 240, hint: "Sau mốc này khách không đặt thêm cho khung giờ đó." },
   { key: "lockMinutes", label: "Khóa hủy/đổi giờ (trước giờ nhận)", kind: "number", suffix: "phút", min: 0, max: 240, hint: "Sau mốc này khách không thể hủy hoặc đổi giờ." },
 ] as const
 
-export const pickupRule = (v: PickupSettings) => (v.lockMinutes < v.cutoffMinutes ? "Mốc khóa hủy phải lớn hơn hoặc bằng giờ chốt đặt." : null)
+/** The backend has no lock time in the pickup settings (cancelling and changing the time follow the cancellation policy page), so only the mock data shows it. */
+export const PICKUP_FIELDS = env.useMock ? ALL_PICKUP_FIELDS : ALL_PICKUP_FIELDS.filter((f) => f.key !== "lockMinutes")
+
+export const pickupRule = (v: PickupSettings) => (env.useMock && v.lockMinutes < v.cutoffMinutes ? "Mốc khóa hủy phải lớn hơn hoặc bằng giờ chốt đặt." : null)
 
 export function BrandPickup({ navigate }: P) {
   return (

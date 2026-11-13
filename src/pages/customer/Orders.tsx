@@ -11,6 +11,7 @@ import { useToast } from "../../context/ToastContext"
 import { ordersApi, type Order, type PayOutcome } from "../../lib/api/orders"
 import { pollWhile, useMemberRealtime } from "../../lib/realtime"
 import { formatDateTime, formatTime, formatVND } from "../../lib/format"
+import { orderTitle, shortOrderCode } from "../../lib/orderLabel"
 
 export default function CustomerOrders({ navigate }: { navigate: (p: Page) => void }) {
   const qc = useQueryClient()
@@ -35,7 +36,7 @@ export default function CustomerOrders({ navigate }: { navigate: (p: Page) => vo
     <li key={o.id} className={`rounded-[16px] border bg-surface p-5 ${active && o.status === "Ready" ? "border-state-success" : "border-border"}`}>
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
-          <p className="font-medium text-text-primary">Đơn {o.code}</p>
+          <p className="font-medium text-text-primary">{orderTitle(o.lines)} <span className="text-sm font-normal text-text-secondary">· {shortOrderCode(o.code)}</span></p>
           <p className="text-sm text-text-secondary">Đặt lúc {formatDateTime(o.createdAtUtc)}</p>
         </div>
         <span className="flex flex-wrap gap-2">{!active && <OrderStatusPill status={o.status} />}<PaymentPill status={o.paymentStatus} /></span>

@@ -3,6 +3,7 @@ import type {
   PickupSettings, Product, ProductInput, Topping, Voucher, VoucherInput,
 } from "../brand"
 import { http } from "../http"
+import { indexOptions } from "./optionIndex"
 import { bool, itemsOf, num, rec, recs, str, unsupported, type Raw } from "./util"
 
 /** Real backend (reference sections 1, 2, 4, 5, 6, 8). Fields the API does not have are noted in docs/be-integration-gaps.md. */
@@ -58,6 +59,7 @@ async function allProducts(): Promise<Raw[]> {
 
 async function listProducts(): Promise<Product[]> {
   const [products, cats] = await Promise.all([allProducts(), http.get<Raw[]>("/menu/categories")])
+  products.forEach(indexOptions)   // the POS sends option ids from this list
   const names = new Map(recs(itemsOf(cats)).map((c) => [str(c.id), str(c.name)]))
   return products.map((p) => toProduct(p, names))
 }
@@ -112,8 +114,13 @@ export const bePickupApi = {
   pickupDefault: async () => toPickup(rec(await http.get<Raw>("/orders/pickup-slots/effective"))),
   savePickupDefault: async (v: PickupSettings) => { await http.put<Raw>("/orders/pickup-slots", pickupBody(null, v)); return v },
   async branchPickup(branchId: string) {
-    const eff = rec(await http.get<Raw>("/orders/pickup-slots/effective", { query: { branchId } }))
-    const brandDefault = toPickup(rec(await http.get<Raw>("/orders/pickup-slots/effective")))
+    const [eff, rows] = await Promise.all([
+      http.get<Raw>("/orders/pickup-slots/effective", { query: { branchId } }).then(rec),
+      http.get<Raw[]>("/orders/pickup-slots").then((l) => recs(itemsOf(l))),
+    ])
+    // "/effective" without a branch answers for the caller's own branch when a manager asks, so the brand default is the row without a branch.
+    const brandRow = rows.find((s) => !str(s.branchId))
+    const brandDefault = brandRow ? toPickup(brandRow) : toPickup({})
     return { inherited: str(eff.source) !== "Branch", values: toPickup(eff), defaults: brandDefault }
   },
   async saveBranchPickup(branchId: string, v: PickupSettings | null) {

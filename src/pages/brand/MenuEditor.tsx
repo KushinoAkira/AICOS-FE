@@ -8,8 +8,10 @@ const digits = (s: string) => s.replace(/\D/g, "")
 const list = (s: string) => s.split(",").map((x) => x.trim()).filter(Boolean)
 
 /** Create / edit a product: options, dependent toppings and per-branch prices (UC-14). Validation mirrors the API. */
-export function MenuEditor({ product, branches, saving, serverError, onSave, onClose }: {
+export function MenuEditor({ product, branches, saving, serverError, onSave, onClose, categories = [] }: {
   product: Product | null
+  /** The categories the brand already uses, offered next to the usual ones so editing a product keeps its own. */
+  categories?: string[]
   branches: BranchDto[]
   saving: boolean
   serverError: string | null
@@ -17,7 +19,8 @@ export function MenuEditor({ product, branches, saving, serverError, onSave, onC
   onClose: () => void
 }) {
   const [name, setName] = useState(product?.name ?? "")
-  const [category, setCategory] = useState(product?.category ?? CATEGORIES[0])
+  const options = [...new Set([...(product?.category ? [product.category] : []), ...categories.filter(Boolean), ...CATEGORIES])]
+  const [category, setCategory] = useState(product?.category || options[0])
   const [description, setDescription] = useState(product?.description ?? "")
   const [imageUrl, setImageUrl] = useState(product?.imageUrl ?? "")
   const [price, setPrice] = useState(String(product?.basePrice ?? ""))
@@ -53,7 +56,7 @@ export function MenuEditor({ product, branches, saving, serverError, onSave, onC
         <div className="grid grid-cols-2 gap-3">
           <label className="block text-sm font-medium text-text-primary">Danh mục
             <select value={category} onChange={(e) => setCategory(e.target.value)} className="mt-1.5 w-full rounded-[10px] border border-border bg-surface px-3 py-3 text-sm">
-              {CATEGORIES.map((c) => <option key={c}>{c}</option>)}
+              {options.map((c) => <option key={c}>{c}</option>)}
             </select>
           </label>
           <Field label="Giá gốc (₫)" inputMode="numeric" value={price} onChange={(e) => setPrice(digits(e.target.value))} />

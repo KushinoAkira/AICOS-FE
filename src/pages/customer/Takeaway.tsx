@@ -2,20 +2,19 @@ import { useEffect, useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import type { Page } from "../../App"
 import { CustomerFrame } from "../../components/CustomerFrame"
-import { TimePicker24 } from "../../components/TimePicker24"
 import { OrderComposer } from "../../components/OrderComposer"
 import { PayGateway } from "../../components/PayGateway"
 import { Banner, ErrorState, LoadingState } from "../../components/ui"
 import { useToast } from "../../context/ToastContext"
-import { addDays, todayKey } from "../../lib/dates"
 import { branchesApi } from "../../lib/api/identity"
 import { customerApi } from "../../lib/api/customer"
 import { env } from "../../config/env"
 import { featureFlags } from "../../config/featureFlags"
 import { formatVND } from "../../lib/format"
 import { discountNote, orderErrorMessage } from "../../lib/promotionCode"
+import { orderTitle, shortOrderCode } from "../../lib/orderLabel"
 import { ordersApi, type LineInput, type Order, type PayOutcome } from "../../lib/api/orders"
-import { earliestPickup, type PickupHours } from "../../lib/earliestPickup"
+import { usePickupSlot } from "../../components/PickupSlot"
 import { currentBrandSlug } from "../../lib/brand"
 import { defaultBranch, rememberBranch, rememberedBranch } from "../../lib/takeawayBranch"
 import { BranchPicker } from "../../components/BranchPicker"
@@ -40,16 +39,8 @@ export default function CustomerTakeaway({ navigate }: { navigate: (p: Page) => 
   const menu = useQuery({ queryKey: ["takeaway", "menu", BRANCH_ID], queryFn: () => ordersApi.takeawayMenu(BRANCH_ID), enabled: !!BRANCH_ID })
   const restored = draft && draft.branchId === BRANCH_ID && menu.data ? draftToCart(draft.lines, menu.data.products) : null
   const picks = useQuery({ queryKey: ["recommendations", BRANCH_ID], queryFn: () => ordersApi.recommendations(BRANCH_ID), enabled: !!BRANCH_ID, retry: false })
-  const info = useQuery({ queryKey: ["takeaway", "info", BRANCH_ID], queryFn: () => ordersApi.pickupInfo(BRANCH_ID), enabled: !!BRANCH_ID })
-  const [day, setDay] = useState<"today" | "tomorrow">("today")
-  const [time, setTime] = useState("")
-  const slot = time ? new Date(`${addDays(todayKey(), day === "today" ? 0 : 1)}T${time}:00`).toISOString() : ""
-  function earliest(i: PickupHours) {
-    const first = earliestPickup(new Date(), i)
-    setDay(first.day)
-    setTime(first.time)
-  }
-  const check = useQuery({ queryKey: ["takeaway", "check", BRANCH_ID, slot], queryFn: () => ordersApi.pickupCheck(BRANCH_ID, slot), enabled: !!slot && !!BRANCH_ID })
+  const pickup = usePickupSlot(BRANCH_ID)
+  const slot = pickup.slot
   const [error, setError] = useState<string | null>(null)
   const [paying, setPaying] = useState<Order | null>(null)
   /** Menu, prices, opening hours and pickup slots all belong to the branch, so a new branch starts with an empty cart and no time. */
@@ -57,8 +48,6 @@ export default function CustomerTakeaway({ navigate }: { navigate: (p: Page) => 
     if (id === BRANCH_ID) return
     setChosen(id)
     rememberBranch(brand, id)
-    setDay("today")
-    setTime("")
     setError(null)
   }
   // The customer's own vouchers at this brand, offered as one-tap choices (the mock data has none).
@@ -70,7 +59,7 @@ export default function CustomerTakeaway({ navigate }: { navigate: (p: Page) => 
     onSuccess: (o) => {
       setPaying(o)
       void qc.invalidateQueries({ queryKey: ["takeaway", "check"] })
-      if (o.promotionCode) { void qc.invalidateQueries({ queryKey: ["customer", "vouchers"] }); showToast(`Đã giữ chỗ đơn ${o.code}.${discountNote(o, formatVND)}`, "success") }
+      if (o.promotionCode) { void qc.invalidateQueries({ queryKey: ["customer", "vouchers"] }); showToast(`Đã giữ chỗ đơn ${orderTitle(o.lines)} (${shortOrderCode(o.code)}).${discountNote(o, formatVND)}`, "success") }
     },
     onError: (e, v) => { setError(orderErrorMessage(e, v.code)); void qc.invalidateQueries({ queryKey: ["takeaway", "check"] }) },
   })
@@ -89,29 +78,18 @@ export default function CustomerTakeaway({ navigate }: { navigate: (p: Page) => 
     <CustomerFrame page="customer-menu" navigate={navigate} uc="UC-33" title="Đặt mang đi">
       {branches.isError && <ErrorState description={branches.error.message} onRetry={() => void branches.refetch()} />}
       {branches.data?.length === 0 && <ErrorState description="Thương hiệu chưa có chi nhánh nào nhận đơn mang đi." />}
-      {(branches.isPending || (!!BRANCH_ID && (menu.isPending || info.isPending))) && <LoadingState />}
+      {(branches.isPending || (!!BRANCH_ID && (menu.isPending || pickup.loading))) && <LoadingState />}
       {menu.isError && <ErrorState description={menu.error.message} onRetry={() => void menu.refetch()} />}
       {branch && <BranchPicker branches={list} value={BRANCH_ID} onChange={pickBranch} />}
-      {menu.data && info.data && (
+      {menu.data && pickup.ready && (
         <>
-          <fieldset className="mb-6">
-            <legend className="mb-2 text-sm font-medium text-text-primary">Giờ nhận hàng · {branch?.name || menu.data.branchName}</legend>
-            <div className="flex flex-wrap items-center gap-3">
-              <div role="radiogroup" aria-label="Ngày nhận" className="flex gap-2">
-                {(["today", "tomorrow"] as const).map((d) => <button key={d} role="radio" aria-checked={day === d} onClick={() => setDay(d)} className={`rounded-full px-4 py-2 text-sm ${day === d ? "bg-espresso text-white" : "bg-sand text-text-secondary"}`}>{d === "today" ? "Hôm nay" : "Ngày mai"}</button>)}
-              </div>
-              <TimePicker24 value={time} openHour={Number(info.data.open.slice(0, 2))} closeHour={Number(info.data.close.slice(0, 2))} onChange={setTime} />
-              <button type="button" onClick={() => earliest(info.data)} className="rounded-full border border-border px-3 py-2 text-sm text-clay hover:bg-sand">Sớm nhất có thể</button>
-              <span className="text-sm text-text-secondary">Quán mở {info.data.open} - {info.data.close}, đặt trước tối thiểu {info.data.cutoffMinutes} phút</span>
-            </div>
-            {slot && check.data && <p role="status" className={`mt-2 text-sm ${check.data.ok ? "text-state-success" : "text-state-danger"}`}>{check.data.ok ? `Còn nhận được ${check.data.remaining} đơn quanh giờ này` : check.data.message}</p>}
-          </fieldset>
+          {pickup.picker(`Giờ nhận hàng · ${branch?.name || menu.data.branchName}`)}
           {restored && restored.dropped > 0 && <div className="mb-4"><Banner tone="warn">{restored.dropped} món bạn chọn trước đó đã hết hoặc không còn ở chi nhánh này nên chưa được thêm vào giỏ.</Banner></div>}
-          <OrderComposer key={BRANCH_ID} initialCart={restored?.cart} products={menu.data.products} recommendations={picks.data} submitLabel="Đặt và thanh toán" submitting={place.isPending} error={!slot ? "Chọn giờ nhận hàng trước khi đặt" : check.data && !check.data.ok ? check.data.message : error} onSubmit={(l, code) => { if (!slot) return setError("Chọn giờ nhận hàng"); if (check.data && !check.data.ok) return; setError(null); place.mutate({ lines: l, code }) }}
+          <OrderComposer key={BRANCH_ID} initialCart={restored?.cart} products={menu.data.products} recommendations={picks.data} submitLabel="Đặt và thanh toán" submitting={place.isPending} error={pickup.problem ?? error} onSubmit={(l, code) => { if (pickup.problem) return setError(pickup.problem); setError(null); place.mutate({ lines: l, code }) }}
             voucher={env.useMock || featureFlags.voucherAtTakeaway ? { suggestions, hint: "Giảm giá được trừ khi đặt đơn, trước bước thanh toán." } : undefined} />
         </>
       )}
-      <PayGateway open={!!paying} amount={paying?.total ?? 0} code={paying?.code ?? ""} busy={pay.isPending} onOutcome={(o) => pay.mutate(o)} onClose={() => { setPaying(null); navigate("customer-tracking") }} />
+      <PayGateway open={!!paying} amount={paying?.total ?? 0} code={paying ? shortOrderCode(paying.code) : ""} busy={pay.isPending} onOutcome={(o) => pay.mutate(o)} onClose={() => { setPaying(null); navigate("customer-tracking") }} />
     </CustomerFrame>
   )
 }

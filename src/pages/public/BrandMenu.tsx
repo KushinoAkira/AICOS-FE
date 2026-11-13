@@ -6,6 +6,7 @@ import { HomeLogo } from "../../components/AuthShell"
 import { BranchPicker } from "../../components/BranchPicker"
 import CustomerUserMenu from "../../components/CustomerUserMenu"
 import { OrderComposer } from "../../components/OrderComposer"
+import { AiChat } from "../../components/AiChat"
 import { Banner, ErrorState, LoadingState } from "../../components/ui"
 import { useAuth } from "../../context/AuthContext"
 import { branchesApi } from "../../lib/api/identity"
@@ -17,7 +18,8 @@ import { defaultBranch, rememberBranch, rememberedBranch } from "../../lib/takea
 /**
  * Public menu of one brand, `/b/:brandSlug`: anyone can see the branches and their drinks and fill a cart (size, sugar, ice, note).
  * `?branch=<id>` is the QR code posted at a branch: that branch's menu opens directly, without choosing.
- * Placing the order needs a customer account at this brand: a guest signs in first and comes back here, the cart is kept in the tab
+ * Placing the order needs a customer account at this brand (takeaway is for members; a guest without an account orders at the shop, from
+ * the table QR code or at the counter): a guest signs in first and comes back here, the cart is kept in the tab
  * and the takeaway menu (`/menu`) opens with it, at the same branch, to choose the pickup time and pay.
  */
 export default function BrandMenu({ navigate }: { navigate: (p: Page) => void }) {
@@ -121,7 +123,7 @@ export default function BrandMenu({ navigate }: { navigate: (p: Page) => void })
                 key={branchId}
                 products={menu.data.products}
                 recommendations={picks.data}
-                submitLabel={isCustomer ? "Đặt mang đi" : staffSignedIn ? "Cần tài khoản khách hàng" : "Đăng nhập để đặt mang đi"}
+                submitLabel={isCustomer ? "Đặt hàng" : staffSignedIn ? "Cần tài khoản khách hàng" : "Đăng nhập để đặt mang đi"}
                 submitting={proceed.isPending}
                 error={staffSignedIn ? "Đặt hàng cần tài khoản khách hàng." : null}
                 onSubmit={(lines) => { if (!staffSignedIn) order(lines) }}
@@ -130,6 +132,7 @@ export default function BrandMenu({ navigate }: { navigate: (p: Page) => void })
           </>
         )}
       </main>
+      <AiChat />
     </div>
   )
 }

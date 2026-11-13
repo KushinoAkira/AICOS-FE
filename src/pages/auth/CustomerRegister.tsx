@@ -6,8 +6,6 @@ import { GoogleButton } from "../../components/GoogleButton"
 import { homePageOf, useAuth } from "../../context/AuthContext"
 import { useToast } from "../../context/ToastContext"
 import { ApiError } from "../../lib/api/http"
-import { authApi } from "../../lib/api/identity"
-import { pendingSignUp } from "../../lib/signUp"
 
 interface Props {
   navigate: (p: Page) => void
@@ -29,7 +27,7 @@ function validate(v: Record<FieldName, string>): FieldErrors {
   return errors
 }
 
-/** One account for every shop on AICOS; the customer picks a brand after signing in. */
+/** One account for every shop on AICOS: registering signs the customer in at once (no email code), then they pick a brand. */
 export default function CustomerRegister({ navigate }: Props) {
   const [fullName, setFullName] = useState("")
   const [email, setEmail] = useState("")
@@ -40,7 +38,7 @@ export default function CustomerRegister({ navigate }: Props) {
   const [submitting, setSubmitting] = useState(false)
   const [errors, setErrors] = useState<FieldErrors>({})
   const routerNavigate = useNavigate()
-  const { googleLogin } = useAuth()
+  const { googleLogin, signUp } = useAuth()
   const { showToast } = useToast()
 
   async function handleSubmit(e: React.FormEvent) {
@@ -50,9 +48,11 @@ export default function CustomerRegister({ navigate }: Props) {
     if (Object.keys(found).length > 0) return
     setSubmitting(true)
     try {
-      const pending = await authApi.register({ fullName: fullName.trim(), email: email.trim(), password, confirmPassword })
-      pendingSignUp.set(pending.email, pending.resendAfterSeconds)
-      navigate("auth-otp")
+      const user = await signUp({ fullName: fullName.trim(), email: email.trim(), password, confirmPassword })
+      showToast("Tạo tài khoản thành công. Chọn quán để bắt đầu gọi món.", "success")
+      const back = sessionStorage.getItem("aicos.returnTo")
+      sessionStorage.removeItem("aicos.returnTo")
+      if (back) routerNavigate(back, { replace: true }); else navigate(homePageOf(user))
     } catch (err) {
       if (err instanceof ApiError && err.fieldErrors) {
         const mapped: FieldErrors = {}
@@ -166,7 +166,7 @@ export default function CustomerRegister({ navigate }: Props) {
             onMouseEnter={(e) => { if (agreed && !submitting) (e.currentTarget as HTMLButtonElement).style.backgroundColor = "#8B5E3C" }}
             onMouseLeave={(e) => { if (agreed && !submitting) (e.currentTarget as HTMLButtonElement).style.backgroundColor = "#C97B4A" }}
           >
-            {submitting ? "Đang gửi mã…" : "Tạo tài khoản"}
+            {submitting ? "Đang tạo tài khoản…" : "Tạo tài khoản"}
           </button>
         </form>
 

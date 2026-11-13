@@ -302,6 +302,13 @@ export const brandHandlers = [
     bdb.vouchers.unshift(created)
     return ok(created)
   }),
+  http.delete("*/api/v1/brand/vouchers/:id", ({ params }) => {
+    const i = bdb.vouchers.findIndex((x) => x.id === params.id)
+    if (i < 0) return problem(404, "Không tìm thấy voucher")
+    if (bdb.vouchers[i]!.used > 0) return problem(409, "Mã đã dùng cho đơn hàng, chỉ tắt được")
+    bdb.vouchers.splice(i, 1)
+    return new HttpResponse(null, { status: 204 })
+  }),
   http.patch("*/api/v1/brand/vouchers/:id", async ({ params, request }) => {
     const v = bdb.vouchers.find((x) => x.id === params.id)
     if (!v) return problem(404, "Không tìm thấy voucher")

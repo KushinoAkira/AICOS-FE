@@ -203,6 +203,8 @@ export const beVoucherApi = {
       branchId: null, code: v.code || null, type: "Voucher", discountType: v.kind === "percent" ? "Percentage" : "FixedAmount", value: v.value, minOrderAmount: v.minOrder, expiresAt: v.expiresAt,
       requiredOrders: v.hunt?.orders ?? null, requiredOrderAmount: v.hunt ? v.hunt.perOrder : null, countOrdersFrom: v.hunt?.from || null,
     }))),
+  /** For good. A code already used on an order is refused (409): it stays for the records. */
+  deleteVoucher: (id: string) => http.delete<void>(`/customers/vouchers/${id}`),
   async setVoucherActive(id: string, active: boolean): Promise<Voucher> {
     if (active) return unsupported("kích hoạt lại voucher đã thu hồi")
     await http.post<Raw>(`/customers/vouchers/${id}/revoke`, { reason: "Tắt trên trang Khuyến mãi" })

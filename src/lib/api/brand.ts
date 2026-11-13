@@ -97,6 +97,7 @@ const mockBrandApi = {
   vouchers: () => http.get<Voucher[]>(`${B}/vouchers`),
   createVoucher: (v: VoucherInput) => http.post<Voucher>(`${B}/vouchers`, v),
   setVoucherActive: (id: string, active: boolean) => http.patch<Voucher>(`${B}/vouchers/${id}`, { active }),
+  deleteVoucher: (id: string) => http.delete<void>(`${B}/vouchers/${id}`),
 
   subscription: () => http.get<BrandSubscription>(`${B}/subscription`),
   renew: () => http.post<BrandSubscription>(`${B}/subscription/renew`),

@@ -2,7 +2,7 @@ import { useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import type { Page } from "../../App"
 import { PageFrame } from "../../components/PageFrame"
-import { Banner, Button, DataTable, Field, Modal, QueryBoundary, StatusPill, type Column } from "../../components/ui"
+import { Banner, Button, ConfirmDialog, DataTable, Field, Modal, QueryBoundary, StatusPill, type Column } from "../../components/ui"
 import { useToast } from "../../context/ToastContext"
 import { brandApi, type Voucher, type VoucherInput } from "../../lib/api/brand"
 import { formatDate, formatVND } from "../../lib/format"
@@ -43,6 +43,12 @@ export default function BrandVouchers({ navigate }: { navigate: (p: Page) => voi
     onSuccess: () => { void qc.invalidateQueries({ queryKey: ["brand", "vouchers"] }); showToast("Đã tạo voucher", "success"); setOpen(false); setForm(emptyForm()) },
     onError: (e) => setError(e.message),
   })
+  const [deleting, setDeleting] = useState<Voucher | null>(null)
+  const remove = useMutation({
+    mutationFn: (v: Voucher) => brandApi.deleteVoucher(v.id),
+    onSuccess: (_d, v) => { void qc.invalidateQueries({ queryKey: ["brand", "vouchers"] }); setDeleting(null); showToast(`Đã xóa voucher ${v.code}`, "success") },
+    onError: (e) => { setDeleting(null); showToast(e.message, "error") },
+  })
   const toggle = useMutation({
     mutationFn: (v: { id: string; active: boolean }) => brandApi.setVoucherActive(v.id, v.active),
     onSuccess: () => void qc.invalidateQueries({ queryKey: ["brand", "vouchers"] }),
@@ -82,12 +88,25 @@ export default function BrandVouchers({ navigate }: { navigate: (p: Page) => voi
     { key: "uses", header: SINGLE_USE ? "Đã dùng" : "Lượt dùng", sort: (v) => v.used, render: (v) => (v.hunt ? `${v.hunt.claimed ?? 0} khách đã lấy` : SINGLE_USE ? (v.used ? "Đã dùng" : "Chưa dùng") : `${v.used}/${v.maxUses}`) },
     { key: "exp", header: "Hết hạn", sort: (v) => v.expiresAt, render: (v) => formatDate(v.expiresAt) },
     { key: "state", header: "Trạng thái", render: (v) => { const s = state(v); return <StatusPill tone={s.tone}>{s.label}</StatusPill> } },
-    { key: "act", header: "", className: "text-right", render: (v) => <Button variant="ghost" className="px-3 py-1.5 text-xs" onClick={() => toggle.mutate({ id: v.id, active: !v.active })}>{v.active ? "Tắt" : "Bật"}</Button> },
+    {
+      key: "act", header: "", className: "text-right", render: (v) => (
+        <div className="flex justify-end gap-1">
+          {/* A turned-off code cannot be turned on again on the server: create a new one instead. */}
+          {(v.active || !SINGLE_USE) && <Button variant="ghost" className="px-3 py-1.5 text-xs" onClick={() => toggle.mutate({ id: v.id, active: !v.active })}>{v.active ? "Tắt" : "Bật"}</Button>}
+          <Button variant="ghost" className="px-3 py-1.5 text-xs text-state-danger" disabled={v.used > 0} disabledReason="Mã đã dùng cho đơn hàng nên được giữ lại để đối soát. Chỉ tắt được." onClick={() => setDeleting(v)}>Xóa</Button>
+        </div>
+      ),
+    },
   ]
 
   return (
     <PageFrame page="brand-promotions" navigate={navigate} uc="UC-17" title="Khuyến mãi" subtitle="Voucher hết hạn, hết lượt hoặc sai điều kiện sẽ bị từ chối khi khách áp dụng." action={<Button onClick={() => { setForm(emptyForm()); setError(null); setOpen(true) }}>Tạo voucher</Button>}>
       <QueryBoundary query={vouchers}>{(rows) => <DataTable rows={rows} rowKey={(v) => v.id} columns={columns} emptyTitle="Chưa có voucher nào" />}</QueryBoundary>
+      <ConfirmDialog open={!!deleting} danger title={`Xóa voucher ${deleting?.code ?? ""}?`} confirmLabel={remove.isPending ? "Đang xóa…" : "Xóa vĩnh viễn"}
+        message={deleting?.hunt
+          ? `Voucher săn này sẽ bị xóa vĩnh viễn và khách không lấy thêm được nữa. ${deleting.hunt.claimed ? `${deleting.hunt.claimed} mã khách đã lấy vẫn dùng được.` : ""} Không hoàn tác được.`
+          : deleting?.issuedTo ? `Mã này của ${deleting.issuedTo} sẽ bị xóa vĩnh viễn, khách sẽ không dùng được nữa. Không hoàn tác được.` : "Voucher sẽ bị xóa vĩnh viễn, khách không dùng được nữa. Không hoàn tác được."}
+        onCancel={() => setDeleting(null)} onConfirm={() => deleting && !remove.isPending && remove.mutate(deleting)} />
       <Modal open={open} title="Tạo voucher" onClose={() => setOpen(false)} footer={<><Button variant="secondary" onClick={() => setOpen(false)}>Hủy</Button><Button loading={create.isPending} onClick={submit}>Tạo</Button></>}>
         <div className="space-y-4">
           {error && <Banner>{error}</Banner>}

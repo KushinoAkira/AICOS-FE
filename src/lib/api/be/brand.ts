@@ -71,7 +71,7 @@ function productBody(catId: string, b: ProductInput) {
     b.iceLevels.length ? group("Đá", OPTION_KINDS.ice, "Single", false, b.iceLevels.map((n) => ({ name: n, priceDelta: 0 }))) : null,
     b.toppings.length ? group("Topping", OPTION_KINDS.topping, "Multiple", false, b.toppings.map((t) => ({ name: t.label, priceDelta: t.priceDelta }))) : null,
   ].filter((g) => g !== null)
-  return { categoryId: catId, name: b.name, description: b.description, basePrice: b.basePrice, tags: [], optionGroups: groups }
+  return { categoryId: catId, name: b.name, description: b.description, imageUrl: b.imageUrl ?? null, basePrice: b.basePrice, tags: [], optionGroups: groups }
 }
 
 export const beMenuApi = {

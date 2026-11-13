@@ -6,26 +6,12 @@ import { Button, EmptyState, QueryBoundary } from "../../components/ui"
 import { useAuth } from "../../context/AuthContext"
 import { staffNoticeApi, type StaffNotice } from "../../lib/api/manage"
 import { formatDateTime } from "../../lib/format"
+import { nameOrderCodes, noticeTarget } from "../../lib/staffNotices"
+import { useOrderNames } from "../../lib/useStaffNotices"
 
-/** Where a notification leads, so the person can act on it right away. */
+/** Where a notification leads (shared with the menu badges). */
 function targetOf(kind: string, role: string | null): Page | null {
-  switch (kind) {
-    case "NewOrder":
-    case "Remake": return "barista-queue"
-    case "TableOrder":
-    case "BillRequested":
-    case "OnlinePaid": return "cashier-tables"
-    case "OrderReady": return "cashier-serve"
-    case "ReplacementOpened": return "cashier-shift"
-    case "ReplacementRegistered": return "branch-shift-requests"
-    case "CashClosing": return "branch-cash-closings"
-    case "RefundRequested":
-    case "RefundFailed": return role === "brandAdmin" ? "brand-reconciliation" : "branch-orders"
-    case "RenewalDue": return "brand-subscription"
-    case "Overdue": return role === "superAdmin" ? "platform-subscriptions" : "brand-subscription"
-    case "BrandRegistered": return "platform-tenants"
-    default: return null
-  }
+  return noticeTarget(kind, role)
 }
 
 /** UC-59 for the people working in a brand: what concerns their role and branch, read one by one or all at once. */
@@ -37,6 +23,7 @@ export default function StaffNotifications({ navigate }: { navigate: (p: Page) =
   const refresh = () => void qc.invalidateQueries({ queryKey: ["staff-notices"] })
   const read = useMutation({ mutationFn: staffNoticeApi.read, onSuccess: refresh })
   const readAll = useMutation({ mutationFn: staffNoticeApi.readAll, onSuccess: refresh })
+  const names = useOrderNames(role !== "superAdmin")
 
   function open(n: StaffNotice) {
     if (!n.isRead) read.mutate(n.id)
@@ -67,10 +54,10 @@ export default function StaffNotifications({ navigate }: { navigate: (p: Page) =
                 <li key={n.id}>
                   <button onClick={() => open(n)} className={`w-full rounded-[14px] border p-4 text-left ${n.isRead ? "border-border bg-surface" : "border-clay bg-sand"}`}>
                     <span className="flex items-start justify-between gap-3">
-                      <span className="font-medium text-text-primary">{n.title}</span>
+                      <span className="font-medium text-text-primary">{nameOrderCodes(n.title, names)}</span>
                       <span className="shrink-0 text-xs text-text-secondary">{formatDateTime(n.createdAtUtc)}</span>
                     </span>
-                    <span className="mt-1 block text-sm text-text-secondary">{n.body}</span>
+                    <span className="mt-1 block text-sm text-text-secondary">{nameOrderCodes(n.body, names)}</span>
                     {!n.isRead && <span className="sr-only">Chưa đọc</span>}
                   </button>
                 </li>

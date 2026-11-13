@@ -2,6 +2,7 @@ import { type ReactNode, useRef, useLayoutEffect, useState } from "react"
 import { useAuth } from "../context/AuthContext"
 import UserMenu from "./CustomerUserMenu"
 import NotificationBell from "./NotificationBell"
+import { useNoticeBadges } from "../lib/useStaffNotices"
 import type { Page } from "../router/pages"
 import type { Role } from "../router/roles"
 
@@ -118,6 +119,8 @@ interface Props {
 export default function InternalLayout({ activePage, navigate, children, headerRight }: Props) {
   const { user, role: userRole, logout } = useAuth()
   const role: StaffRole = userRole && userRole !== "customer" ? userRole : "cashier"
+  // New notifications counted on the menu item that handles them, so staff see where to go without reading the whole bell list.
+  const badges = useNoticeBadges(userRole, activePage, !!userRole && userRole !== "customer")
   const nav = navMap[role]
   const navContainerRef = useRef<HTMLDivElement>(null)
   const [pillStyle, setPillStyle] = useState<{ top: number; height: number }>({ top: 0, height: 40 })
@@ -195,6 +198,11 @@ export default function InternalLayout({ activePage, navigate, children, headerR
               >
                 <span style={{ opacity: active ? 1 : 0.75 }}>{item.icon}</span>
                 <span className="text-sm font-medium">{item.label}</span>
+                {(badges.get(item.id) ?? 0) > 0 && (
+                  <span aria-label={`${badges.get(item.id)} thông báo mới`} className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-state-danger px-1.5 text-[11px] font-semibold leading-none text-white">
+                    {(badges.get(item.id) ?? 0) > 99 ? "99+" : badges.get(item.id)}
+                  </span>
+                )}
                 {item.id === "manager-suggestions" || item.id === "admin-ai-config" ? (
                   <span
                     className="ml-auto w-2 h-2 rounded-full flex-shrink-0"

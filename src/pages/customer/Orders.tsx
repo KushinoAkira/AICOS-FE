@@ -4,7 +4,7 @@ import type { Page } from "../../App"
 import { CustomerFrame } from "../../components/CustomerFrame"
 import { OrderStatusPill, PaymentPill } from "../../components/OrderStatusPill"
 import { OrderProgress } from "../../components/OrderProgress"
-import { PayGateway } from "../../components/PayGateway"
+import { PayGateway, useStartPayment } from "../../components/PayGateway"
 import { isOrderOver, TAKEAWAY_STEPS } from "../../lib/orderProgress"
 import { Banner, Button, ConfirmDialog, EmptyState, QueryBoundary } from "../../components/ui"
 import { useToast } from "../../context/ToastContext"
@@ -19,6 +19,7 @@ export default function CustomerOrders({ navigate }: { navigate: (p: Page) => vo
   const live = useMemberRealtime()
   const orders = useQuery({ queryKey: ["mine"], queryFn: ordersApi.mine, refetchInterval: pollWhile(live, 5000) })
   const [paying, setPaying] = useState<Order | null>(null)
+  const startPay = useStartPayment(setPaying)
   const [canceling, setCanceling] = useState<Order | null>(null)
   const refresh = () => void qc.invalidateQueries({ queryKey: ["mine"] })
   const pay = useMutation({
@@ -61,7 +62,7 @@ export default function CustomerOrders({ navigate }: { navigate: (p: Page) => vo
       {o.status === "PendingPayment" && o.paymentStatus === "Unpaid" && o.channel === "takeaway" && <p className="mt-3 text-sm text-text-secondary">Đang chờ xác nhận thanh toán. Nếu bạn đã trả tiền, đơn sẽ tự cập nhật sau khi quán tra cứu giao dịch.</p>}
       {(o.status === "PickedUp" || o.paymentStatus === "Failed" || (o.status === "PendingPayment" && o.paymentStatus === "Unpaid") || ((o.status === "PendingPayment" || o.status === "Pending") && o.paymentStatus !== "RefundPending")) && (
         <div className="mt-4 flex flex-wrap gap-2">
-          {(o.paymentStatus === "Failed" || (o.status === "PendingPayment" && o.paymentStatus === "Unpaid")) && <Button onClick={() => setPaying(o)}>Thanh toán lại</Button>}
+          {(o.paymentStatus === "Failed" || (o.status === "PendingPayment" && o.paymentStatus === "Unpaid")) && <Button loading={startPay.isPending && startPay.variables?.id === o.id} onClick={() => startPay.mutate(o)}>Thanh toán lại</Button>}
           {o.status === "PickedUp" && <Button variant="secondary" onClick={() => navigate("customer-feedback")}>Đánh giá</Button>}
           {(o.status === "PendingPayment" || o.status === "Pending") && o.paymentStatus !== "RefundPending" && <Button variant="ghost" onClick={() => setCanceling(o)}>Hủy đơn</Button>}
         </div>

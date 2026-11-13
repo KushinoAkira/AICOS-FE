@@ -34,6 +34,7 @@ export const PAGE_ACCESS: Record<Page, Access> = {
   "guest-order-status": "public",
   "brand-menu": "public",
   "order-start": "public",
+  "pay-result": "public",
 
   "account-settings": "authenticated",
   "staff-notifications": ["superAdmin", "brandAdmin", "branchManager", "barista", "cashier"],
@@ -57,6 +58,8 @@ export const PAGE_ACCESS: Record<Page, Access> = {
   "cashier-serve": CASHIER,
   "cashier-shift": [...CASHIER, ...BARISTA],
   "staff-orders": [...CASHIER, ...BARISTA],
+  /** Every employee of a branch reads their own payslips and sets the account their salary goes to. */
+  "my-payslips": [...CASHIER, ...BARISTA, ...BM],
 
   "manager-dashboard": BM,
   "manager-staff": BM,

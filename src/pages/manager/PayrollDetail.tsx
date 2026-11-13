@@ -5,7 +5,7 @@ import type { Page } from "../../App"
 import { PageFrame } from "../../components/PageFrame"
 import { Banner, Button, ConfirmDialog, DataTable, Field, KpiCard, Modal, QueryBoundary, type Column } from "../../components/ui"
 import { useToast } from "../../context/ToastContext"
-import { attendanceApi, monthRange, payrollApi, today, type AttendanceRow, type PayrollAdjustment } from "../../lib/api/manage"
+import { attendanceApi, monthRange, payrollApi, payrollErrorMessage, today, type AttendanceRow, type PayrollAdjustment } from "../../lib/api/manage"
 import { formatDate, formatSignedVND, formatTime, formatVND } from "../../lib/format"
 
 /** One person's month: the pay, the shifts behind it, and the manager's adjustments. */
@@ -29,12 +29,12 @@ export default function ManagerPayrollDetail({ navigate }: { navigate: (p: Page)
   const add = useMutation({
     mutationFn: () => payrollApi.addAdjustment({ employeeId, workDate, amount: Number(amount), reason: reason.trim() }),
     onSuccess: () => { refresh(); setOpen(false); setAmount(""); setReason(""); showToast("Đã thêm điều chỉnh.", "success") },
-    onError: (e) => setError(e.message),
+    onError: (e) => setError(payrollErrorMessage(e)),
   })
   const remove = useMutation({
     mutationFn: (id: string) => payrollApi.removeAdjustment(id),
     onSuccess: () => { refresh(); setRemoving(null); showToast("Đã xóa điều chỉnh.", "success") },
-    onError: (e) => showToast(e.message, "error"),
+    onError: (e) => { setRemoving(null); showToast(payrollErrorMessage(e), "error") },
   })
   const submit = () => {
     if (!/^-?\d+$/.test(amount) || Number(amount) === 0) return setError("Nhập số tiền khác 0. Số âm là khoản trừ.")

@@ -233,6 +233,8 @@ export const beOrdersApi = {
   async orderPayStart(order: Order, provider: string): Promise<DigitalCharge[]> {
     return [toCharge(rec(await http.post<Raw>("/payments/transactions", { orderId: order.id, amount: order.total, providerCode: provider })), order.code)]
   },
+  /** Asks the gateway again how a payment stands (after coming back from its page). */
+  paymentState: async (paymentId: string): Promise<DigitalCharge["state"]> => toCharge(rec(await http.post<Raw>(`/payments/transactions/${paymentId}/query`, {})), "").state,
   chargeCheck: async (c: DigitalCharge): Promise<DigitalCharge> => toCharge(rec(await http.post<Raw>(`/payments/transactions/${c.id}/query`, {})), c.orderCode),
   chargeSimulate: async (c: DigitalCharge): Promise<DigitalCharge> =>
     toCharge(rec(await http.post<Raw>(`/payments/transactions/${c.id}/simulate`, { outcome: "success", notify: true })), c.orderCode),
@@ -302,8 +304,9 @@ export const beOrdersApi = {
     const order = toOrder(raw)
     // A customer's account belongs to no branch, so the payment names the branch of the order.
     const branchId = str(raw.branchId)
-    // The gateway the platform and the brand have switched on, not a fixed one.
-    const method = toMethods(await http.get<Raw[]>("/payments/merchant-settings/available", { query: { branchId } }))[0]
+    // A gateway the platform and the brand have switched on that can be played here (not payOS, which has its own page).
+    const methods = toMethods(await http.get<Raw[]>("/payments/merchant-settings/available", { query: { branchId } }))
+    const method = methods.find((m) => !HOSTED_GATEWAYS.includes(m.code)) ?? methods[0]
     if (!method) throw new ApiError(422, "Quán chưa bật cổng thanh toán online.", "payment.no_method")
     const tx = rec(await http.post<Raw>("/payments/transactions", { orderId: id, amount: order.total, providerCode: method.code, branchId }))
     const paid = rec(await http.post<Raw>(`/payments/transactions/${str(tx.id)}/simulate`, { outcome: outcome === "failed" ? "failed" : "success", notify: outcome !== "lost" }))
@@ -314,6 +317,20 @@ export const beOrdersApi = {
       await new Promise((r) => setTimeout(r, 500))
     }
     return detail(id)
+  },
+  /**
+   * Starts the payment on a gateway with its own payment page (payOS) and returns that page, or null when the brand has no such gateway
+   * and the payment is played with the simulated one. payOS sends the customer back to /thanh-toan/ket-qua.
+   */
+  async hostedCheckout(id: string): Promise<string | null> {
+    const raw = rec(await http.get<Raw>(`/orders/${id}`))
+    const branchId = str(raw.branchId)
+    const methods = toMethods(await http.get<Raw[]>("/payments/merchant-settings/available", { query: { branchId } }))
+    const hosted = methods.find((m) => HOSTED_GATEWAYS.includes(m.code))
+    if (!hosted) return null
+    const tx = rec(await http.post<Raw>("/payments/transactions", { orderId: id, amount: toOrder(raw).total, providerCode: hosted.code, branchId }))
+    const url = str(tx.checkoutUrl)
+    return /^https?:\/\//.test(url) ? url : null
   },
   async mine(): Promise<Order[]> { return withLines(recs(itemsOf(await http.get<Raw[]>("/orders/mine")))) },
   async cancelMine(id: string): Promise<Order> {
@@ -380,6 +397,9 @@ async function branchName(branchId: string, tenantId: string): Promise<string> {
 // ---------- guest QR helpers ----------
 
 
+
+/** Gateways whose payment happens on their own page: the customer is sent there instead of the simulated one. */
+const HOSTED_GATEWAYS = ["PayOS"]
 
 const toMethods = (list: unknown): PayMethod[] => recs(itemsOf(list as Raw[])).map((m) => ({ code: str(m.providerCode), name: str(m.displayName) || str(m.providerCode) }))
 

@@ -3,6 +3,7 @@ import { useMutation, useQuery } from "@tanstack/react-query"
 import { useNavigate } from "react-router"
 import type { Page } from "../../App"
 import { PageFrame } from "../../components/PageFrame"
+import { PayrollPeriodPanel } from "../../components/PayrollPeriodPanel"
 import { Banner, Button, DataTable, Field, KpiCard, QueryBoundary, type Column } from "../../components/ui"
 import { useToast } from "../../context/ToastContext"
 import { ApiError } from "../../lib/api/http"
@@ -44,7 +45,9 @@ export default function ManagerPayroll({ navigate }: { navigate: (p: Page) => vo
       {noRules ? <Banner tone="warn">Thương hiệu chưa cấu hình quy tắc lương nên chưa tính được bảng lương. Brand Admin cấu hình ở mục Quy tắc thanh toán.</Banner> : <QueryBoundary query={summary}>
         {(s) => (
           <>
-            {s.totals.unreviewedRecords > 0 && <div className="mb-4"><Banner tone="warn">Còn {s.totals.unreviewedRecords} ca chưa duyệt. <button className="underline" onClick={() => navigate("branch-attendance")}>Duyệt chấm công</button> trước khi chốt lương.</Banner></div>}
+            {s.totals.unreviewedRecords > 0 && <div className="mb-4"><Banner tone="warn">Còn {s.totals.unreviewedRecords} ca chưa duyệt. <button className="underline" onClick={() => navigate("branch-attendance")}>Duyệt chấm công</button> trước khi chốt kỳ lương.</Banner></div>}
+            <PayrollPeriodPanel range={range} unreviewed={s.totals.unreviewedRecords} />
+            <h2 className="mb-3 font-serif text-lg text-text-primary">Tạm tính theo chấm công</h2>
             <div className="mb-8 grid grid-cols-2 gap-4 xl:grid-cols-4">
               <KpiCard label="Tổng lương" value={formatVND(s.totals.totalPay)} />
               <KpiCard label="Lương cơ bản" value={formatVND(s.totals.basePay)} />

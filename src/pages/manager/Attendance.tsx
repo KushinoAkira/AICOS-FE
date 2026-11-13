@@ -4,7 +4,7 @@ import type { Page } from "../../App"
 import { PageFrame } from "../../components/PageFrame"
 import { Banner, Button, ConfirmDialog, DataTable, Field, Modal, QueryBoundary, StatusPill, type Column } from "../../components/ui"
 import { useToast } from "../../context/ToastContext"
-import { addDays, attendanceApi, today, type AttendanceRow } from "../../lib/api/manage"
+import { addDays, attendanceApi, payrollErrorMessage, today, type AttendanceRow } from "../../lib/api/manage"
 import { formatDate, formatTime } from "../../lib/format"
 
 const STATE_TEXT: Record<string, string> = { Upcoming: "Sắp tới", InProgress: "Đang làm", Worked: "Đã làm", MissingCheckOut: "Thiếu giờ ra", NoShow: "Không đến", Absent: "Vắng", Declined: "Đã báo nghỉ", Replaced: "Có người làm thay" }
@@ -37,7 +37,7 @@ export default function ManagerAttendance({ navigate }: { navigate: (p: Page) =>
   const [absentReason, setAbsentReason] = useState("")
   const [running, setRunning] = useState<AttendanceRow | null>(null)
   const refresh = () => { void qc.invalidateQueries({ queryKey: ["attendance"] }); void qc.invalidateQueries({ queryKey: ["payroll"] }) }
-  const fail = (e: Error) => showToast(e.message, "error")
+  const fail = (e: Error) => showToast(payrollErrorMessage(e), "error")
   const approve = useMutation({ mutationFn: (id: string) => attendanceApi.approve(id), onSuccess: () => { refresh(); setRunning(null); showToast("Đã duyệt.", "success") }, onError: (e) => { setRunning(null); fail(e) } })
   const approveAll = useMutation({
     mutationFn: () => attendanceApi.approveRange({ from, to }),
@@ -47,7 +47,7 @@ export default function ManagerAttendance({ navigate }: { navigate: (p: Page) =>
   const adjust = useMutation({
     mutationFn: () => attendanceApi.adjust(adjusting?.shift.id ?? "", { checkInAt: checkIn ? new Date(checkIn).toISOString() : null, checkOutAt: checkOut ? new Date(checkOut).toISOString() : null, reason: reason.trim() }),
     onSuccess: () => { refresh(); setAdjusting(null); showToast("Đã sửa giờ công.", "success") },
-    onError: (e) => setError(e.message),
+    onError: (e) => setError(payrollErrorMessage(e)),
   })
   const markAbsent = useMutation({
     mutationFn: () => attendanceApi.absent(absent?.shift.id ?? "", absentReason.trim()),

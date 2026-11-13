@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import type { Page } from "../../App"
 import { CustomerFrame } from "../../components/CustomerFrame"
 import { OrderComposer } from "../../components/OrderComposer"
-import { PayGateway } from "../../components/PayGateway"
+import { PayGateway, useStartPayment } from "../../components/PayGateway"
 import { Banner, ErrorState, LoadingState } from "../../components/ui"
 import { useToast } from "../../context/ToastContext"
 import { branchesApi } from "../../lib/api/identity"
@@ -43,6 +43,7 @@ export default function CustomerTakeaway({ navigate }: { navigate: (p: Page) => 
   const slot = pickup.slot
   const [error, setError] = useState<string | null>(null)
   const [paying, setPaying] = useState<Order | null>(null)
+  const startPay = useStartPayment(setPaying)
   /** Menu, prices, opening hours and pickup slots all belong to the branch, so a new branch starts with an empty cart and no time. */
   function pickBranch(id: string) {
     if (id === BRANCH_ID) return
@@ -57,7 +58,7 @@ export default function CustomerTakeaway({ navigate }: { navigate: (p: Page) => 
   const place = useMutation({
     mutationFn: ({ lines, code }: { lines: LineInput[]; code: string }) => ordersApi.placeTakeaway({ branchId: BRANCH_ID, slot, lines, promotionCode: code }),
     onSuccess: (o) => {
-      setPaying(o)
+      startPay.mutate(o)
       void qc.invalidateQueries({ queryKey: ["takeaway", "check"] })
       if (o.promotionCode) { void qc.invalidateQueries({ queryKey: ["customer", "vouchers"] }); showToast(`Đã giữ chỗ đơn ${orderTitle(o.lines)} (${shortOrderCode(o.code)}).${discountNote(o, formatVND)}`, "success") }
     },

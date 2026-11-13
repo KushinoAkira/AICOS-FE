@@ -26,6 +26,8 @@ export const PAGE_PATHS = {
   // Public menu of one brand: anyone browses, ordering needs a customer account
   "brand-menu": "/b/:brandSlug",
   "order-start": "/dat-mon",
+  /** Where an online gateway with its own page (payOS) sends the customer back: ?status=paid|pending|failed|invalid&paymentId&orderId. */
+  "pay-result": "/thanh-toan/ket-qua",
 
   // Customer
   "customer-brands": "/brands",
@@ -48,6 +50,7 @@ export const PAGE_PATHS = {
   "cashier-serve": "/cashier/serve",
   "cashier-shift": "/cashier/shift",
   "staff-orders": "/cashier/orders",
+  "my-payslips": "/staff/payslips",
 
   // Branch Manager
   "manager-dashboard": "/branch/dashboard",

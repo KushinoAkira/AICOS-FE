@@ -1,5 +1,7 @@
+import { useMutation } from "@tanstack/react-query"
 import { Button, Modal } from "./ui"
-import type { PayOutcome } from "../lib/api/orders"
+import { useToast } from "../context/ToastContext"
+import { ordersApi, type Order, type PayOutcome } from "../lib/api/orders"
 import { formatVND } from "../lib/format"
 
 /** Stand-in for the provider's hosted payment page. In real mode the user is redirected to the provider instead. */
@@ -15,4 +17,16 @@ export function PayGateway({ open, amount, code, busy, onOutcome, onClose }: { o
       <p className="mt-3 text-xs text-text-secondary">Đơn chỉ được xác nhận khi cổng thanh toán báo thành công. Nếu mất kết nối, thu ngân có thể tra cứu lại giao dịch.</p>
     </Modal>
   )
+}
+/**
+ * Starts paying an order online. A gateway with its own page (payOS) takes the customer there; it sends them back to the result page.
+ * Otherwise `onSimulated` opens the simulated gateway above.
+ */
+export function useStartPayment(onSimulated: (o: Order) => void) {
+  const { showToast } = useToast()
+  return useMutation({
+    mutationFn: async (o: Order) => ({ order: o, url: await ordersApi.hostedCheckout(o.id) }),
+    onSuccess: ({ order, url }) => { if (url) window.location.assign(url); else onSimulated(order) },
+    onError: (e) => showToast(e.message, "error"),
+  })
 }

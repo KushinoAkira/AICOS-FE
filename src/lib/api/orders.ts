@@ -132,6 +132,9 @@ const mockOrdersApi = {
   placeTakeaway: (b: { branchId: string; slot: string; lines: LineInput[]; promotionCode?: string }) => http.post<Order>(`${B}/takeaway`, { ...b, promotionCode: b.promotionCode || null }),
   /** Real mode: backend returns a provider redirect URL instead; this call simulates the provider callback. */
   payOnline: (id: string, outcome: PayOutcome) => http.post<Order>(`${B}/orders/${id}/pay-online`, { outcome }),
+  /** The provider's own payment page for this order, or null when the gateway is simulated here (the mock server has none). */
+  hostedCheckout: async (_id: string): Promise<string | null> => null,
+  paymentState: async (_paymentId: string): Promise<DigitalCharge["state"]> => "Paid",
   mine: () => http.get<Order[]>(`${B}/mine`),
   cancelMine: (id: string) => http.post<Order>(`${B}/orders/${id}/cancel`, {}),
   payments: () => http.get<Order[]>(`${B}/payments`),

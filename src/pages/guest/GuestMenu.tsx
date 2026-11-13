@@ -8,7 +8,7 @@ import { AiChat } from "../../components/AiChat"
 import { HistoryTab, OrderedTab } from "../../components/GuestOrderTabs"
 import { GuestPay } from "../../components/GuestPay"
 import { OrderComposer } from "../../components/OrderComposer"
-import { PayGateway } from "../../components/PayGateway"
+import { PayGateway, useStartPayment } from "../../components/PayGateway"
 import { usePickupSlot } from "../../components/PickupSlot"
 import { ErrorState, LoadingState } from "../../components/ui"
 import { useAuth } from "../../context/AuthContext"
@@ -53,11 +53,13 @@ export default function GuestMenu({ navigate }: { navigate: (p: Page, params?: R
   const isTakeaway = role === "customer" && takeaway
   const pickup = usePickupSlot(branchId, isTakeaway)
   const [payingTakeaway, setPayingTakeaway] = useState<Order | null>(null)
+  // payOS opens its own page; without it the in-app gateway dialog takes the payment.
+  const startPay = useStartPayment(setPayingTakeaway)
   const placeTakeaway = useMutation({
     mutationFn: ({ lines, code }: { lines: LineInput[]; code: string }) => ordersApi.placeTakeaway({ branchId, slot: pickup.slot, lines, promotionCode: code }),
     onSuccess: (o) => {
       setSent((n) => n + 1)
-      setPayingTakeaway(o)
+      startPay.mutate(o)
       void qc.invalidateQueries({ queryKey: ["takeaway", "check"] })
       void qc.invalidateQueries({ queryKey: ["mine"] })
       showToast(`Đã giữ chỗ đơn mang đi ${orderTitle(o.lines)} (${shortOrderCode(o.code)}).${discountNote(o, formatVND)}`, "success")

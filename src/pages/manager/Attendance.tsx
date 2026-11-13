@@ -1,4 +1,5 @@
 import { useState } from "react"
+import { DateTimeField24 } from "../../components/TimeField24"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import type { Page } from "../../App"
 import { PageFrame } from "../../components/PageFrame"
@@ -98,8 +99,8 @@ export default function ManagerAttendance({ navigate }: { navigate: (p: Page) =>
       <Modal open={!!adjusting} title={`Sửa giờ công: ${adjusting?.shift.employeeName ?? ""}`} onClose={() => setAdjusting(null)} footer={<><Button variant="secondary" onClick={() => setAdjusting(null)}>Hủy</Button><Button loading={adjust.isPending} onClick={submitAdjust}>Lưu</Button></>}>
         <div className="space-y-4">
           {error && <Banner>{error}</Banner>}
-          <Field label="Giờ vào" type="datetime-local" value={checkIn} onChange={(e) => setCheckIn(e.target.value)} />
-          <Field label="Giờ ra" type="datetime-local" value={checkOut} onChange={(e) => setCheckOut(e.target.value)} />
+          <DateTimeField24 label="Giờ vào" value={checkIn} onChange={setCheckIn} />
+          <DateTimeField24 label="Giờ ra" value={checkOut} onChange={setCheckOut} />
           <Field label="Lý do" hint="Được lưu trong nhật ký." value={reason} onChange={(e) => setReason(e.target.value)} />
         </div>
       </Modal>

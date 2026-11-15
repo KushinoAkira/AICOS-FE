@@ -8,7 +8,7 @@ import { AiChat } from "../../components/AiChat"
 import { HistoryTab, OrderedTab } from "../../components/GuestOrderTabs"
 import { GuestPay } from "../../components/GuestPay"
 import { OrderComposer } from "../../components/OrderComposer"
-import { PayGateway, useStartPayment } from "../../components/PayGateway"
+import { PayGateway, PaymentRedirecting, useStartPayment } from "../../components/PayGateway"
 import { usePickupSlot } from "../../components/PickupSlot"
 import { ErrorState, LoadingState } from "../../components/ui"
 import { useAuth } from "../../context/AuthContext"
@@ -156,6 +156,7 @@ export default function GuestMenu({ navigate }: { navigate: (p: Page, params?: R
         <p className="mt-6 text-center text-sm text-text-secondary">{isTakeaway ? "Đơn mang đi được thanh toán online ngay khi đặt, quầy pha theo giờ nhận bạn chọn." : "Món được pha sau khi bạn thanh toán: quét QR ngay trên điện thoại, hoặc gọi nhân viên."}</p>
         {paying > 0 && due > 0 && <GuestPay key={paying} token={token} due={due} startOpen bare />}
         <PayGateway open={!!payingTakeaway} amount={payingTakeaway?.total ?? 0} code={payingTakeaway ? shortOrderCode(payingTakeaway.code) : ""} busy={payTakeaway.isPending} onOutcome={(o) => payTakeaway.mutate(o)} onClose={() => { setPayingTakeaway(null); navigate("customer-tracking") }} />
+        <PaymentRedirecting pay={startPay} />
       </main>
       <AiChat />
     </div>

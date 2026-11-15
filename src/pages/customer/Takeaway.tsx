@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import type { Page } from "../../App"
 import { CustomerFrame } from "../../components/CustomerFrame"
 import { OrderComposer } from "../../components/OrderComposer"
-import { PayGateway, useStartPayment } from "../../components/PayGateway"
+import { PayGateway, PaymentRedirecting, useStartPayment } from "../../components/PayGateway"
 import { Banner, ErrorState, LoadingState } from "../../components/ui"
 import { useToast } from "../../context/ToastContext"
 import { branchesApi } from "../../lib/api/identity"
@@ -86,11 +86,12 @@ export default function CustomerTakeaway({ navigate }: { navigate: (p: Page) => 
         <>
           {pickup.picker(`Giờ nhận hàng · ${branch?.name || menu.data.branchName}`)}
           {restored && restored.dropped > 0 && <div className="mb-4"><Banner tone="warn">{restored.dropped} món bạn chọn trước đó đã hết hoặc không còn ở chi nhánh này nên chưa được thêm vào giỏ.</Banner></div>}
-          <OrderComposer key={BRANCH_ID} initialCart={restored?.cart} products={menu.data.products} recommendations={picks.data} submitLabel="Đặt và thanh toán" submitting={place.isPending} error={pickup.problem ?? error} onSubmit={(l, code) => { if (pickup.problem) return setError(pickup.problem); setError(null); place.mutate({ lines: l, code }) }}
+          <OrderComposer key={BRANCH_ID} initialCart={restored?.cart} products={menu.data.products} recommendations={picks.data} submitLabel="Đặt và thanh toán" submitting={place.isPending || startPay.isPending} error={pickup.problem ?? error} onSubmit={(l, code) => { if (pickup.problem) return setError(pickup.problem); setError(null); place.mutate({ lines: l, code }) }}
             voucher={env.useMock || featureFlags.voucherAtTakeaway ? { suggestions, hint: "Giảm giá được trừ khi đặt đơn, trước bước thanh toán." } : undefined} />
         </>
       )}
       <PayGateway open={!!paying} amount={paying?.total ?? 0} code={paying ? shortOrderCode(paying.code) : ""} busy={pay.isPending} onOutcome={(o) => pay.mutate(o)} onClose={() => { setPaying(null); navigate("customer-tracking") }} />
+      <PaymentRedirecting pay={startPay} />
     </CustomerFrame>
   )
 }

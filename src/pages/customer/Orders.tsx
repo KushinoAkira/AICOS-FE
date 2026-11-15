@@ -4,7 +4,7 @@ import type { Page } from "../../App"
 import { CustomerFrame } from "../../components/CustomerFrame"
 import { OrderStatusPill, PaymentPill } from "../../components/OrderStatusPill"
 import { OrderProgress } from "../../components/OrderProgress"
-import { PayGateway, useStartPayment } from "../../components/PayGateway"
+import { PayGateway, PaymentRedirecting, useStartPayment } from "../../components/PayGateway"
 import { isOrderOver, TAKEAWAY_STEPS } from "../../lib/orderProgress"
 import { Banner, Button, ConfirmDialog, EmptyState, QueryBoundary } from "../../components/ui"
 import { useToast } from "../../context/ToastContext"
@@ -96,6 +96,7 @@ export default function CustomerOrders({ navigate }: { navigate: (p: Page) => vo
         }}
       </QueryBoundary>
       <PayGateway open={!!paying} amount={paying?.total ?? 0} code={paying?.code ?? ""} busy={pay.isPending} onOutcome={(o) => pay.mutate(o)} onClose={() => setPaying(null)} />
+      <PaymentRedirecting pay={startPay} />
       <ConfirmDialog open={!!canceling} danger title={`Hủy đơn ${canceling?.code ?? ""}?`} message={canceling?.paymentStatus === "Paid" ? "Đơn đã thanh toán sẽ được hoàn tiền theo chính sách hủy của quán, sau khi quán xác nhận." : "Đơn chưa thanh toán sẽ bị hủy."} confirmLabel="Hủy đơn" onCancel={() => setCanceling(null)} onConfirm={() => canceling && cancel.mutate(canceling)} />
     </CustomerFrame>
   )

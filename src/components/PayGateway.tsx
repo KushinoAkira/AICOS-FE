@@ -39,3 +39,21 @@ export function useStartPayment(onSimulated: (o: Order) => void) {
     onError: (e: Error & { code?: string }) => showToast((e.code && HOSTED_ERRORS[e.code]) || e.message, "error"),
   })
 }
+
+/**
+ * Covers the page while the payment page of the gateway is being prepared and opened: creating it at MoMo or payOS takes a few
+ * seconds, and nothing else should be pressed meanwhile.
+ */
+export function PaymentRedirecting({ pay }: { pay: ReturnType<typeof useStartPayment> }) {
+  const busy = pay.isPending || !!pay.data?.url
+  if (!busy) return null
+  return (
+    <div role="status" aria-live="polite" className="fixed inset-0 z-[60] grid place-items-center bg-[rgba(58,46,34,0.45)] p-4">
+      <div className="flex max-w-sm flex-col items-center gap-3 rounded-[20px] bg-surface px-8 py-7 text-center shadow-xl">
+        <span aria-hidden className="h-9 w-9 animate-spin rounded-full border-[3px] border-sand border-t-terracotta" />
+        <p className="font-serif text-lg text-text-primary">Đang mở trang thanh toán…</p>
+        <p className="text-sm text-text-secondary">Vui lòng chờ vài giây, đừng tắt trang.</p>
+      </div>
+    </div>
+  )
+}

@@ -3,8 +3,9 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import type { Page } from "../../App"
 import { CounterDigitalPay } from "../../components/CounterDigitalPay"
 import { OrderComposer, type MenuItem } from "../../components/OrderComposer"
+import { CashTendered } from "../../components/CashTendered"
 import { PageFrame } from "../../components/PageFrame"
-import { Banner, Button, Field, Modal, QueryBoundary } from "../../components/ui"
+import { Banner, Button, Modal, QueryBoundary } from "../../components/ui"
 import { useAuth } from "../../context/AuthContext"
 import { useToast } from "../../context/ToastContext"
 import { brandApi } from "../../lib/api/brand"
@@ -99,7 +100,7 @@ export default function CashierPOS({ navigate }: { navigate: (p: Page) => void }
             <p className="flex justify-between text-sm text-state-success"><span>Đã giảm (mã {toPay.promotionCode})</span><span>−{formatVND(toPay.discountAmount)}</span></p>
           )}
           <p className="flex justify-between font-serif text-lg text-text-primary"><span>Tổng</span><span>{formatVND(total)}</span></p>
-          <Field label="Khách đưa (₫)" inputMode="numeric" value={received} onChange={(e) => setReceived(e.target.value.replace(/\D/g, ""))} hint={Number(received) >= total ? `Trả lại ${formatVND(Number(received) - total)}` : undefined} />
+          <CashTendered key={toPay?.id} total={total} value={received} onChange={setReceived} />
           <Button variant="secondary" className="min-h-11 w-full" onClick={() => setDigital(true)}>Khách chuyển khoản QR</Button>
         </div>
       </Modal>

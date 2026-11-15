@@ -4,8 +4,9 @@ import type { Page } from "../../App"
 import { CounterDigitalPay } from "../../components/CounterDigitalPay"
 import { FloorLegend, FloorMap, type FloorTile, type TileTone } from "../../components/tables/FloorPlan"
 import { OrderStatusPill } from "../../components/OrderStatusPill"
+import { CashTendered } from "../../components/CashTendered"
 import { PageFrame } from "../../components/PageFrame"
-import { Banner, Button, Field, Modal, QueryBoundary, StatusPill } from "../../components/ui"
+import { Banner, Button, Modal, QueryBoundary, StatusPill } from "../../components/ui"
 import { useToast } from "../../context/ToastContext"
 import { ordersApi, type TableRow } from "../../lib/api/orders"
 import { pollWhile, useBranchRealtime } from "../../lib/realtime"
@@ -102,7 +103,7 @@ export default function CashierTables({ navigate }: { navigate: (p: Page) => voi
                     {isSettled(current)
                       ? <Banner tone="success">Bàn đã thanh toán. Bấm "Hoàn thành bàn" để trả bàn và lưu đơn vào lịch sử khách hàng.</Banner>
                       : <p className="flex justify-between font-serif text-lg text-text-primary"><span>Tổng</span><span>{formatVND(billOf(current))}</span></p>}
-                    {!isSettled(current) && <Field label="Khách đưa (₫)" inputMode="numeric" value={received} onChange={(e) => setReceived(e.target.value.replace(/\D/g, ""))} hint={Number(received) >= billOf(current) && received ? `Thối lại ${formatVND(Number(received) - billOf(current))}` : "Nhập số tiền mặt nhận được"} />}
+                    {!isSettled(current) && <CashTendered key={current.id} total={billOf(current)} value={received} onChange={setReceived} />}
                     {!isSettled(current) && <Button variant="secondary" className="min-h-11 w-full" onClick={() => { setDigital(current); setSelected(null) }}>Khách chuyển khoản QR</Button>}
                   </div>
                 )}

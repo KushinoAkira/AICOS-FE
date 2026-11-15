@@ -14,6 +14,8 @@ export interface OrderLine {
   unitPrice: number
   note: string
 }
+/** What a customer gives when cancelling: the reason, and for a paid order the bank account the money goes back to. */
+export interface CancelInput { reason: string; bankName?: string; bankAccountNumber?: string; bankAccountHolder?: string }
 /** `toppings`: the topping names picked for this drink (several allowed); each adds its price. */
 export interface LineInput { productId: string; size: string; sugar: string; ice: string; qty: number; note: string; toppings?: string[] }
 
@@ -130,7 +132,7 @@ const mockOrdersApi = {
   /** Real mode: backend returns a provider redirect URL instead; this call simulates the provider callback. */
   payOnline: (id: string, outcome: PayOutcome) => http.post<Order>(`${B}/orders/${id}/pay-online`, { outcome }),
   mine: () => http.get<Order[]>(`${B}/mine`),
-  cancelMine: (id: string) => http.post<Order>(`${B}/orders/${id}/cancel`, {}),
+  cancelMine: (id: string, b: CancelInput) => http.post<Order>(`${B}/orders/${id}/cancel`, b),
   payments: () => http.get<Order[]>(`${B}/payments`),
   lookup: (id: string) => http.post<{ providerStatus: ProviderStatus; order: Order }>(`${B}/orders/${id}/payment-lookup`, {}),
   refund: (id: string, b: { amount: number; reason: string }) => http.post<Order>(`${B}/orders/${id}/refund`, b),

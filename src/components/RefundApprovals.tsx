@@ -5,6 +5,7 @@ import { useAuth } from "../context/AuthContext"
 import { useToast } from "../context/ToastContext"
 import { reconciliationApi, type Refund } from "../lib/api/manage"
 import { formatDateTime, formatVND } from "../lib/format"
+import { shortOrderCode } from "../lib/orderLabel"
 import { refundDecision, refundErrorMessage, sortRefunds } from "../lib/refundDecision"
 
 const STATUS_TEXT: Record<string, string> = { PendingApproval: "Chờ duyệt", Succeeded: "Đã hoàn", Failed: "Lỗi", Rejected: "Từ chối" }
@@ -16,21 +17,26 @@ const NOTE_MAX = 300
  * The list comes from `GET /payments/refunds`, which already keeps a branch manager to their own branch.
  * `orderCodes`: order id -> code, so a row names the order instead of its id.
  */
-export function RefundApprovals({ orderCodes = {}, title = "Hoàn tiền chờ duyệt" }: { orderCodes?: Record<string, string>; title?: string }) {
+export function RefundApprovals({ orderCodes: given = {}, title = "Hoàn tiền chờ duyệt" }: { orderCodes?: Record<string, string>; title?: string }) {
   const qc = useQueryClient()
   const { showToast } = useToast()
   const { user, role } = useAuth()
   const refunds = useQuery({ queryKey: ["refunds"], queryFn: reconciliationApi.refunds, refetchInterval: 15_000 })
   const approver = useQuery({ queryKey: ["refunds", "approver"], queryFn: reconciliationApi.approver, retry: false })
+  // Pages without an order list (Đối soát) look the codes up, pending refunds first, so the row names the order like the customer sees it.
+  const missing = (refunds.data ?? []).filter((r) => !given[r.orderId]).sort((a, b) => Number(b.status === "PendingApproval") - Number(a.status === "PendingApproval")).slice(0, 30).map((r) => r.orderId)
+  const looked = useQuery({ queryKey: ["refunds", "codes", missing], queryFn: () => reconciliationApi.orderCodes(missing), enabled: missing.length > 0, staleTime: 300_000 })
+  const orderCodes: Record<string, string> = Object.fromEntries(Object.entries({ ...looked.data, ...given }).map(([id, code]) => [id, shortOrderCode(code)]))
   const [onlyPending, setOnlyPending] = useState(true)
   const [deciding, setDeciding] = useState<{ refund: Refund; approve: boolean } | null>(null)
   const [note, setNote] = useState("")
+  const [reference, setReference] = useState("")
   const [error, setError] = useState<string | null>(null)
   const me = { id: user?.id ?? null, role }
 
   const decide = useMutation({
-    mutationFn: ({ refund, approve, note }: { refund: Refund; approve: boolean; note: string }) =>
-      approve ? reconciliationApi.approveRefund(refund.id, note) : reconciliationApi.rejectRefund(refund.id, note),
+    mutationFn: ({ refund, approve, note, reference }: { refund: Refund; approve: boolean; note: string; reference: string }) =>
+      approve ? reconciliationApi.approveRefund(refund.id, note, reference) : reconciliationApi.rejectRefund(refund.id, note),
     onSuccess: (r, v) => {
       void qc.invalidateQueries({ queryKey: ["refunds"] })
       void qc.invalidateQueries({ queryKey: ["orders"] })
@@ -38,7 +44,7 @@ export function RefundApprovals({ orderCodes = {}, title = "Hoàn tiền chờ d
       setDeciding(null)
       if (!v.approve) showToast("Đã từ chối yêu cầu hoàn tiền.", "success")
       else if (r.status === "Failed") showToast(`Cổng thanh toán không hoàn được tiền: ${r.decisionNote ?? "lỗi không rõ"}.`, "error")
-      else showToast(`Đã duyệt hoàn ${formatVND(r.amount)}.`, "success")
+      else showToast(r.bankAccountNumber ? `Đã ghi nhận chuyển khoản ${formatVND(r.amount)} cho khách.` : `Đã duyệt hoàn ${formatVND(r.amount)}.`, "success")
     },
     onError: (e: Error & { code?: string }) => {
       setError(refundErrorMessage(e))
@@ -46,14 +52,15 @@ export function RefundApprovals({ orderCodes = {}, title = "Hoàn tiền chờ d
     },
   })
 
-  function open(refund: Refund, approve: boolean) { setNote(""); setError(null); setDeciding({ refund, approve }) }
+  function open(refund: Refund, approve: boolean) { setNote(""); setReference(""); setError(null); setDeciding({ refund, approve }) }
   function submit() {
     if (!deciding) return
     const text = note.trim()
     if (!deciding.approve && text.length < 3) return setError("Nhập lý do từ chối (ít nhất 3 ký tự).")
     if (text.length > NOTE_MAX) return setError(`Ghi chú tối đa ${NOTE_MAX} ký tự.`)
+    if (deciding.approve && deciding.refund.bankAccountNumber && reference.trim().length < 3) return setError("Nhập mã giao dịch chuyển khoản (in trên biên lai ngân hàng).")
     setError(null)
-    decide.mutate({ refund: deciding.refund, approve: deciding.approve, note: text })
+    decide.mutate({ refund: deciding.refund, approve: deciding.approve, note: text, reference: reference.trim() })
   }
 
   const policy = approver.data ?? "BranchManager"
@@ -62,7 +69,16 @@ export function RefundApprovals({ orderCodes = {}, title = "Hoàn tiền chờ d
     { key: "o", header: "Đơn", render: (r) => <span className="font-medium text-text-primary">{orderCodes[r.orderId] ?? `#${r.orderId.slice(0, 8)}`}</span> },
     { key: "a", header: "Số tiền", sort: (r) => r.amount, render: (r) => formatVND(r.amount) },
     { key: "k", header: "Loại", render: (r) => <span>{KIND_TEXT[r.kind] ?? r.kind}<br /><span className="text-xs text-text-secondary">{r.withinPolicy ? "Trong chính sách" : "Ngoài chính sách"}</span></span> },
-    { key: "w", header: "Lý do", render: (r) => <span>{r.reason}{r.decisionNote && <><br /><span className="text-xs text-text-secondary">Ghi chú: {r.decisionNote}</span></>}</span> },
+    {
+      key: "w", header: "Lý do", render: (r) => (
+        <span>
+          {r.reason}
+          {r.bankAccountNumber && <><br /><span className="text-xs text-text-primary">Chuyển về: <b>{r.bankName}</b> · <span className="font-mono">{r.bankAccountNumber}</span> · {r.bankAccountHolder}</span></>}
+          {r.providerReference?.startsWith("BANK:") && <><br /><span className="text-xs text-state-success">Đã chuyển khoản, mã {r.providerReference.slice(5)}</span></>}
+          {r.decisionNote && <><br /><span className="text-xs text-text-secondary">Ghi chú: {r.decisionNote}</span></>}
+        </span>
+      ),
+    },
     { key: "s", header: "Trạng thái", render: (r) => <StatusPill tone={r.status === "Succeeded" ? "success" : r.status === "PendingApproval" ? "pending" : "danger"}>{STATUS_TEXT[r.status] ?? r.status}</StatusPill> },
     {
       key: "x", header: "", className: "text-right", render: (r) => {
@@ -111,7 +127,7 @@ export function RefundApprovals({ orderCodes = {}, title = "Hoàn tiền chờ d
         onClose={() => setDeciding(null)}
         footer={<>
           <Button variant="secondary" onClick={() => setDeciding(null)}>Hủy</Button>
-          <Button loading={decide.isPending} onClick={submit}>{deciding?.approve ? "Duyệt và hoàn tiền" : "Từ chối"}</Button>
+          <Button loading={decide.isPending} onClick={submit}>{deciding?.approve ? (deciding.refund.bankAccountNumber ? "Đã chuyển khoản, duyệt" : "Duyệt và hoàn tiền") : "Từ chối"}</Button>
         </>}
       >
         <div className="space-y-4">
@@ -120,8 +136,19 @@ export function RefundApprovals({ orderCodes = {}, title = "Hoàn tiền chờ d
             Đơn <b className="text-text-primary">{deciding ? orderCodes[deciding.refund.orderId] ?? `#${deciding.refund.orderId.slice(0, 8)}` : ""}</b> · Số tiền <b className="text-text-primary">{formatVND(deciding?.refund.amount ?? 0)}</b>
             <br />Lý do: {deciding?.refund.reason}
           </p>
-          {deciding?.approve
-            ? <p className="text-xs text-text-secondary">Tiền được hoàn qua cổng thanh toán ngay khi duyệt. Đơn trả tiền mặt thì hoàn tại quầy và được ghi vào tiền mặt của người duyệt.</p>
+          {deciding?.approve && deciding.refund.bankAccountNumber ? (
+            <div className="space-y-3">
+              <div className="rounded-[12px] border border-clay bg-sand/40 p-3 text-sm">
+                <p className="text-text-secondary">Chuyển <b className="text-text-primary">{formatVND(deciding.refund.amount)}</b> đến tài khoản khách đã cung cấp:</p>
+                <p className="mt-1 text-text-primary"><b>{deciding.refund.bankName}</b> · <span className="font-mono text-base">{deciding.refund.bankAccountNumber}</span></p>
+                <p className="text-text-primary">Chủ tài khoản: <b>{deciding.refund.bankAccountHolder}</b></p>
+                <p className="mt-1 text-xs text-text-secondary">Nội dung chuyển khoản gợi ý: Hoan tien don {deciding ? orderCodes[deciding.refund.orderId] ?? deciding.refund.orderId.slice(0, 8) : ""}</p>
+              </div>
+              <Field label="Mã giao dịch chuyển khoản (bắt buộc)" value={reference} maxLength={80} placeholder="Ví dụ: FT26111512345" onChange={(e) => setReference(e.target.value)} />
+              <p className="text-xs text-text-secondary">Chuyển khoản trong app ngân hàng của quán trước, rồi nhập mã giao dịch và bấm duyệt. Khách sẽ thấy đơn chuyển sang "Đã hoàn".</p>
+            </div>
+          ) : deciding?.approve
+            ? <p className="text-xs text-text-secondary">Tiền được hoàn qua cổng thanh toán ngay khi duyệt. Đơn trả tiền mặt thì thu ngân đã thu đơn đó trả lại tại quầy và khoản này được trừ vào tiền mặt của thu ngân.</p>
             : <Field label="Lý do từ chối (bắt buộc)" value={note} maxLength={NOTE_MAX} onChange={(e) => setNote(e.target.value)} />}
         </div>
       </Modal>

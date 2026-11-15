@@ -7,7 +7,7 @@ import type { Role } from "../router/roles"
 /** Who the brand lets decide refund exceptions (cancellation policy, `exceptionApprover`). */
 export type RefundApprover = "BranchManager" | "BrandAdmin"
 
-export interface RefundForDecision { status: string; requestedBy: string | null }
+export interface RefundForDecision { status: string; requestedBy: string | null; bankAccountNumber?: string | null }
 
 export interface RefundDecision {
   canApprove: boolean
@@ -20,6 +20,8 @@ export function refundDecision(refund: RefundForDecision, approver: RefundApprov
   if (refund.status !== "PendingApproval") return { canApprove: false, canReject: false, reason: null }
   const admin = me.role === "brandAdmin"
   if (!admin && me.role !== "branchManager") return { canApprove: false, canReject: false, reason: "Chỉ quản lý duyệt hoàn tiền." }
+  // The customer asked for a bank transfer: the brand admin makes it and approves.
+  if (refund.bankAccountNumber && !admin) return { canApprove: false, canReject: false, reason: "Khách yêu cầu chuyển khoản: chủ thương hiệu duyệt và chuyển tiền." }
   if (approver === "BrandAdmin" && !admin) return { canApprove: false, canReject: false, reason: "Thương hiệu chỉ cho chủ thương hiệu duyệt hoàn tiền ngoại lệ." }
   // The person who asked for a refund cannot approve it; turning it down is allowed. The brand admin is not held to this.
   if (!admin && !!me.id && refund.requestedBy === me.id) return { canApprove: false, canReject: true, reason: "Bạn tạo yêu cầu này nên cần người khác duyệt." }

@@ -18,8 +18,17 @@ export function PayGateway({ open, amount, code, busy, onOutcome, onClose }: { o
     </Modal>
   )
 }
+
+/** The payment page of the gateway could not be opened: say so in Vietnamese; the order stays and can be paid again. */
+const HOSTED_ERRORS: Record<string, string> = {
+  "payment.momo_failed": "MoMo chưa tạo được trang thanh toán. Thử lại sau ít phút trong mục Đơn của bạn.",
+  "payment.momo_not_configured": "Cổng MoMo chưa được cấu hình. Báo quán để chọn cách thanh toán khác.",
+  "payment.payos_failed": "payOS chưa tạo được trang thanh toán. Thử lại sau ít phút trong mục Đơn của bạn.",
+  "payment.payos_not_configured": "Cổng payOS chưa được cấu hình. Báo quán để chọn cách thanh toán khác.",
+}
+
 /**
- * Starts paying an order online. A gateway with its own page (payOS) takes the customer there; it sends them back to the result page.
+ * Starts paying an order online. A gateway with its own page (payOS, MoMo) takes the customer there; it sends them back to the result page.
  * Otherwise `onSimulated` opens the simulated gateway above.
  */
 export function useStartPayment(onSimulated: (o: Order) => void) {
@@ -27,6 +36,6 @@ export function useStartPayment(onSimulated: (o: Order) => void) {
   return useMutation({
     mutationFn: async (o: Order) => ({ order: o, url: await ordersApi.hostedCheckout(o.id) }),
     onSuccess: ({ order, url }) => { if (url) window.location.assign(url); else onSimulated(order) },
-    onError: (e) => showToast(e.message, "error"),
+    onError: (e: Error & { code?: string }) => showToast((e.code && HOSTED_ERRORS[e.code]) || e.message, "error"),
   })
 }

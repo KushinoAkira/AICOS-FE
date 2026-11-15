@@ -1,15 +1,14 @@
 import { useQuery } from "@tanstack/react-query"
 import type { Page } from "../../App"
-import { useEffect, useState, type CSSProperties } from "react"
+import { useEffect, type CSSProperties } from "react"
 import { useLocation, useNavigate } from "react-router"
-import { PlanCheckout } from "./PlanCheckout"
 import { PublicPage } from "../../components/PublicChrome"
 import { Reveal } from "../../components/Reveal"
 import { FaqSection, FinalCta, RolesSection } from "./LandingSections"
 import { FEATURES } from "./landingContent"
 import { Button } from "../../components/ui"
 import { formatVND } from "../../lib/format"
-import { publicApi, type Plan } from "../../lib/api/platform"
+import { publicApi } from "../../lib/api/platform"
 
 const HERO_IMG = "https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?w=1800&q=70&auto=format&fit=crop"
 
@@ -25,7 +24,6 @@ export default function Landing({ navigate }: { navigate: (p: Page) => void }) {
   useEffect(() => { if (hash) document.getElementById(hash.slice(1))?.scrollIntoView() }, [hash])
   const plans = useQuery({ queryKey: ["public", "plans"], queryFn: publicApi.plans, retry: 1 })
   const go = useNavigate()
-  const [buying, setBuying] = useState<Plan | null>(null)
   return (
     <PublicPage navigate={navigate} uc="UC-05">
         <section className="relative isolate overflow-hidden bg-espresso text-white">
@@ -91,7 +89,7 @@ export default function Landing({ navigate }: { navigate: (p: Page) => void }) {
                       <li>Tối đa {p.maxUsers} tài khoản nhân viên</li>
                       <li>QR gọi món, đặt mang đi, tích điểm</li>
                     </ul>
-                    <Button variant={i === 1 ? "primary" : "secondary"} className="mt-6 min-h-11 w-full" onClick={() => setBuying(p)}>Chọn gói và thanh toán</Button>
+                    <Button variant={i === 1 ? "primary" : "secondary"} className="mt-6 min-h-11 w-full" onClick={() => go(`/register-brand?plan=${p.id}`)}>Chọn gói này</Button>
                     <button type="button" onClick={() => go(`/contact?topic=pricing&plan=${encodeURIComponent(p.name)}`)} className="mt-2 text-xs text-text-secondary underline underline-offset-2">Cần tư vấn về gói này?</button>
                   </Reveal>
                 ))}
@@ -102,7 +100,6 @@ export default function Landing({ navigate }: { navigate: (p: Page) => void }) {
 
         <FaqSection plans={plans.data ?? []} />
         <FinalCta onContact={() => navigate("register-brand")} />
-        <PlanCheckout plan={buying} onClose={() => setBuying(null)} onPaid={(plan, reference) => { setBuying(null); go(`/register-brand?plan=${plan.id}&ref=${encodeURIComponent(reference)}`) }} />
     </PublicPage>
   )
 }

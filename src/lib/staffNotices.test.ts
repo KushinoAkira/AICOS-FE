@@ -13,7 +13,7 @@ describe("noticeTarget", () => {
   it("sends each kind to the screen that handles it", () => {
     expect(noticeTarget("OrderReady", "cashier")).toBe("cashier-serve")
     expect(noticeTarget("BillRequested", "cashier")).toBe("cashier-tables")
-    expect(noticeTarget("ReplacementOpened", "barista")).toBe("cashier-shift")
+    expect(noticeTarget("ReplacementOpened", "branchManager")).toBe("branch-shift-requests")
     expect(noticeTarget("Unknown", "cashier")).toBeNull()
   })
 })

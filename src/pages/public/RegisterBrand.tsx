@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useSearchParams } from "react-router"
 import { useMutation, useQuery } from "@tanstack/react-query"
 import type { Page } from "../../App"
@@ -35,14 +35,15 @@ function validate(f: RegisterBrandInput): Errors {
 /** Flow 1 of the platform: a shop owner registers a brand and waits for the Super Admin's approval. */
 export default function RegisterBrand({ navigate }: { navigate: (p: Page) => void }) {
   const [params] = useSearchParams()
-  // Coming from the pricing page checkout: the plan and the reference of its (simulated) payment go with the registration.
-  const paidPlanId = params.get("plan") ?? ""
-  const paidRef = params.get("ref") ?? ""
-  const [form, setForm] = useState<RegisterBrandInput>(() => ({ ...EMPTY, planId: paidPlanId || undefined, paymentReference: paidRef || undefined }))
+  // Coming from the pricing page: the plan the owner picked goes with the registration (it can still be changed on the right).
+  const [form, setForm] = useState<RegisterBrandInput>(() => ({ ...EMPTY, planId: params.get("plan") || undefined }))
   const [codeEdited, setCodeEdited] = useState(false)
   const [errors, setErrors] = useState<Errors>({})
   const plans = useQuery({ queryKey: ["public", "plans"], queryFn: publicApi.plans, retry: 1 })
   const set = <K extends keyof RegisterBrandInput>(k: K, v: RegisterBrandInput[K]) => setForm((f) => ({ ...f, [k]: v }))
+  const chosen = plans.data?.find((p) => p.id === form.planId)
+  // Arriving from the pricing section further down the landing page: start at the top of the form.
+  useEffect(() => { window.scrollTo(0, 0) }, [])
 
   const send = useMutation({
     mutationFn: () => publicApi.registerBrand({ ...form, email: form.email.trim(), brandName: form.brandName.trim(), ownerFullName: form.ownerFullName.trim() }),
@@ -75,15 +76,12 @@ export default function RegisterBrand({ navigate }: { navigate: (p: Page) => voi
             {send.isSuccess ? (
               <div role="status" className="py-8 text-center">
                 <h2 className="font-serif text-2xl">Đã nhận đăng ký</h2>
-                <p className="mt-2 text-text-secondary">Thương hiệu với mã <strong>{send.data.code}</strong> đang chờ duyệt. Chúng tôi sẽ gửi kết quả tới <strong>{form.email}</strong>.{paidRef ? " Sau khi duyệt và xác nhận khoản thanh toán, bạn đăng nhập được ngay." : " Sau khi duyệt, quán hoạt động khi gói được thanh toán."}</p>
+                <p className="mt-2 text-text-secondary">Thương hiệu với mã <strong>{send.data.code}</strong> đang chờ duyệt. Chúng tôi sẽ gửi kết quả tới <strong>{form.email}</strong>. Sau khi duyệt, AICOS liên hệ để thanh toán gói{chosen ? <> <strong>{chosen.name}</strong></> : null}; quán hoạt động ngay khi khoản thanh toán được xác nhận.</p>
                 <Button variant="secondary" className="mt-6" onClick={() => navigate("login")}>Về trang đăng nhập quán</Button>
               </div>
             ) : (
               <form noValidate onSubmit={(e) => { e.preventDefault(); submit() }} className="space-y-4">
-                {paidPlanId && (() => {
-                  const plan = plans.data?.find((p) => p.id === paidPlanId)
-                  return <Banner tone="success">Đã thanh toán {plan ? <>gói <b>{plan.name}</b> ({formatVND(plan.monthlyFee)}/tháng)</> : "gói đã chọn"}{paidRef ? <>, mã giao dịch <b>{paidRef}</b></> : null}. Điền thông tin quán để hoàn tất; quán hoạt động sau khi AICOS duyệt và xác nhận khoản thanh toán.</Banner>
-                })()}
+                {chosen && <Banner tone="success">Gói đã chọn: <b>{chosen.name}</b> ({formatVND(chosen.monthlyFee)}/tháng). Điền thông tin quán để gửi đăng ký.</Banner>}
                 {send.isError && !(send.error instanceof ApiError && send.error.fieldErrors) && <Banner>{send.error instanceof ApiError ? send.error.message : "Chưa gửi được đăng ký. Hãy thử lại."}</Banner>}
                 <Field label="Tên thương hiệu" value={form.brandName} error={errors.brandName} onChange={(e) => { const v = e.target.value; setForm((f) => ({ ...f, brandName: v, code: codeEdited ? f.code : toCode(v) })) }} />
                 <Field label="Mã quán" hint="Dùng làm định danh của quán trên AICOS" value={form.code} error={errors.code} onChange={(e) => { setCodeEdited(true); set("code", e.target.value.toLowerCase()) }} />
@@ -104,14 +102,20 @@ export default function RegisterBrand({ navigate }: { navigate: (p: Page) => voi
 
           <aside aria-label="Các gói dịch vụ" className="rounded-[16px] bg-sand p-6">
             <h2 className="font-serif text-xl">Các gói dịch vụ</h2>
-            <p className="mt-1 text-sm text-text-secondary">Bạn chốt gói với AICOS sau khi đăng ký được duyệt.</p>
+            <p className="mt-1 text-sm text-text-secondary">Chọn gói cho quán. Bạn thanh toán gói sau khi đăng ký được duyệt.</p>
             <ul className="mt-4 space-y-3">
-              {(plans.data ?? []).map((p) => (
-                <li key={p.id} className="rounded-[12px] bg-surface p-3">
-                  <p className="font-medium text-text-primary">{p.name}</p>
-                  <p className="text-sm text-text-secondary">{new Intl.NumberFormat("vi-VN").format(p.monthlyFee)} đ/tháng</p>
-                </li>
-              ))}
+              {(plans.data ?? []).map((p) => {
+                const on = form.planId === p.id
+                return (
+                  <li key={p.id}>
+                    <button type="button" aria-pressed={on} onClick={() => set("planId", on ? undefined : p.id)} disabled={send.isSuccess}
+                      className={`w-full rounded-[12px] border-2 bg-surface p-3 text-left transition-colors ${on ? "border-terracotta" : "border-transparent hover:border-border"}`}>
+                      <span className="flex items-center justify-between gap-2"><span className="font-medium text-text-primary">{p.name}</span>{on && <span className="text-xs font-medium text-terracotta">Đã chọn</span>}</span>
+                      <span className="block text-sm text-text-secondary">{formatVND(p.monthlyFee)}/tháng · tối đa {p.maxBranches} chi nhánh</span>
+                    </button>
+                  </li>
+                )
+              })}
             </ul>
           </aside>
         </div>

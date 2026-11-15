@@ -65,6 +65,7 @@ export const PAGE_ACCESS: Record<Page, Access> = {
   "branch-tables-print": BRAND_AND_BRANCH,
   "branch-pickup": BM,
   "branch-orders": BM,
+  "branch-refunds": BM,
   "branch-attendance": BM,
   "branch-cash-closings": BM,
 

@@ -13,7 +13,7 @@ const KIND_TEXT: Record<string, string> = { Cancellation: "Khách hủy", NoShow
 const NOTE_MAX = 300
 
 /**
- * Refunds waiting for a decision (BR-30), shared by the branch manager (Đơn hàng chi nhánh) and the brand admin (Đối soát).
+ * Refunds waiting for a decision (BR-30): the branch manager's "Hoàn tiền" page, and the brand admin's Đối soát when the brand keeps refund decisions for itself.
  * The list comes from `GET /payments/refunds`, which already keeps a branch manager to their own branch.
  * `orderCodes`: order id -> code, so a row names the order instead of its id.
  * `range`: the period picked on the page; "Lịch sử hoàn tiền" lists the refunds asked in it that were already handled. Waiting ones always stay on top.

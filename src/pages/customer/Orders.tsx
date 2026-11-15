@@ -89,7 +89,7 @@ export default function CustomerOrders({ navigate }: { navigate: (p: Page) => vo
           </div>
           {paidCancel ? (
             <>
-              <p className="text-sm text-text-secondary">Đơn đã thanh toán <b className="text-text-primary">{formatVND(canceling?.total ?? 0)}</b>. Đơn được hủy ngay; tiền hoàn theo chính sách hủy của quán sẽ được <b className="text-text-primary">chủ quán duyệt và chuyển khoản</b> về tài khoản dưới đây.</p>
+              <p className="text-sm text-text-secondary">Đơn đã thanh toán <b className="text-text-primary">{formatVND(canceling?.total ?? 0)}</b>. Đơn được hủy ngay; tiền hoàn theo chính sách hủy của quán sẽ được <b className="text-text-primary">quản lý chi nhánh duyệt và chuyển khoản</b> về tài khoản dưới đây.</p>
               <Field label="Ngân hàng" list="bank-names" value={form.bankName} placeholder="Ví dụ: Vietcombank" onChange={(e) => setForm({ ...form, bankName: e.target.value })} />
               <datalist id="bank-names">{BANKS.map((b) => <option key={b} value={b} />)}</datalist>
               <Field label="Số tài khoản" inputMode="numeric" value={form.bankAccountNumber} maxLength={20} onChange={(e) => setForm({ ...form, bankAccountNumber: e.target.value.replace(/\D/g, "") })} />

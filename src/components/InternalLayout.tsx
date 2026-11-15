@@ -78,6 +78,7 @@ const navMap: Record<StaffRole, NavItem[]> = {
   branchManager: [
     item("manager-dashboard", "Tổng quan", "grid"),
     item("branch-orders", "Đơn hàng", "list"),
+    item("branch-refunds", "Hoàn tiền", "card"),
     item("manager-menu", "Tình trạng món", "menu"),
     item("manager-staff", "Nhân sự", "users"),
     item("branch-schedule", "Lịch làm việc", "calendar"),

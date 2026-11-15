@@ -46,7 +46,8 @@ const addDays = (from: string, n: number) => { const d = new Date(`${from}T00:00
 async function closingAssignment() {
   const [mine, closings] = await Promise.all([http.get<Raw[]>(`${W}/shift-assignments/mine`), http.get<Raw[]>(`${W}/cash-closings/mine`, { query: { pageSize: 100 } })])
   const shifts = recs(itemsOf(mine)).map((a) => ({ ...a, id: str(a.id), employeeName: str(a.employeeName), workDate: str(a.workDate), startTime: str(a.startTime), ...workedTimes(a) }))
-  return pickClosingShift(shifts, recs(itemsOf(closings)).map((c) => str(c.assignmentId)))
+  // The drawer is taken over at the start of a shift: only the shift running now (checked in, not ended) can still take it.
+  return pickClosingShift(shifts.filter((s) => !s.checkOutAtUtc), recs(itemsOf(closings)).map((c) => str(c.assignmentId)))
 }
 
 export const beStaffApi = {
@@ -98,9 +99,12 @@ export const beStaffApi = {
   async approve(id: string, userId: string): Promise<Replacement> {
     const users = await userIdByEmployee()
     const apps = recs(itemsOf(await http.get<Raw[]>(`${W}/replacement-shifts/${id}/applications`)))
-    const hit = apps.find((a) => users.get(str(a.employeeId)) === userId)
-    if (!hit) return unsupported("duyệt ca thay: không tìm thấy đơn đăng ký của nhân viên này")
-    return toReplacement(rec(await http.post<Raw>(`${W}/replacement-shifts/${id}/approve`, { applicationId: str(hit.id), note: null })), users)
+    const hit = apps.find((a) => users.get(str(a.employeeId)) === userId && str(a.status) === "Pending")
+    if (hit) return toReplacement(rec(await http.post<Raw>(`${W}/replacement-shifts/${id}/approve`, { applicationId: str(hit.id), note: null })), users)
+    // Nobody registered: the manager puts an employee of the branch on the shift directly.
+    const employeeId = [...users.entries()].find(([, u]) => u === userId)?.[0]
+    if (!employeeId) return unsupported("xếp người thay: nhân viên này chưa có hồ sơ nhân sự")
+    return toReplacement(rec(await http.post<Raw>(`${W}/replacement-shifts/${id}/approve`, { employeeId, note: null })), users)
   },
 
   /** The cash the system expects in the drawer for the shift to close next: the running one first, so a second shift of the day is not blocked by the first. */
@@ -108,7 +112,11 @@ export const beStaffApi = {
     const { shift, allClosed } = await closingAssignment()
     if (!shift) return { expected: 0, closed: allClosed, noShift: !allClosed }
     const e = rec(await http.get<Raw>(`${W}/cash-closings/expected`, { query: { assignmentId: shift.id } }))
-    return { expected: num(e.expectedAmount), closed: false, shiftLabel: shiftLabel({ period: periodOf(shift.startTime), ...templateOf(shift) }) }
+    return {
+      expected: num(e.expectedAmount), closed: false, shiftLabel: shiftLabel({ period: periodOf(shift.startTime), ...templateOf(shift) }),
+      opening: num(e.openingAmount), previousCashier: str(e.previousCashierName) || undefined, previousAtUtc: str(e.previousHandoverAtUtc) || undefined,
+      received: num(e.cashReceived), refunded: num(e.cashRefunded),
+    }
   },
   async cashClosings(): Promise<CashClosing[]> {
     const manager = tokenStore.get()?.user.role !== "Cashier"
@@ -120,7 +128,7 @@ export const beStaffApi = {
   },
   async closeCash(b: { counted: number; reason: string }): Promise<CashClosing> {
     const { shift: open } = await closingAssignment()
-    if (!open) return unsupported("chốt két: bạn chưa vào ca nào, hoặc các ca đã chốt hết")
+    if (!open) return unsupported("nhận két: bạn chưa vào ca, hoặc đã nhận két của ca này rồi")
     const c = rec(await http.post<Raw>(`${W}/cash-closings`, { assignmentId: open.id, countedAmount: b.counted, note: b.reason }))
     return { id: str(c.id), date: open.workDate.slice(0, 10), userName: str(open.employeeName), expected: num(c.expectedAmount), counted: num(c.countedAmount), variance: num(c.difference), reason: b.reason }
   },

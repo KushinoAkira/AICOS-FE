@@ -10,11 +10,11 @@ export function noticeTarget(kind: string, role: string | null): Page | null {
     case "BillRequested":
     case "OnlinePaid": return "cashier-tables"
     case "OrderReady": return "cashier-serve"
-    case "ReplacementOpened": return "cashier-shift"
+    case "ReplacementOpened": return "branch-shift-requests"
     case "ReplacementRegistered": return "branch-shift-requests"
     case "CashClosing": return "branch-cash-closings"
     case "RefundRequested":
-    case "RefundFailed": return role === "brandAdmin" ? "brand-reconciliation" : "branch-orders"
+    case "RefundFailed": return role === "brandAdmin" ? "brand-reconciliation" : "branch-refunds"
     case "RenewalDue": return "brand-subscription"
     case "Overdue": return role === "superAdmin" ? "platform-subscriptions" : "brand-subscription"
     case "BrandRegistered": return "platform-tenants"

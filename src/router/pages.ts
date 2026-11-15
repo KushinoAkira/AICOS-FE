@@ -58,6 +58,7 @@ export const PAGE_PATHS = {
   "branch-tables-print": "/branch/tables/print",
   "branch-pickup": "/branch/pickup-settings",
   "branch-orders": "/branch/orders",
+  "branch-refunds": "/branch/refunds",
   "branch-attendance": "/branch/attendance",
   "branch-cash-closings": "/branch/cash-closings",
 

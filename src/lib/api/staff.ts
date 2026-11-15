@@ -30,8 +30,14 @@ export interface HuntVoucher {
 export interface LoyaltyMe { points: number; tier: string; nextTier: string | null; pointsToNext: number; redeemPoints: number; vouchers: LoyaltyVoucher[]; history: { id: string; delta: number; reason: string; atUtc: string }[] }
 export interface Notice { id: string; title: string; body: string; atUtc: string; read: boolean }
 
-/** What the cashier closes next. `noShift`: they have not checked in to any shift yet. */
-export interface CashExpected { expected: number; closed: boolean; noShift?: boolean; shiftLabel?: string }
+/**
+ * The drawer the cashier takes over at the start of their running shift. `noShift`: no shift checked in yet. `opening`: what the previous
+ * handover counted (who and when), `received`/`refunded`: cash that moved at the branch since then.
+ */
+export interface CashExpected {
+  expected: number; closed: boolean; noShift?: boolean; shiftLabel?: string
+  opening?: number; previousCashier?: string; previousAtUtc?: string; received?: number; refunded?: number
+}
 
 const S = "/api/v1/staff"
 const mockStaffApi = {
@@ -46,6 +52,7 @@ const mockStaffApi = {
   apply: (id: string) => http.post<Replacement>(`${S}/replacements/${id}/apply`, {}),
   /** The requester takes back their own request while nobody is approved. */
   retract: (id: string) => http.post<Replacement>(`${S}/replacements/${id}/retract`, {}),
+  /** The manager puts somebody of the branch on the shift (whether or not they registered for it). */
   approve: (id: string, userId: string) => http.post<Replacement>(`${S}/replacements/${id}/approve`, { userId }),
   cashExpected: () => http.get<CashExpected>(`${S}/cash/expected`),
   cashClosings: () => http.get<CashClosing[]>(`${S}/cash/closings`),

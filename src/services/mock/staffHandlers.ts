@@ -125,8 +125,8 @@ export const staffHandlers = [
     const r = replacements.find((x) => x.id === params.id)
     if (!r || r.status !== "open") return problem(409, "Yêu cầu đã được xử lý")
     const { userId } = (await request.json()) as { userId: string }
-    if (!r.applicants.some((a) => a.userId === userId)) return problem(422, "Người này chưa đăng ký")
     const shift = shifts.find((s) => s.id === r.shiftId) as ShiftRow
+    if (shift.userId === userId) return problem(422, "Người xin nghỉ không thể tự thay ca của mình")
     shift.userId = userId
     r.status = "filled"
     r.filledBy = nameOf(userId)

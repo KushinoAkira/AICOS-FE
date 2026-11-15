@@ -3,7 +3,7 @@
 export const ROLES = [
   { who: "Chủ thương hiệu", body: "Quản lý chi nhánh, thực đơn, khuyến mãi, tích điểm và theo dõi doanh thu cả chuỗi." },
   { who: "Quản lý chi nhánh", body: "Xếp ca, duyệt đổi ca, theo dõi đơn, bàn và bảng lương của chi nhánh mình." },
-  { who: "Thu ngân", body: "Tính tiền theo bàn, tra cứu giao dịch, hoàn tiền và chốt tiền mặt cuối ca." },
+  { who: "Thu ngân", body: "Tính tiền theo bàn, tra cứu giao dịch, hoàn tiền và nhận két đầu ca." },
   { who: "Pha chế", body: "Nhận đơn theo thời gian thực, đổi trạng thái từng món và báo khi sẵn sàng." },
   { who: "Khách hàng", body: "Quét QR gọi món, đặt mang đi hẹn giờ, tích điểm, đổi voucher và xem lịch sử." },
 ]
@@ -21,7 +21,7 @@ export const FEATURES = [
   { title: "Gọi món bằng QR tại bàn", body: "Khách quét mã trên bàn, chọn món và gửi thẳng tới quầy pha chế. Không cần tải ứng dụng hay tạo tài khoản." },
   { title: "Đặt mang đi hẹn giờ", body: "Khách chọn giờ nhận trong giờ mở cửa, thanh toán online và nhận món đúng hẹn." },
   { title: "Quầy pha chế theo thời gian thực", body: "Đơn mới hiện ngay cho barista, cập nhật trạng thái từng bước tới khi món sẵn sàng." },
-  { title: "Thu ngân và đối soát", body: "Tính tiền theo bàn, tra cứu giao dịch, hoàn tiền và chốt tiền mặt cuối ca có lý do khi lệch." },
+  { title: "Thu ngân và đối soát", body: "Tính tiền theo bàn, tra cứu giao dịch, hoàn tiền và nhận két đầu ca, báo quản lý khi lệch tiền." },
   { title: "Nhiều chi nhánh, nhiều nhân sự", body: "Phân quyền theo vai trò, xếp ca, chấm công và tìm người thay ca giữa các chi nhánh." },
   { title: "Tích điểm và khuyến mãi", body: "Khách thân thiết tích điểm, đổi voucher. Chủ quán tự cấu hình mức tích và chương trình ưu đãi." },
 ]

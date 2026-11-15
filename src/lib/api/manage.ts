@@ -82,6 +82,8 @@ export const attendanceApi = {
 export interface CashClosing {
   id: string; branchId: string; employeeName: string; workDate: string; startTime: string; endTime: string; expectedAmount: number; countedAmount: number; difference: number
   cashierNote: string | null; status: "PendingReview" | "Confirmed"; managerNote: string | null; submittedAtUtc: string; confirmedAtUtc: string | null
+  /** What the previous handover left in the drawer (0 for the first one of the day). */
+  openingAmount?: number
 }
 export interface CashClosingDetails {
   closing: CashClosing; cashReceived: number; cashRefunded: number

@@ -39,7 +39,13 @@ export function FaqSection({ plans = [] }: { plans?: Plan[] }) {
             </details>
           ))}
         </div>
-        <p className="mt-5 text-sm text-text-secondary">Chưa thấy câu trả lời? <Link to="/contact" className="text-clay underline">Liên hệ chúng tôi</Link>.</p>
+        <div className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-[16px] border border-clay bg-sand/40 p-5">
+          <div>
+            <p className="font-medium text-text-primary">Chưa thấy câu trả lời?</p>
+            <p className="text-sm text-text-secondary">Để lại thông tin, đội ngũ AICOS gọi lại tư vấn trong 1 ngày làm việc.</p>
+          </div>
+          <Link to="/contact?topic=consult" className="inline-flex min-h-11 items-center rounded-[10px] bg-terracotta px-5 text-sm font-medium text-white hover:opacity-90">Điền thông tin tư vấn</Link>
+        </div>
       </div>
     </section>
   )

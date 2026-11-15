@@ -93,6 +93,7 @@ export const PAGE_ACCESS: Record<Page, Access> = {
   "platform-health": SA,
   "platform-revenue": SA,
   "platform-audit": SA,
+  "platform-leads": SA,
 }
 
 /** Landing page after login, per role. */

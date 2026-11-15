@@ -42,7 +42,8 @@ export default function ForgotPassword({ navigate }: Props) {
     <AuthShell title="Khôi phục mật khẩu" subtitle="Nhập email đã đăng ký, chúng tôi sẽ gửi liên kết đặt lại mật khẩu (có hiệu lực 30 phút).">
       {sent ? (
         <div className="space-y-4">
-          <Banner tone="success">Nếu email tồn tại, liên kết đặt lại mật khẩu đã được gửi. Hãy kiểm tra hộp thư.</Banner>
+          <Banner tone="success">Nếu có tài khoản với email <b>{email.trim()}</b>, mã đặt lại mật khẩu đã được gửi tới đó. Hãy kiểm tra hộp thư.</Banner>
+          <p className="text-xs text-text-secondary">Không đúng email? Trình duyệt có thể đã tự điền email khác. <button type="button" className="underline" onClick={() => setSent(null)}>Nhập lại email</button></p>
           {!env.useMock && (
             <Button className="w-full" onClick={() => routerNavigate(`/reset-password/${encodeURIComponent(email.trim())}`)}>Nhập mã xác nhận</Button>
           )}

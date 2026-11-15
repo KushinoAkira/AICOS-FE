@@ -1,10 +1,12 @@
 import { useState } from "react"
+import { useSearchParams } from "react-router"
 import { useMutation, useQuery } from "@tanstack/react-query"
 import type { Page } from "../../App"
 import { PublicPage } from "../../components/PublicChrome"
 import { Banner, Button, Field } from "../../components/ui"
 import { ApiError } from "../../lib/api/http"
 import { publicApi, type RegisterBrandInput } from "../../lib/api/platform"
+import { formatVND } from "../../lib/format"
 
 const EMPTY: RegisterBrandInput = { brandName: "", code: "", ownerFullName: "", email: "", phone: "", password: "", confirmPassword: "", description: "" }
 type Errors = Partial<Record<keyof RegisterBrandInput, string>>
@@ -32,7 +34,11 @@ function validate(f: RegisterBrandInput): Errors {
 
 /** Flow 1 of the platform: a shop owner registers a brand and waits for the Super Admin's approval. */
 export default function RegisterBrand({ navigate }: { navigate: (p: Page) => void }) {
-  const [form, setForm] = useState<RegisterBrandInput>(EMPTY)
+  const [params] = useSearchParams()
+  // Coming from the pricing page checkout: the plan and the reference of its (simulated) payment go with the registration.
+  const paidPlanId = params.get("plan") ?? ""
+  const paidRef = params.get("ref") ?? ""
+  const [form, setForm] = useState<RegisterBrandInput>(() => ({ ...EMPTY, planId: paidPlanId || undefined, paymentReference: paidRef || undefined }))
   const [codeEdited, setCodeEdited] = useState(false)
   const [errors, setErrors] = useState<Errors>({})
   const plans = useQuery({ queryKey: ["public", "plans"], queryFn: publicApi.plans, retry: 1 })
@@ -69,11 +75,15 @@ export default function RegisterBrand({ navigate }: { navigate: (p: Page) => voi
             {send.isSuccess ? (
               <div role="status" className="py-8 text-center">
                 <h2 className="font-serif text-2xl">Đã nhận đăng ký</h2>
-                <p className="mt-2 text-text-secondary">Thương hiệu với mã <strong>{send.data.code}</strong> đang chờ duyệt. Chúng tôi sẽ gửi kết quả tới <strong>{form.email}</strong>.</p>
+                <p className="mt-2 text-text-secondary">Thương hiệu với mã <strong>{send.data.code}</strong> đang chờ duyệt. Chúng tôi sẽ gửi kết quả tới <strong>{form.email}</strong>.{paidRef ? " Sau khi duyệt và xác nhận khoản thanh toán, bạn đăng nhập được ngay." : " Sau khi duyệt, quán hoạt động khi gói được thanh toán."}</p>
                 <Button variant="secondary" className="mt-6" onClick={() => navigate("login")}>Về trang đăng nhập quán</Button>
               </div>
             ) : (
               <form noValidate onSubmit={(e) => { e.preventDefault(); submit() }} className="space-y-4">
+                {paidPlanId && (() => {
+                  const plan = plans.data?.find((p) => p.id === paidPlanId)
+                  return <Banner tone="success">Đã thanh toán {plan ? <>gói <b>{plan.name}</b> ({formatVND(plan.monthlyFee)}/tháng)</> : "gói đã chọn"}{paidRef ? <>, mã giao dịch <b>{paidRef}</b></> : null}. Điền thông tin quán để hoàn tất; quán hoạt động sau khi AICOS duyệt và xác nhận khoản thanh toán.</Banner>
+                })()}
                 {send.isError && !(send.error instanceof ApiError && send.error.fieldErrors) && <Banner>{send.error instanceof ApiError ? send.error.message : "Chưa gửi được đăng ký. Hãy thử lại."}</Banner>}
                 <Field label="Tên thương hiệu" value={form.brandName} error={errors.brandName} onChange={(e) => { const v = e.target.value; setForm((f) => ({ ...f, brandName: v, code: codeEdited ? f.code : toCode(v) })) }} />
                 <Field label="Mã quán" hint="Dùng làm định danh của quán trên AICOS" value={form.code} error={errors.code} onChange={(e) => { setCodeEdited(true); set("code", e.target.value.toLowerCase()) }} />

@@ -53,6 +53,7 @@ const navMap: Record<StaffRole, NavItem[]> = {
     item("platform-providers", "Cổng thanh toán", "plug"),
     item("platform-health", "Sức khỏe hệ thống", "pulse"),
     item("platform-revenue", "Doanh thu nền tảng", "chart"),
+    item("platform-leads", "Tư vấn khách hàng", "users"),
     item("platform-audit", "Nhật ký", "shield"),
   ],
   brandAdmin: [

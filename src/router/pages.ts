@@ -88,7 +88,8 @@ export const PAGE_PATHS = {
   "platform-providers": "/platform/payment-providers",
   "platform-health": "/platform/health",
   "platform-revenue": "/platform/revenue",
-  "platform-audit": "/platform/audit",} as const
+  "platform-audit": "/platform/audit",
+  "platform-leads": "/platform/leads",} as const
 
 export type Page = keyof typeof PAGE_PATHS
 

@@ -15,6 +15,7 @@ export default function PlatformSubscriptions({ navigate }: { navigate: (p: Page
   const { showToast } = useToast()
   const subs = useQuery({ queryKey: ["platform", "subscriptions"], queryFn: platformApi.subscriptions })
   const plans = useQuery({ queryKey: ["platform", "plans"], queryFn: platformApi.plans })
+  const tenants = useQuery({ queryKey: ["platform", "tenants"], queryFn: platformApi.tenants })
   const [suspend, setSuspend] = useState<Subscription | null>(null)
   const [paying, setPaying] = useState<Subscription | null>(null)
   const [amount, setAmount] = useState("")
@@ -25,12 +26,12 @@ export default function PlatformSubscriptions({ navigate }: { navigate: (p: Page
     setPaying(s)
     setAmount(String(s.outstanding || ((plans.data ?? []).find((p) => p.id === s.planId)?.monthlyFee ?? "")))
     setMethod("BankTransfer")
-    setReference("")
+    setReference(tenants.data?.find((t) => t.id === s.tenantId)?.paymentClaimReference ?? "")   // what the owner got from the pricing page checkout
     setError(null)
   }
   const record = useMutation({
     mutationFn: () => platformApi.recordPayment(paying?.id ?? "", { amount: Number(amount), method, reference }),
-    onSuccess: () => { void qc.invalidateQueries({ queryKey: ["platform"] }); showToast("Đã ghi nhận thanh toán", "success"); setPaying(null) },
+    onSuccess: () => { void qc.invalidateQueries({ queryKey: ["platform"] }); showToast(paying?.tenantStatus === "AwaitingPayment" ? "Đã ghi nhận thanh toán. Thương hiệu đã được mở, chủ quán đăng nhập được." : "Đã ghi nhận thanh toán", "success"); setPaying(null) },
     onError: (e) => setError(e.message),
   })
 
@@ -50,7 +51,7 @@ export default function PlatformSubscriptions({ navigate }: { navigate: (p: Page
         </select>
       ),
     },
-    { key: "status", header: "Trạng thái", render: (s) => <StatusPill tone={TONE[s.status]}>{LABEL[s.status]}</StatusPill> },
+    { key: "status", header: "Trạng thái", render: (s) => s.tenantStatus === "AwaitingPayment" ? <StatusPill tone="pending">Chờ thanh toán</StatusPill> : <StatusPill tone={TONE[s.status]}>{LABEL[s.status]}</StatusPill> },
     { key: "pay", header: "Thanh toán", render: (s) => <StatusPill tone={s.paymentStatus === "Paid" ? "success" : "pending"}>{s.paymentStatus === "Paid" ? "Đã thanh toán" : "Chưa thanh toán"}</StatusPill> },
     { key: "renew", header: "Gia hạn", sort: (s) => s.renewsAtUtc, render: (s) => (s.overdueDays > 0 ? <span className="text-state-danger">Quá hạn {s.overdueDays} ngày</span> : formatDate(s.renewsAtUtc)) },
     { key: "act", header: "", className: "text-right", render: (s) => <span className="flex justify-end gap-2">{s.paymentStatus !== "Paid" && <Button variant="secondary" className="px-3 py-1.5 text-xs" onClick={() => openPay(s)}>Ghi nhận thanh toán</Button>}{s.status === "PastDue" && <Button variant="secondary" className="px-3 py-1.5 text-xs" onClick={() => setSuspend(s)}>Tạm ngưng</Button>}</span> },
@@ -71,7 +72,7 @@ export default function PlatformSubscriptions({ navigate }: { navigate: (p: Page
               <option value="Cash">Tiền mặt</option>
             </select>
           </div>
-          <Field label="Mã tham chiếu" hint="Không bắt buộc." value={reference} onChange={(e) => setReference(e.target.value)} />
+          <Field label="Mã tham chiếu" hint={paying?.tenantStatus === "AwaitingPayment" ? "Kiểm tra tiền đã về rồi mới lưu: thương hiệu được mở ngay khi gói được thanh toán đủ." : "Không bắt buộc."} value={reference} onChange={(e) => setReference(e.target.value)} />
         </div>
       </Modal>
       <ConfirmDialog open={!!suspend} danger title={`Tạm ngưng ${suspend?.tenantName ?? ""}?`} message="Thương hiệu sẽ bị chặn đăng nhập, API, QR và takeaway cho đến khi thanh toán." onCancel={() => setSuspend(null)} onConfirm={() => suspend && change.mutate({ id: suspend.id, suspend: true })} />

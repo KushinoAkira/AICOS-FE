@@ -89,6 +89,7 @@ const PlatformSubscriptions = lazy(() => import("./pages/platform/Subscriptions"
 const PlatformProviders = lazy(() => import("./pages/platform/Providers"))
 const PlatformHealth = lazy(() => import("./pages/platform/Health"))
 const PlatformRevenue = lazy(() => import("./pages/platform/Revenue"))
+const PlatformLeads = lazy(() => import("./pages/platform/Leads"))
 const PlatformAudit = lazy(() => import("./pages/platform/Audit"))
 
 function PageFallback() {
@@ -196,6 +197,7 @@ export default function App() {
     "platform-providers": <PlatformProviders navigate={navigate} />,
     "platform-health": <PlatformHealth navigate={navigate} />,
     "platform-revenue": <PlatformRevenue navigate={navigate} />,
+    "platform-leads": <PlatformLeads navigate={navigate} />,
     "platform-audit": <PlatformAudit navigate={navigate} />,
   }
   /** RBAC gate: anonymous -> login, wrong role -> own home page, signed-in user on a login page -> own home page. */

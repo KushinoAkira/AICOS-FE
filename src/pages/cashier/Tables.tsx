@@ -100,10 +100,9 @@ export default function CashierTables({ navigate }: { navigate: (p: Page) => voi
                       ))}
                     </ul>
                     {current.billRequested && !isSettled(current) && <Banner tone="warn">Khách gọi thanh toán {current.billMethod === "Transfer" ? "bằng chuyển khoản" : "bằng tiền mặt"}.</Banner>}
-                    {isSettled(current)
-                      ? <Banner tone="success">Bàn đã thanh toán. Bấm "Hoàn thành bàn" để trả bàn và lưu đơn vào lịch sử khách hàng.</Banner>
-                      : <p className="flex justify-between font-serif text-lg text-text-primary"><span>Tổng</span><span>{formatVND(billOf(current))}</span></p>}
+                    {isSettled(current) && <Banner tone="success">Bàn đã thanh toán. Bấm "Hoàn thành bàn" để trả bàn và lưu đơn vào lịch sử khách hàng.</Banner>}
                     {!isSettled(current) && <CashTendered key={current.id} total={billOf(current)} value={received} onChange={setReceived} />}
+                    {!isSettled(current) && <div className="flex items-center gap-3 text-xs text-text-secondary"><span className="h-px flex-1 bg-border" />hoặc<span className="h-px flex-1 bg-border" /></div>}
                     {!isSettled(current) && <Button variant="secondary" className="min-h-11 w-full" onClick={() => { setDigital(current); setSelected(null) }}>Khách chuyển khoản QR</Button>}
                   </div>
                 )}

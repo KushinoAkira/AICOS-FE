@@ -99,8 +99,8 @@ export default function CashierPOS({ navigate }: { navigate: (p: Page) => void }
           {!!toPay?.discountAmount && (
             <p className="flex justify-between text-sm text-state-success"><span>Đã giảm (mã {toPay.promotionCode})</span><span>−{formatVND(toPay.discountAmount)}</span></p>
           )}
-          <p className="flex justify-between font-serif text-lg text-text-primary"><span>Tổng</span><span>{formatVND(total)}</span></p>
           <CashTendered key={toPay?.id} total={total} value={received} onChange={setReceived} />
+          <div className="flex items-center gap-3 text-xs text-text-secondary"><span className="h-px flex-1 bg-border" />hoặc<span className="h-px flex-1 bg-border" /></div>
           <Button variant="secondary" className="min-h-11 w-full" onClick={() => setDigital(true)}>Khách chuyển khoản QR</Button>
         </div>
       </Modal>

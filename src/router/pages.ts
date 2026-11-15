@@ -28,6 +28,8 @@ export const PAGE_PATHS = {
   "order-start": "/dat-mon",
   /** Where an online gateway with its own page (payOS) sends the customer back: ?status=paid|pending|failed|invalid&paymentId&orderId. */
   "pay-result": "/thanh-toan/ket-qua",
+  /** Test payment page for ZaloPay, only while the server runs with ZALOPAY_TEST_PAGE=true: ?ref=<transaction ref>. */
+  "zalopay-test": "/thanh-toan/zalopay-thu",
 
   // Customer
   "customer-brands": "/brands",

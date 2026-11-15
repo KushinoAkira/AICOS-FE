@@ -30,6 +30,7 @@ const CustomerBrands = lazy(() => import("./pages/customer/Brands"))
 const BrandMenu = lazy(() => import("./pages/public/BrandMenu"))
 const OrderStart = lazy(() => import("./pages/public/OrderStart"))
 const PayResult = lazy(() => import("./pages/public/PayResult"))
+const ZaloPayTest = lazy(() => import("./pages/public/ZaloPayTest"))
 const MyPayslips = lazy(() => import("./pages/staff/Payslips"))
 const Kiosk = lazy(() => import("./pages/kiosk/Kiosk"))
 const ForgotPassword = lazy(() => import("./pages/auth/ForgotPassword"))
@@ -148,6 +149,7 @@ export default function App() {
     "brand-menu": <BrandMenu navigate={navigate} />,
     "order-start": <OrderStart navigate={navigate} />,
     "pay-result": <PayResult navigate={navigate} />,
+    "zalopay-test": <ZaloPayTest navigate={navigate} />,
     "my-payslips": <MyPayslips navigate={navigate} />,
     "customer-brands": <CustomerBrands navigate={navigate} />,
     "customer-menu": <CustomerMenu navigate={navigate} />,

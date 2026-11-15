@@ -35,6 +35,7 @@ export const PAGE_ACCESS: Record<Page, Access> = {
   "brand-menu": "public",
   "order-start": "public",
   "pay-result": "public",
+  "zalopay-test": "authenticated",
 
   "account-settings": "authenticated",
   "staff-notifications": ["superAdmin", "brandAdmin", "branchManager", "barista", "cashier"],

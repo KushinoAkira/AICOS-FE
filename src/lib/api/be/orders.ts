@@ -400,7 +400,7 @@ async function branchName(branchId: string, tenantId: string): Promise<string> {
 
 /** Gateways whose payment happens on their own page: the customer is sent there instead of the simulated one. */
 /** Gateways that take the payment on their own page (the customer is sent there and comes back to /thanh-toan/ket-qua). */
-const HOSTED_GATEWAYS = ["PayOS", "Momo"]
+const HOSTED_GATEWAYS = ["PayOS", "Momo", "ZaloPay"]
 
 const toMethods = (list: unknown): PayMethod[] => recs(itemsOf(list as Raw[])).map((m) => ({ code: str(m.providerCode), name: str(m.displayName) || str(m.providerCode) }))
 

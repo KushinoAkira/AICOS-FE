@@ -23,6 +23,8 @@ export function PayGateway({ open, amount, code, busy, onOutcome, onClose }: { o
 const HOSTED_ERRORS: Record<string, string> = {
   "payment.momo_failed": "MoMo chưa tạo được trang thanh toán. Thử lại sau ít phút trong mục Đơn của bạn.",
   "payment.momo_not_configured": "Cổng MoMo chưa được cấu hình. Báo quán để chọn cách thanh toán khác.",
+  "payment.zalopay_failed": "ZaloPay chưa tạo được trang thanh toán. Thử lại sau ít phút trong mục Đơn của bạn.",
+  "payment.zalopay_not_configured": "Cổng ZaloPay chưa được cấu hình. Báo quán để chọn cách thanh toán khác.",
   "payment.payos_failed": "payOS chưa tạo được trang thanh toán. Thử lại sau ít phút trong mục Đơn của bạn.",
   "payment.payos_not_configured": "Cổng payOS chưa được cấu hình. Báo quán để chọn cách thanh toán khác.",
 }

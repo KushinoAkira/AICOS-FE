@@ -55,6 +55,7 @@ const AdminBranches = lazy(() => import("./pages/brand/Branches"))
 const BranchPickupPage = lazy(() => import("./pages/brand/BranchPickup"))
 const BrandProfile = lazy(() => import("./pages/brand/BrandProfile"))
 const BrandVouchers = lazy(() => import("./pages/brand/Vouchers"))
+const BrandApriori = lazy(() => import("./pages/brand/Apriori"))
 const BrandSubscription = lazy(() => import("./pages/brand/Subscription"))
 const BrandPickup = lazy(() => import("./pages/brand/SettingsPages").then((m) => ({ default: m.BrandPickup })))
 const BrandLoyalty = lazy(() => import("./pages/brand/SettingsPages").then((m) => ({ default: m.BrandLoyalty })))
@@ -112,11 +113,8 @@ function LegacyQrRedirect({ status }: { status?: boolean }) {
 
 function loginPathFor(page: Page): string {
   const portal = loginPageFor(page)
-  if (portal === "login") {
-    const slug = getActiveBrandSlug() ?? tokenStore.get()?.tenantSlug
-    if (slug) return pathFor("login", { tenantSlug: slug })
-    return pathFor("staff-entry")
-  }
+  // Staff portal is always `/staff-login` — tenant comes from the account after sign-in.
+  if (portal === "login") return pathFor("staff-entry")
   return pathFor(portal)
 }
 
@@ -132,16 +130,11 @@ export default function App() {
 
   useEffect(() => {
     const onExpired = () => {
-      const slug = getActiveBrandSlug() ?? tokenStore.get()?.tenantSlug
-      const target = slug ? pathFor("login", { tenantSlug: slug }) : pathFor("staff-entry")
-      startTransition(() => routerNavigate(target, { replace: true }))
+      startTransition(() => routerNavigate(pathFor("staff-entry"), { replace: true }))
     }
     const onTenantDenied = () => {
       void logout().finally(() => {
-        const slug = getActiveBrandSlug()
-        startTransition(() => {
-          routerNavigate(slug ? pathFor("login", { tenantSlug: slug }) : pathFor("staff-entry"), { replace: true })
-        })
+        startTransition(() => routerNavigate(pathFor("staff-entry"), { replace: true }))
       })
     }
     window.addEventListener("aicos:session-expired", onExpired)
@@ -181,7 +174,7 @@ export default function App() {
     contact: <Contact navigate={navigate} />,
     "staff-entry": <StaffEntry navigate={navigate} />,
     "register-brand": <RegisterBrand navigate={navigate} />,
-    login: <Login navigate={navigate} />,
+    login: <Login />,
     "admin-login": <AdminLogin navigate={navigate} />,
     "auth-customer-register": <CustomerRegister navigate={navigate} />,
     "auth-customer-login": <CustomerLogin navigate={navigate} />,
@@ -241,6 +234,7 @@ export default function App() {
     "admin-users": <AdminUsers navigate={navigate} />,
     "brand-pickup": <BrandPickup navigate={navigate} />,
     "brand-promotions": <BrandVouchers navigate={navigate} />,
+    "brand-apriori": <BrandApriori navigate={navigate} />,
     "brand-loyalty": <BrandLoyalty navigate={navigate} />,
     "brand-subscription": <BrandSubscription navigate={navigate} />,
     "brand-cancel-policy": <BrandCancelPolicy navigate={navigate} />,

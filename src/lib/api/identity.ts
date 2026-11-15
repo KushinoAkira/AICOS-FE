@@ -152,9 +152,11 @@ const mockAuthApi = {
 const mockBranchesApi = {
   list: (q: { search?: string; status?: BranchStatus; page?: number; pageSize?: number } = {}) =>
     http.get<PagedResponse<BranchDto>>(`${BASE}/branches`, { query: q }),
-  listActive: () => http.get<BranchDto[]>(`${BASE}/branches/active`, { anonymous: true }),
-  /** Active branches of a named brand, for anyone (the public brand page `/b/:brandSlug`). The demo data has one brand. */
-  listActiveOf: (_brandSlug: string) => http.get<BranchDto[]>(`${BASE}/branches/active`, { anonymous: true }),
+  /** Staff: JWT + X-Tenant. Not anonymous — mock denies unauthenticated staff reads. */
+  listActive: () => http.get<BranchDto[]>(`${BASE}/branches/active`),
+  /** Active branches of a named brand — public brand page and customer takeaway. */
+  listActiveOf: (brandSlug: string) =>
+    http.get<BranchDto[]>(`${BASE}/branches/active`, { anonymous: true, query: { tenantCode: brandSlug } }),
   get: (id: string) => http.get<BranchDto>(`${BASE}/branches/${id}`),
   create: (body: BranchInput) => http.post<BranchDto>(`${BASE}/branches`, body),
   update: (id: string, body: BranchInput) => http.put<BranchDto>(`${BASE}/branches/${id}`, body),

@@ -61,15 +61,15 @@ export default function RegisterBrand({ navigate }: { navigate: (p: Page) => voi
   return (
     <PublicPage navigate={navigate} uc="UC-05">
       <div className="mx-auto max-w-5xl px-4 py-12 sm:px-8">
-        <h1 className="font-serif text-4xl">Đăng ký quán trên AICOS</h1>
-        <p className="mt-2 max-w-2xl text-text-secondary">Điền thông tin thương hiệu và tài khoản chủ quán. Đội ngũ AICOS xét duyệt và báo kết quả qua email; sau khi được duyệt, bạn đăng nhập để tạo chi nhánh, thực đơn và nhân viên.</p>
+        <h1 className="type-title text-4xl text-text-primary">Đăng ký quán trên AICOS</h1>
+        <p className="type-lead mt-4 max-w-2xl text-text-secondary">Điền thông tin thương hiệu và tài khoản chủ quán. Đội ngũ AICOS xét duyệt và báo kết quả qua email; sau khi được duyệt, bạn đăng nhập để tạo chi nhánh, thực đơn và nhân viên.</p>
 
         <div className="mt-10 grid gap-8 lg:grid-cols-[1fr_320px]">
           <section aria-label="Biểu mẫu đăng ký quán" className="rounded-[16px] border border-border bg-surface p-6">
             {send.isSuccess ? (
               <div role="status" className="py-8 text-center">
-                <h2 className="font-serif text-2xl">Đã nhận đăng ký</h2>
-                <p className="mt-2 text-text-secondary">Thương hiệu với mã <strong>{send.data.code}</strong> đang chờ duyệt. Chúng tôi sẽ gửi kết quả tới <strong>{form.email}</strong>.</p>
+                <h2 className="type-title text-2xl text-text-primary">Đã nhận đăng ký</h2>
+                <p className="type-body mt-3 text-text-secondary">Thương hiệu với mã <strong>{send.data.code}</strong> đang chờ duyệt. Chúng tôi sẽ gửi kết quả tới <strong>{form.email}</strong>.</p>
                 <Button variant="secondary" className="mt-6" onClick={() => navigate("login")}>Về trang đăng nhập quán</Button>
               </div>
             ) : (

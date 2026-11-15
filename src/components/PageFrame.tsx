@@ -19,8 +19,8 @@ export function PageFrame({ page, navigate, title, subtitle, uc, action, childre
       <div data-uc={uc}>
         <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
           <div>
-            <h1 className="font-serif text-3xl font-medium text-text-primary">{title}</h1>
-            {subtitle && <p className="mt-1 text-sm text-text-secondary">{subtitle}</p>}
+            <h1 className="type-title text-3xl text-text-primary">{title}</h1>
+            {subtitle && <p className="type-body mt-2 text-text-secondary">{subtitle}</p>}
             {env.showUcTags && <span className="mt-2 inline-block rounded bg-sand px-2 py-0.5 text-xs text-clay">{uc}</span>}
           </div>
           {action}

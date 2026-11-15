@@ -102,7 +102,8 @@ export const bePublicApi = {
   async brands(): Promise<BrandCard[]> {
     return recs(itemsOf(await http.get<Raw[]>(`${ID}/public/brands`, { anonymous: true }))).map((b) => ({
       id: str(b.id), slug: str(b.code), name: str(b.name), description: str(b.description) || undefined,
-      logoUrl: str(b.logoUrl) || undefined, brandColor: str(b.primaryColor) || undefined, branchCount: num(b.branchCount),
+      logoUrl: str(b.logoUrl) || undefined, brandColor: str(b.primaryColor) || undefined,
+      coverUrl: str(b.coverUrl ?? b.coverImageUrl) || undefined, branchCount: num(b.branchCount),
     }))
   },
   async contact(b: ContactInput): Promise<{ received: true }> {

@@ -2,7 +2,7 @@ import { useEffect, type ReactNode } from "react"
 import { Navigate } from "react-router"
 import { Logo } from "./AuthShell"
 import CustomerUserMenu from "./CustomerUserMenu"
-import { AiChat } from "./AiChat"
+import { AiChat, type AiMenuItem } from "./AiChat"
 import { useAuth } from "../context/AuthContext"
 import { useBrand } from "../context/BrandContext"
 import { getActiveBrandSlug } from "../lib/brand"
@@ -43,6 +43,10 @@ export function CustomerFrame({
   headerExtra,
   action,
   children,
+  aiBranchId,
+  aiBranchName,
+  aiMenuItems,
+  aiHistory,
 }: {
   page: Page
   navigate: NavigateFn
@@ -54,6 +58,11 @@ export function CustomerFrame({
   /** Optional header action (e.g. mark-all-read on notifications). */
   action?: ReactNode
   children: ReactNode
+  /** Branch + menu snapshot so the barista only suggests items sold here. */
+  aiBranchId?: string | null
+  aiBranchName?: string | null
+  aiMenuItems?: AiMenuItem[]
+  aiHistory?: string[]
 }) {
   const { role } = useAuth()
   const brand = useBrand()
@@ -162,14 +171,14 @@ export function CustomerFrame({
       <main className="mx-auto max-w-5xl px-4 py-6 sm:px-8 sm:py-8">
         {(!hideTitle && title || action) && (
           <div className="mb-2 flex flex-wrap items-start justify-between gap-3">
-            {!hideTitle && title && <h1 className="font-serif text-3xl text-text-primary">{title}</h1>}
+            {!hideTitle && title && <h1 className="type-title text-3xl text-text-primary">{title}</h1>}
             {action}
           </div>
         )}
-        {subtitle && <div className="mb-6 text-sm text-text-secondary">{subtitle}</div>}
+        {subtitle && <div className="type-body mb-7 text-text-secondary">{subtitle}</div>}
         {children}
       </main>
-      <AiChat />
+      <AiChat branchId={aiBranchId} branchName={aiBranchName} menuItems={aiMenuItems} history={aiHistory} />
     </div>
   )
 }

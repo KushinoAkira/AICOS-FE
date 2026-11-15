@@ -22,6 +22,8 @@ export interface Tenant {
   /** Brand identity shown on the brand's own login page. */
   logoUrl?: string
   brandColor?: string
+  /** Optional storefront / interior photo for the customer shop picker. */
+  coverUrl?: string
 }
 
 /** What the brand's public pages (login, sign-up) may know about a brand. */
@@ -41,6 +43,8 @@ export interface BrandCard {
   description?: string
   logoUrl?: string
   brandColor?: string
+  /** Wide photo for the shop picker card background. */
+  coverUrl?: string
   branchCount: number
 }
 

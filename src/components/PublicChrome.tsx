@@ -2,11 +2,12 @@ import type { ReactNode } from "react"
 import { Link } from "react-router"
 import type { Page } from "../App"
 import { homePageOf, useAuth } from "../context/AuthContext"
-import { Logo } from "./AuthShell"
+import { PlatformLogo } from "./AuthShell"
 import { Button } from "./ui"
 import { CONTACT } from "../lib/siteInfo"
+import { protectOrphans } from "../lib/typography"
 
-const linkCls = "rounded-full px-3 py-2 text-text-secondary hover:bg-sand"
+const linkCls = "rounded-full px-3.5 py-2 text-[14px] font-medium tracking-[-0.01em] text-espresso/80 transition-colors hover:bg-sand hover:text-espresso"
 
 /** Top bar shared by the public site (landing, legal, contact). */
 export function PublicHeader({ navigate }: { navigate: (p: Page) => void }) {
@@ -17,19 +18,20 @@ export function PublicHeader({ navigate }: { navigate: (p: Page) => void }) {
     else navigate("staff-entry")
   }
   return (
-    <header className="sticky top-0 z-30 border-b border-border bg-bg-base/95 backdrop-blur">
-      <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3 sm:px-8">
-        <Link to="/" aria-label="Về trang chủ AICOS"><Logo /></Link>
-        <nav aria-label="Điều hướng chính" className="flex items-center gap-1 text-sm">
-          <Link to="/#tinh-nang" className={`hidden md:block ${linkCls}`}>Tính năng</Link>
-          <Link to="/#bang-gia" className={`hidden md:block ${linkCls}`}>Bảng giá</Link>
-          <Link to="/#hoi-dap" className={`hidden lg:block ${linkCls}`}>Hỏi đáp</Link>
-          {/* B2B marketing — staff via staff-entry; also offer self-serve brand register + order start from voucher. */}
+    <header className="sticky top-0 z-30 border-b border-border/80 bg-bg-base/95 backdrop-blur">
+      <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3.5 sm:px-8">
+        <Link to="/" aria-label="Về trang chủ AICOS" className="inline-flex shrink-0">
+          <PlatformLogo layout="horizontal" />
+        </Link>
+        <nav aria-label="Điều hướng chính" className="flex items-center gap-0.5 sm:gap-1">
+          <Link to="/#tinh-nang" className={`hidden md:inline-flex ${linkCls}`}>Tính năng</Link>
+          <Link to="/#bang-gia" className={`hidden md:inline-flex ${linkCls}`}>{protectOrphans("Bảng giá")}</Link>
+          <Link to="/#hoi-dap" className={`hidden lg:inline-flex ${linkCls}`}>Hỏi đáp</Link>
+          <button type="button" onClick={() => navigate("order-start")} className={`min-h-10 ${linkCls}`}>{protectOrphans("Đặt món")}</button>
           {role !== "customer" && (
-            <button type="button" onClick={goStaffLogin} className={`min-h-10 ${linkCls}`}>Đăng nhập quán</button>
+            <button type="button" onClick={goStaffLogin} className={`min-h-10 ${linkCls}`}>{protectOrphans("Đăng nhập quán")}</button>
           )}
-          <Button variant="secondary" className="min-h-10 px-4 py-2" onClick={() => navigate("order-start")}>Đặt món</Button>
-          <Button className="min-h-10 px-4 py-2" onClick={() => navigate("register-brand")}>Đăng ký quán</Button>
+          <Button className="ml-1 min-h-10 px-4 py-2 text-[14px] font-semibold" onClick={() => navigate("register-brand")}>{protectOrphans("Đăng ký quán")}</Button>
         </nav>
       </div>
     </header>
@@ -39,8 +41,8 @@ export function PublicHeader({ navigate }: { navigate: (p: Page) => void }) {
 function Col({ title, children }: { title: string; children: ReactNode }) {
   return (
     <div>
-      <h3 className="text-sm font-medium text-white">{title}</h3>
-      <ul className="mt-3 space-y-2 text-sm text-white/70">{children}</ul>
+      <h3 className="type-eyebrow text-white/85">{title}</h3>
+      <ul className="mt-4 space-y-2.5 text-sm leading-relaxed text-white/70">{children}</ul>
     </div>
   )
 }
@@ -50,7 +52,7 @@ const fl = "hover:text-white hover:underline"
 export function PublicFooter({ navigate }: { navigate: (p: Page) => void }) {
   const { user, role } = useAuth()
   const btn = (label: string, p: Page) => (
-    <li><button type="button" onClick={() => navigate(p)} className={`text-left ${fl}`}>{label}</button></li>
+    <li><button type="button" onClick={() => navigate(p)} className={`text-left ${fl}`}>{protectOrphans(label)}</button></li>
   )
   function goStaffLogin() {
     if (role === "customer") return
@@ -61,9 +63,9 @@ export function PublicFooter({ navigate }: { navigate: (p: Page) => void }) {
     <footer className="bg-espresso text-white">
       <div className="mx-auto grid max-w-6xl gap-10 px-4 py-12 sm:px-8 md:grid-cols-2 lg:grid-cols-[1.4fr_1fr_1fr_1fr]">
         <div>
-          <p className="font-serif text-2xl">AICOS</p>
-          <p className="mt-3 max-w-xs text-sm leading-relaxed text-white/70">
-            Nền tảng bán hàng, pha chế và quản lý chuỗi quán cà phê. Gọi món bằng QR, đặt mang đi, tích điểm và báo cáo trên một nơi.
+          <PlatformLogo tone="light" layout="horizontal" />
+          <p className="type-body mt-4 max-w-xs text-white/70">
+            {protectOrphans("Nền tảng bán hàng, pha chế và quản lý chuỗi quán cà phê. Gọi món bằng QR, đặt mang đi, tích điểm và báo cáo trên một nơi.")}
           </p>
           <p className="mt-4 text-sm text-white/70">
             <a href={`mailto:${CONTACT.email}`} className={fl}>{CONTACT.email}</a><br />
@@ -73,14 +75,15 @@ export function PublicFooter({ navigate }: { navigate: (p: Page) => void }) {
         <Col title="Sản phẩm">
           <li><Link to="/#tinh-nang" className={fl}>Tính năng</Link></li>
           <li><Link to="/#doi-tuong" className={fl}>Dành cho từng vai trò</Link></li>
-          <li><Link to="/#bang-gia" className={fl}>Bảng giá</Link></li>
-          <li><Link to="/#hoi-dap" className={fl}>Câu hỏi thường gặp</Link></li>
+          <li><Link to="/#bang-gia" className={fl}>{protectOrphans("Bảng giá")}</Link></li>
+          <li><Link to="/#hoi-dap" className={fl}>{protectOrphans("Câu hỏi thường gặp")}</Link></li>
         </Col>
         <Col title="Bắt đầu">
           {btn("Đăng ký quán", "register-brand")}
           {role !== "customer" && (
-            <li><button type="button" onClick={goStaffLogin} className={`text-left ${fl}`}>Đăng nhập quản lý và nhân viên</button></li>
+            <li><button type="button" onClick={goStaffLogin} className={`text-left ${fl}`}>{protectOrphans("Đăng nhập quản lý và nhân viên")}</button></li>
           )}
+          {btn("Cổng đặt món (khách)", "order-start")}
           {btn("Đăng nhập khách hàng", "auth-customer-login")}
           {btn("Đăng ký khách hàng", "auth-customer-register")}
           {btn("Liên hệ tư vấn", "contact")}

@@ -2,6 +2,7 @@
 import { ApiError } from "../http"
 import { tokenStore } from "../tokenStore"
 import type { AiReply, AiSuggestion } from "../engage"
+import { currentBrandSlug } from "../../brand"
 
 export interface AiRecommendation extends AiSuggestion { score?: number }
 export interface FeedbackAnalysis {
@@ -10,14 +11,38 @@ export interface FeedbackAnalysis {
   model?: string
 }
 
-/** Calls the AI service directly (it is a separate service, not behind the .NET gateway). */
+/** Compact menu row so the AI only suggests items the customer can actually order at this branch. */
+export interface AiMenuItem {
+  id: string
+  name: string
+  price: number
+  category?: string
+  description?: string
+  tags?: string[]
+}
+
+export interface AiContext {
+  tenantCode?: string | null
+  branchId?: string | null
+  branchName?: string | null
+  history?: string[]
+  menuItems?: AiMenuItem[]
+  k?: number
+}
+
+/** Calls the AI service (ai-models directly, or via gateway when VITE_AI_BASE_URL points there). */
 async function post<T>(path: string, body: unknown): Promise<T> {
   let res: Response
   try {
     const token = tokenStore.get()?.accessToken
+    const tenant = currentBrandSlug()
     res = await fetch(`${env.aiBaseUrl}${path}`, {
       method: "POST",
-      headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...(tenant ? { "X-Tenant": tenant } : {}),
+      },
       body: JSON.stringify(body),
     })
   } catch {
@@ -27,8 +52,26 @@ async function post<T>(path: string, body: unknown): Promise<T> {
   return (await res.json()) as T
 }
 
+function scope(ctx: AiContext = {}) {
+  return {
+    tenantCode: ctx.tenantCode ?? currentBrandSlug() ?? undefined,
+    branchId: ctx.branchId ?? undefined,
+    branchName: ctx.branchName ?? undefined,
+    menuItems: ctx.menuItems?.map((m) => ({
+      id: m.id,
+      name: m.name,
+      price: m.price,
+      category: m.category,
+      description: m.description,
+      tags: m.tags,
+    })),
+  }
+}
+
 export const beAiService = {
-  chat: (message: string, history: string[] = []) => post<AiReply>("/chat", { message, history }),
-  recommend: async (history: string[], k = 5) => (await post<{ items: AiRecommendation[] }>("/recommendations", { history, k })).items,
+  chat: (message: string, ctx: AiContext = {}) =>
+    post<AiReply>("/chat", { message, history: ctx.history ?? [], ...scope(ctx) }),
+  recommend: async (history: string[], k = 5, ctx: AiContext = {}) =>
+    (await post<{ items: AiRecommendation[] }>("/recommendations", { history, k: ctx.k ?? k, ...scope(ctx) })).items,
   analyzeFeedback: (texts: string[]) => post<FeedbackAnalysis>("/feedback/analyze", { texts }),
 }

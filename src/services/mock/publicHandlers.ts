@@ -26,6 +26,7 @@ export const publicHandlers = [
         status: "Active" as const,
         logoUrl: t.logoUrl,
         brandColor: t.brandColor,
+        coverUrl: t.coverUrl,
         branchCount: t.branchCount,
         description: t.applicantName ? undefined : undefined,
       }))

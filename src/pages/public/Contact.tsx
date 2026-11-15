@@ -40,15 +40,15 @@ export default function Contact({ navigate }: { navigate: (p: Page) => void }) {
   return (
     <PublicPage navigate={navigate} uc="UC-05">
       <div className="mx-auto max-w-6xl px-4 py-12 sm:px-8">
-        <h1 className="font-serif text-4xl">Liên hệ AICOS</h1>
-        <p className="mt-2 max-w-2xl text-text-secondary">Muốn xem demo, hỏi về bảng giá hay cần hỗ trợ? Gửi lời nhắn cho chúng tôi. {CONTACT.responseTime}</p>
+        <h1 className="type-title text-4xl text-text-primary">Liên hệ AICOS</h1>
+        <p className="type-lead mt-4 max-w-2xl text-text-secondary">Muốn xem demo, hỏi về bảng giá hay cần hỗ trợ? Gửi lời nhắn cho chúng tôi. {CONTACT.responseTime}</p>
 
         <div className="mt-10 grid gap-8 lg:grid-cols-[1fr_340px]">
           <section aria-label="Biểu mẫu liên hệ" className="rounded-[16px] border border-border bg-surface p-6">
             {sent ? (
               <div role="status" className="py-8 text-center">
-                <h2 className="font-serif text-2xl">Đã nhận lời nhắn</h2>
-                <p className="mt-2 text-text-secondary">Cảm ơn bạn. Chúng tôi sẽ trả lời qua email trong vòng 1 ngày làm việc.</p>
+                <h2 className="type-title text-2xl text-text-primary">Đã nhận lời nhắn</h2>
+                <p className="type-body mt-3 text-text-secondary">Cảm ơn bạn. Chúng tôi sẽ trả lời qua email trong vòng 1 ngày làm việc.</p>
                 <Button variant="secondary" className="mt-6" onClick={() => setSent(false)}>Gửi lời nhắn khác</Button>
               </div>
             ) : (

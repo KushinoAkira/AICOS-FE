@@ -97,7 +97,9 @@ function refreshSession(): Promise<StoredSession | null> {
         body: JSON.stringify({ refreshToken: current.refreshToken }),
       })
       if (!res.ok) throw await toApiError(res)
-      const next = (await res.json()) as StoredSession
+      const raw = (await res.json()) as StoredSession
+      const slug = raw.tenantSlug ?? raw.activeBrandCode ?? null
+      const next = slug && raw.tenantSlug !== slug ? { ...raw, tenantSlug: slug } : raw
       tokenStore.set(next)
       return next
     } catch {

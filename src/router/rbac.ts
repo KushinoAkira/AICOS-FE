@@ -88,6 +88,7 @@ export const PAGE_ACCESS: Record<Page, Access> = {
   "admin-users": BA,
   "brand-pickup": BA,
   "brand-promotions": BA,
+  "brand-apriori": BA,
   "brand-loyalty": BA,
   "brand-subscription": BA,
   "brand-cancel-policy": BA,

@@ -94,6 +94,7 @@ export const PAGE_PATHS = {
   "admin-users": "/:tenantSlug/brand/accounts",
   "brand-pickup": "/:tenantSlug/brand/pickup-settings",
   "brand-promotions": "/:tenantSlug/brand/promotions",
+  "brand-apriori": "/:tenantSlug/brand/apriori",
   "brand-loyalty": "/:tenantSlug/brand/loyalty",
   "brand-subscription": "/:tenantSlug/brand/subscription",
   "brand-cancel-policy": "/:tenantSlug/brand/cancel-policy",

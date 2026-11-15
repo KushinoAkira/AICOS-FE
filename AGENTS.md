@@ -41,3 +41,16 @@ This project uses **Tailwind CSS v4** through the `@tailwindcss/vite` plugin con
 - Use double quotes for strings containing apostrophes (`"We're here to help"`), or escape them in single-quoted strings. An unescaped apostrophe in a single-quoted string breaks the build.
 - Ensure JSX tags are closed and braces are balanced.
 - Export components as default exports.
+
+## CodeGraph
+
+Local code intelligence for Cursor (and other agents): index lives in `.codegraph/` (gitignored DB). MCP entry is in `.cursor/mcp.json`.
+
+```bash
+npm i -g @colbymchenry/codegraph   # once per machine
+codegraph init                     # first clone / new machine
+codegraph status                   # verify
+codegraph sync                     # optional manual refresh
+```
+
+Prefer `codegraph_explore` for “where is X defined/called?” before broad grep.

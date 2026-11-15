@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react"
 import { useNavigate } from "react-router"
 import type { Page } from "../../App"
+import { PlatformLogo } from "../../components/AuthShell"
 import { homePageOf, useAuth } from "../../context/AuthContext"
 import { useToast } from "../../context/ToastContext"
 import { ApiError } from "../../lib/api/http"
@@ -122,12 +123,8 @@ export default function OTPVerification({ navigate }: Props) {
   return (
     <div className="min-h-screen flex items-center justify-center px-6 py-12" style={{ backgroundColor: "#FAF6F0" }}>
       <div className="w-full max-w-[360px]">
-        {/* Logo */}
-        <div className="flex items-center gap-2 mb-10">
-          <CoffeeBean />
-          <span className="font-serif text-xl font-medium" style={{ color: "#6F4E37", fontFamily: "'Literata', 'Inter', system-ui, sans-serif" }}>
-            AICOS
-          </span>
+        <div className="mb-10">
+          <PlatformLogo className="h-12 w-auto object-contain" />
         </div>
 
         {/* Illustration */}
@@ -136,8 +133,7 @@ export default function OTPVerification({ navigate }: Props) {
         </div>
 
         <h1
-          className="font-serif text-2xl font-medium mb-2 text-center"
-          style={{ color: "#3A2E22", fontFamily: "'Literata', 'Inter', system-ui, sans-serif" }}
+          className="type-title mb-3 text-center text-2xl text-[#3A2E22]"
         >
           Nhập mã xác thực
         </h1>
@@ -246,15 +242,6 @@ function PhoneWaveIcon() {
       <circle cx="28" cy="44" r="2" fill="#C97B4A" />
       <path d="M46 22 Q50 28 46 34" stroke="#C97B4A" strokeWidth="1.5" strokeLinecap="round" fill="none" />
       <path d="M50 18 Q56 28 50 38" stroke="#C97B4A" strokeWidth="1.5" strokeLinecap="round" fill="none" opacity="0.4" />
-    </svg>
-  )
-}
-
-function CoffeeBean() {
-  return (
-    <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
-      <ellipse cx="14" cy="14" rx="10" ry="13" fill="#C97B4A" />
-      <path d="M14 4 Q16 14 14 24" stroke="#6F4E37" strokeWidth="1.5" strokeLinecap="round" fill="none" />
     </svg>
   )
 }

@@ -21,12 +21,12 @@ function LegalDoc({ navigate, title, intro, sections }: { navigate: (p: Page) =>
           </nav>
         </aside>
         <article className="max-w-3xl">
-          <h1 className="font-serif text-4xl">{title}</h1>
+          <h1 className="type-title text-4xl text-text-primary">{title}</h1>
           <p className="mt-2 text-sm text-text-secondary">Cập nhật lần cuối: {LEGAL_UPDATED}</p>
           <p className="mt-6 rounded-[12px] bg-sand px-4 py-3 text-sm text-text-secondary">{intro}</p>
           {sections.map((s, i) => (
             <section key={s.id} id={s.id} className="mt-10 scroll-mt-24">
-              <h2 className="font-serif text-2xl">{i + 1}. {s.title}</h2>
+              <h2 className="type-title text-2xl text-text-primary">{i + 1}. {s.title}</h2>
               <div className="mt-3 space-y-3 leading-relaxed text-text-secondary">{s.body}</div>
             </section>
           ))}

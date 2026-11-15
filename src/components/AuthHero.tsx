@@ -1,4 +1,5 @@
 import { useState } from "react"
+import { protectOrphans } from "../lib/typography"
 
 /**
  * Left-hand panel shared by the staff and customer sign-in screens (desktop only). The photo sits on a warm espresso
@@ -19,8 +20,8 @@ export default function AuthHero() {
         )}
         <div aria-hidden className="absolute inset-0 bg-gradient-to-t from-espresso/80 via-espresso/20 to-transparent" />
         <div className="absolute bottom-8 left-8 right-8 text-bg-base">
-          <p className="font-serif text-2xl font-medium leading-snug">Mỗi tách cà phê là một khoảnh khắc. Chúng tôi giúp bạn trân trọng từng khoảnh khắc đó.</p>
-          <p className="mt-4 text-sm text-bg-base/75">Gọi món, pha chế, thanh toán và tích điểm trên cùng một hệ thống.</p>
+          <p className="font-serif text-2xl font-medium leading-snug">{protectOrphans("Mỗi tách cà phê là một khoảnh khắc. Chúng tôi giúp bạn trân trọng từng khoảnh khắc đó.")}</p>
+          <p className="mt-4 text-sm text-bg-base/75">{protectOrphans("Gọi món, pha chế, thanh toán và tích điểm trên cùng một hệ thống.")}</p>
         </div>
       </div>
     </div>

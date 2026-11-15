@@ -21,6 +21,7 @@ import { env } from "../../config/env"
 import { featureFlags } from "../../config/featureFlags"
 import { discountNote, orderErrorMessage } from "../../lib/promotionCode"
 import { orderTitle, shortOrderCode } from "../../lib/orderLabel"
+import { toAiMenuItems } from "../../lib/aiMenu"
 
 /**
  * Table QR ordering: cart, what the table already ordered, and history. Guests need no account. A guest's own order is paid first:
@@ -148,7 +149,11 @@ export default function GuestMenu({ navigate }: { navigate: (p: Page, params?: R
         {paying > 0 && due > 0 && <GuestPay key={paying} token={token} due={due} startOpen bare />}
         <PayGateway open={!!payingTakeaway} amount={payingTakeaway?.total ?? 0} code={payingTakeaway ? shortOrderCode(payingTakeaway.code) : ""} busy={payTakeaway.isPending} onOutcome={(o) => payTakeaway.mutate(o)} onClose={() => { setPayingTakeaway(null); navigate("customer-tracking") }} />
       </main>
-      <AiChat />
+      <AiChat
+        branchId={branchId || null}
+        branchName={menu.data?.branchName}
+        menuItems={menu.data ? toAiMenuItems(menu.data.products) : undefined}
+      />
     </div>
   )
 }

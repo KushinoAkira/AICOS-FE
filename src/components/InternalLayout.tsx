@@ -2,6 +2,7 @@ import { type ReactNode, useEffect, useRef, useState } from "react"
 import { useAuth } from "../context/AuthContext"
 import { useBrand } from "../context/BrandContext"
 import { useActiveBranch } from "../hooks/useActiveBranch"
+import { PlatformLogo } from "./AuthShell"
 import UserMenu from "./CustomerUserMenu"
 import NotificationBell from "./NotificationBell"
 import type { Page } from "../router/pages"
@@ -79,6 +80,7 @@ const navMap: Record<StaffRole, NavGroup[]> = {
       item("manager-menu", "Thực đơn", "menu"),
       item("brand-pickup", "Khung giờ lấy hàng", "clock"),
       item("brand-promotions", "Khuyến mãi", "tag"),
+      item("brand-apriori", "Mua kèm AI", "list"),
       item("brand-loyalty", "Tích điểm", "heart"),
     ] },
     { label: "Theo dõi", items: [
@@ -252,11 +254,13 @@ function Sidebar({ role, activePage, navigate, onClose }: { role: StaffRole; act
                 {shop.name.charAt(0)}
               </span>
             ) : (
-              <CoffeeBean />
+              <PlatformLogo tone="light" className="h-9 w-auto max-w-[7.5rem] shrink-0 object-contain" />
             )}
-            <span className="truncate font-serif text-xl font-medium" title={shop?.name ?? "AICOS"}>
-              {shop?.name ?? "AICOS"}
-            </span>
+            {shop && (
+              <span className="truncate font-serif text-xl font-medium" title={shop.name}>
+                {shop.name}
+              </span>
+            )}
           </div>
           <p className="mt-1 text-xs text-bg-base/60">{roleLabel[role]}</p>
           {canSwitch && (
@@ -337,11 +341,3 @@ function Sidebar({ role, activePage, navigate, onClose }: { role: StaffRole; act
   )
 }
 
-function CoffeeBean() {
-  return (
-    <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden>
-      <ellipse cx="14" cy="14" rx="10" ry="13" fill="var(--color-terracotta)" />
-      <path d="M14 4 Q16 14 14 24" stroke="var(--color-espresso)" strokeWidth="1.5" strokeLinecap="round" fill="none" />
-    </svg>
-  )
-}

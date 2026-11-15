@@ -29,6 +29,7 @@ export const passwords: Record<string, string> = {
   "trasuamay:brand@aicos.local": "Staff@12345",
   "trasuamay:manager@aicos.local": "Staff@12345",
   "platform:customer@aicos.local": "Customer@12345",
+  "platform:khach@demo.local": "Khach@12345",
 }
 
 /** userId → tenant slug (staff of a brand). Super Admin / platform customer omitted. */
@@ -70,6 +71,7 @@ export const users: UserDto[] = [
   user("u2b", "Chủ Trà Sữa Mây", "brand@aicos.local", "BrandAdmin", null),
   user("u3b", "QL Chi nhánh Mây", "manager@aicos.local", "BranchManager", BRANCH_MAY),
   user("u6", "Khách hàng Demo", "customer@aicos.local", "Customer", null),
+  user("u7", "Nguyễn Văn Khách", "khach@demo.local", "Customer", null),
 ]
 
 const branch = (id: string, name: string, address: string): BranchDto => ({
@@ -96,8 +98,14 @@ export const plans: Plan[] = [
 ]
 
 export const tenants: Tenant[] = [
-  { id: "t1", name: "Cà phê Nhà", slug: "caphenha", planId: "p-growth", status: "Active", branchCount: 2, createdAtUtc: iso(120), brandColor: "#4F7A5A" },
-  { id: "t2", name: "Trà Sữa Mây", slug: "trasuamay", planId: "p-starter", status: "Active", branchCount: 1, createdAtUtc: iso(45), brandColor: "#B5483A" },
+  {
+    id: "t1", name: "Cà phê Nhà", slug: "caphenha", planId: "p-growth", status: "Active", branchCount: 2, createdAtUtc: iso(120), brandColor: "#4F7A5A",
+    coverUrl: "https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?w=1200&q=70&auto=format&fit=crop",
+  },
+  {
+    id: "t2", name: "Trà Sữa Mây", slug: "trasuamay", planId: "p-starter", status: "Active", branchCount: 1, createdAtUtc: iso(45), brandColor: "#B5483A",
+    coverUrl: "https://images.unsplash.com/photo-1558857563-b371033873b8?w=1200&q=70&auto=format&fit=crop",
+  },
   { id: "t3", name: "Highland Demo", slug: "highlanddemo", planId: "p-chain", status: "Suspended", branchCount: 6, createdAtUtc: iso(300), brandColor: "#3E6A8A" },
 ]
 

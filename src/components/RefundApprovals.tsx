@@ -4,7 +4,7 @@ import { Banner, Button, DataTable, Field, Modal, QueryBoundary, StatusPill, typ
 import { useAuth } from "../context/AuthContext"
 import { useToast } from "../context/ToastContext"
 import { reconciliationApi, type Refund } from "../lib/api/manage"
-import { formatDateTime, formatVND } from "../lib/format"
+import { formatDate, formatDateTime, formatVND } from "../lib/format"
 import { shortOrderCode } from "../lib/orderLabel"
 import { refundDecision, refundErrorMessage, sortRefunds } from "../lib/refundDecision"
 
@@ -16,18 +16,25 @@ const NOTE_MAX = 300
  * Refunds waiting for a decision (BR-30), shared by the branch manager (Đơn hàng chi nhánh) and the brand admin (Đối soát).
  * The list comes from `GET /payments/refunds`, which already keeps a branch manager to their own branch.
  * `orderCodes`: order id -> code, so a row names the order instead of its id.
+ * `range`: the period picked on the page; "Lịch sử hoàn tiền" lists the refunds asked in it that were already handled. Waiting ones always stay on top.
  */
-export function RefundApprovals({ orderCodes: given = {}, title = "Hoàn tiền chờ duyệt" }: { orderCodes?: Record<string, string>; title?: string }) {
+export function RefundApprovals({ orderCodes: given = {}, title = "Hoàn tiền chờ duyệt", range }: { orderCodes?: Record<string, string>; title?: string; range?: { from: string; to: string } }) {
   const qc = useQueryClient()
   const { showToast } = useToast()
   const { user, role } = useAuth()
-  const refunds = useQuery({ queryKey: ["refunds"], queryFn: reconciliationApi.refunds, refetchInterval: 15_000 })
+  const refunds = useQuery({ queryKey: ["refunds", "pending"], queryFn: () => reconciliationApi.refunds({ status: "PendingApproval" }), refetchInterval: 15_000 })
+  const [showHistory, setShowHistory] = useState(false)
+  const history = useQuery({
+    queryKey: ["refunds", "history", range?.from ?? "", range?.to ?? ""],
+    queryFn: () => reconciliationApi.refunds(range ?? {}),
+    enabled: showHistory,
+    select: (rows) => rows.filter((r) => r.status !== "PendingApproval").sort((a, b) => (b.decidedAtUtc ?? b.createdAtUtc).localeCompare(a.decidedAtUtc ?? a.createdAtUtc)),
+  })
   const approver = useQuery({ queryKey: ["refunds", "approver"], queryFn: reconciliationApi.approver, retry: false })
   // Pages without an order list (Đối soát) look the codes up, pending refunds first, so the row names the order like the customer sees it.
-  const missing = (refunds.data ?? []).filter((r) => !given[r.orderId]).sort((a, b) => Number(b.status === "PendingApproval") - Number(a.status === "PendingApproval")).slice(0, 30).map((r) => r.orderId)
+  const missing = [...new Set([...(refunds.data ?? []), ...(history.data ?? [])].filter((r) => !given[r.orderId]).map((r) => r.orderId))].slice(0, 40)
   const looked = useQuery({ queryKey: ["refunds", "codes", missing], queryFn: () => reconciliationApi.orderCodes(missing), enabled: missing.length > 0, staleTime: 300_000 })
   const orderCodes: Record<string, string> = Object.fromEntries(Object.entries({ ...looked.data, ...given }).map(([id, code]) => [id, shortOrderCode(code)]))
-  const [onlyPending, setOnlyPending] = useState(true)
   const [deciding, setDeciding] = useState<{ refund: Refund; approve: boolean } | null>(null)
   const [note, setNote] = useState("")
   const [reference, setReference] = useState("")
@@ -82,7 +89,7 @@ export function RefundApprovals({ orderCodes: given = {}, title = "Hoàn tiền 
     { key: "s", header: "Trạng thái", render: (r) => <StatusPill tone={r.status === "Succeeded" ? "success" : r.status === "PendingApproval" ? "pending" : "danger"}>{STATUS_TEXT[r.status] ?? r.status}</StatusPill> },
     {
       key: "x", header: "", className: "text-right", render: (r) => {
-        if (r.status !== "PendingApproval") return null
+        if (r.status !== "PendingApproval") return r.decidedAtUtc ? <span className="text-xs text-text-secondary">Xử lý lúc<br />{formatDateTime(r.decidedAtUtc)}</span> : null
         const d = refundDecision(r, policy, me)
         return (
           <div className="flex flex-col items-end gap-1">
@@ -104,22 +111,33 @@ export function RefundApprovals({ orderCodes: given = {}, title = "Hoàn tiền 
           {title}
           {!!refunds.data && <span className="ml-2 rounded-full bg-pending-bg px-2 py-0.5 text-sm text-[#8A5A2B]" data-testid="pending-refunds">{refunds.data.filter((r) => r.status === "PendingApproval").length}</span>}
         </h2>
-        <label className="flex items-center gap-2 text-sm text-text-secondary">
-          <input type="checkbox" checked={onlyPending} onChange={(e) => setOnlyPending(e.target.checked)} /> Chỉ yêu cầu chờ duyệt
-        </label>
+        <Button variant="secondary" className="px-3 py-1.5 text-xs" aria-expanded={showHistory} onClick={() => setShowHistory(!showHistory)}>
+          {showHistory ? "Ẩn lịch sử" : "Lịch sử hoàn tiền"}
+        </Button>
       </div>
       {approver.data === "BrandAdmin" && role === "branchManager" && (
         <div className="mb-3"><Banner tone="warn">Theo chính sách hủy của thương hiệu, hoàn tiền ngoại lệ do chủ thương hiệu duyệt. Bạn chỉ xem được trạng thái.</Banner></div>
       )}
+      <h3 className="mb-2 text-sm font-medium text-text-primary">Chờ duyệt</h3>
       <QueryBoundary query={refunds}>
-        {(rows) => (
-          <DataTable
-            rows={sortRefunds(rows.filter((r) => !onlyPending || r.status === "PendingApproval"))}
-            rowKey={(r) => r.id} columns={columns} pageSize={8}
-            emptyTitle={onlyPending ? "Không có yêu cầu hoàn tiền nào chờ duyệt" : "Chưa có yêu cầu hoàn tiền"}
-          />
-        )}
+        {(rows) => <DataTable rows={sortRefunds(rows)} rowKey={(r) => r.id} columns={columns} pageSize={8} emptyTitle="Không có yêu cầu hoàn tiền nào chờ duyệt" />}
       </QueryBoundary>
+      {showHistory && (
+        <div className="mt-6" data-testid="refund-history">
+          <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
+            <h3 className="text-sm font-medium text-text-primary">Đã xử lý{range ? ` · yêu cầu từ ${formatDate(range.from)} đến ${formatDate(range.to)}` : " · gần đây"}</h3>
+            {history.data && (() => {
+              const done = history.data.filter((r) => r.status === "Succeeded")
+              const refused = history.data.filter((r) => r.status === "Rejected").length
+              const failed = history.data.filter((r) => r.status === "Failed").length
+              return <p className="text-xs text-text-secondary">Đã hoàn <b className="text-text-primary">{formatVND(done.reduce((s, r) => s + r.amount, 0))}</b> ({done.length} yêu cầu){refused ? ` · Từ chối ${refused}` : ""}{failed ? ` · Lỗi ${failed}` : ""}</p>
+            })()}
+          </div>
+          <QueryBoundary query={history}>
+            {(rows) => <DataTable rows={rows} rowKey={(r) => r.id} columns={columns} pageSize={10} emptyTitle="Không có yêu cầu hoàn tiền nào đã xử lý trong khoảng này" />}
+          </QueryBoundary>
+        </div>
+      )}
 
       <Modal
         open={!!deciding}

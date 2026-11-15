@@ -61,7 +61,7 @@ export default function BrandReconciliation({ navigate }: { navigate: (p: Page) 
         )}
       </QueryBoundary>
 
-      <div className="mt-8"><RefundApprovals title="Hoàn tiền" /></div>
+      <div className="mt-8"><RefundApprovals title="Hoàn tiền" range={range} /></div>
 
     </PageFrame>
   )

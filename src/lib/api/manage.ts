@@ -162,7 +162,9 @@ export const reconciliationApi = {
   report: (q: { from: string; to: string }) => http.get<ReconciliationReport>("/payments/reconciliation", { query: q }),
   auto: (q: { from: string; to: string }) => http.get<{ orders: number; matched: number; discrepancies: Discrepancy[] }>("/payments/reconciliation/auto", { query: q }),
   /** The branch manager gets the refunds of their own branch only (the server filters by the token). */
-  refunds: async () => itemsOf(await http.get<Refund[]>("/payments/refunds", { query: { limit: 100 } })),
+  /** `status`: only that state (PendingApproval for the waiting ones). `from`/`to`: asked in those shop days (the history). */
+  refunds: async (q: { status?: string; from?: string; to?: string } = {}) =>
+    itemsOf(await http.get<Refund[]>("/payments/refunds", { query: { limit: 200, ...Object.fromEntries(Object.entries(q).filter(([, v]) => !!v)) } })),
   /** Order codes (the ones customers see) for refunds whose page has no order list; an order that cannot be read is left out. */
   async orderCodes(ids: string[]): Promise<Record<string, string>> {
     const rows = await Promise.all(ids.map(async (id) => {

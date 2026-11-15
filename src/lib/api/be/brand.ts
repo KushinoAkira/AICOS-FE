@@ -216,11 +216,12 @@ export const beVoucherApi = {
 export const beSubscriptionApi = {
   async subscription(): Promise<BrandSubscription> {
     const r = rec(await http.get<Raw>("/identity/subscription"))
-    return toBrandSubscription(rec(r.subscription))
+    return { ...toBrandSubscription(rec(r.subscription)), canRenew: bool(r.canRenew), renewableFromUtc: str(r.renewableFromUtc) || null, amountToPay: num(r.amountToPay) }
   },
   async renew(): Promise<BrandSubscription> {
     const r = rec(await http.post<Raw>("/identity/subscription/renew", {}))
-    return toBrandSubscription(rec(r.subscription))
+    const after = rec(r.subscription)   // the renewal answers with the same shape as GET
+    return { ...toBrandSubscription(rec(after.subscription)), canRenew: bool(after.canRenew), renewableFromUtc: str(after.renewableFromUtc) || null, amountToPay: num(after.amountToPay) }
   },
 }
 function toBrandSubscription(s: Raw): BrandSubscription {

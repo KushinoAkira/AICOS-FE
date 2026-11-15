@@ -55,6 +55,10 @@ export interface Voucher {
 export type VoucherInput = Omit<Voucher, "id" | "used" | "active" | "issuedTo">
 
 export interface BrandSubscription {
+  /** From the server: renewal is open (an unpaid period, or the last days before the end); when it opens; what a renewal costs now. */
+  canRenew?: boolean
+  renewableFromUtc?: string | null
+  amountToPay?: number
   planName: string
   status: "Active" | "PastDue" | "Suspended"
   monthlyFee: number

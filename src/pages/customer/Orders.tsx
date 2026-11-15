@@ -57,7 +57,7 @@ export default function CustomerOrders({ navigate }: { navigate: (p: Page) => vo
         ))}
       </ul>
       <p className="mt-3 flex items-baseline justify-between border-t border-border pt-3 text-sm text-text-secondary">Tổng <b className="text-base text-text-primary">{formatVND(o.total)}</b></p>
-      {o.paymentStatus === "RefundPending" && <div className="mt-3"><Banner tone="warn">Đang hoàn {formatVND(o.refundedAmount)}. Sẽ báo đã hoàn khi cổng thanh toán xác nhận.</Banner></div>}
+      {o.paymentStatus === "RefundPending" && <div className="mt-3"><Banner tone="warn">Đã gửi yêu cầu hoàn tiền. Quán đang xử lý; đơn sẽ chuyển sang Đã hoàn khi tiền được trả lại cho bạn.</Banner></div>}
       {o.paymentStatus === "Refunded" && <p className="mt-3 text-sm text-state-success">Đã hoàn {formatVND(o.refundedAmount)}.</p>}
       {o.status === "PendingPayment" && o.paymentStatus === "Unpaid" && o.channel === "takeaway" && <p className="mt-3 text-sm text-text-secondary">Đang chờ xác nhận thanh toán. Nếu bạn đã trả tiền, đơn sẽ tự cập nhật sau khi quán tra cứu giao dịch.</p>}
       {(o.status === "PickedUp" || o.paymentStatus === "Failed" || (o.status === "PendingPayment" && o.paymentStatus === "Unpaid") || ((o.status === "PendingPayment" || o.status === "Pending") && o.paymentStatus !== "RefundPending")) && (
@@ -96,7 +96,7 @@ export default function CustomerOrders({ navigate }: { navigate: (p: Page) => vo
         }}
       </QueryBoundary>
       <PayGateway open={!!paying} amount={paying?.total ?? 0} code={paying?.code ?? ""} busy={pay.isPending} onOutcome={(o) => pay.mutate(o)} onClose={() => setPaying(null)} />
-      <ConfirmDialog open={!!canceling} danger title={`Hủy đơn ${canceling?.code ?? ""}?`} message={canceling?.paymentStatus === "Paid" ? "Đơn đã thanh toán sẽ được hoàn tiền sau khi cổng thanh toán xác nhận." : "Đơn chưa thanh toán sẽ bị hủy."} confirmLabel="Hủy đơn" onCancel={() => setCanceling(null)} onConfirm={() => canceling && cancel.mutate(canceling)} />
+      <ConfirmDialog open={!!canceling} danger title={`Hủy đơn ${canceling?.code ?? ""}?`} message={canceling?.paymentStatus === "Paid" ? "Đơn đã thanh toán sẽ được hoàn tiền theo chính sách hủy của quán, sau khi quán xác nhận." : "Đơn chưa thanh toán sẽ bị hủy."} confirmLabel="Hủy đơn" onCancel={() => setCanceling(null)} onConfirm={() => canceling && cancel.mutate(canceling)} />
     </CustomerFrame>
   )
 }

@@ -42,7 +42,7 @@ export default function ManagerPayroll({ navigate }: { navigate: (p: Page) => vo
       action={<div className="flex flex-wrap gap-2"><Button variant="secondary" loading={exportWork.isPending} onClick={() => exportWork.mutate()}>Xuất chấm công</Button><Button loading={exportPay.isPending} onClick={() => exportPay.mutate()}>Xuất bảng lương</Button></div>}
     >
       <div className="mb-6 w-48"><Field label="Tháng" type="month" value={month} onChange={(e) => e.target.value && setMonth(e.target.value)} /></div>
-      {noRules ? <Banner tone="warn">Thương hiệu chưa cấu hình quy tắc lương nên chưa tính được bảng lương. Brand Admin cấu hình ở mục Quy tắc thanh toán.</Banner> : <QueryBoundary query={summary}>
+      {noRules ? <Banner tone="warn">Thương hiệu chưa cấu hình quy tắc lương nên chưa tính được bảng lương. Chủ thương hiệu vào mục Cấu hình lương để nhập mức lương theo ngày và theo giờ.</Banner> : <QueryBoundary query={summary}>
         {(s) => (
           <>
             {s.totals.unreviewedRecords > 0 && <div className="mb-4"><Banner tone="warn">Còn {s.totals.unreviewedRecords} ca chưa duyệt. <button className="underline" onClick={() => navigate("branch-attendance")}>Duyệt chấm công</button> trước khi chốt kỳ lương.</Banner></div>}

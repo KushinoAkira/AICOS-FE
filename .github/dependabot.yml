@@ -4,11 +4,30 @@ updates:
     directory: /
     schedule: { interval: weekly }
     open-pull-requests-limit: 8
+    versioning-strategy: increase
     groups:
       react:
         patterns: ["react", "react-dom", "@types/react", "@types/react-dom"]
       tooling:
-        patterns: ["vite", "vitest", "eslint", "typescript", "typescript-eslint", "@vitejs/*"]
+        patterns:
+          - "vite"
+          - "vitest"
+          - "eslint"
+          - "@eslint/*"
+          - "typescript-eslint"
+          - "@vitejs/*"
+          - "@tailwindcss/*"
+          - "tailwindcss"
+          - "oxfmt"
+    ignore:
+      # TypeScript 6+ removed compiler options such as baseUrl that this repo still uses.
+      # Major bumps must be reviewed manually with a dedicated tsconfig migration.
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "eslint"
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: github-actions
     directory: /
     schedule: { interval: weekly }

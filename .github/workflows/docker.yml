@@ -1,16 +1,35 @@
 name: Docker image
 
+# PR: build + scan + smoke (no registry publish).
+# Push to main: publish to GHCR with SBOM + provenance.
 on:
   workflow_dispatch:
   push:
     branches: [main]
-    paths: ["src/**", "docker/**", ".dockerignore", "docker-compose.yml", "package.json", "pnpm-lock.yaml", "index.html", ".github/workflows/docker.yml"]
+    tags: ["v*.*.*"]
+    paths:
+      - "src/**"
+      - "docker/**"
+      - ".dockerignore"
+      - "docker-compose.yml"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "index.html"
+      - ".github/workflows/docker.yml"
   pull_request:
-    paths: ["src/**", "docker/**", ".dockerignore", "docker-compose.yml", "package.json", "pnpm-lock.yaml", "index.html"]
+    paths:
+      - "src/**"
+      - "docker/**"
+      - ".dockerignore"
+      - "docker-compose.yml"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "index.html"
+      - ".github/workflows/docker.yml"
 
 concurrency:
-  group: docker-${{ github.ref }}
-  cancel-in-progress: true
+  group: docker-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
@@ -23,6 +42,7 @@ jobs:
       contents: read
       packages: write
       security-events: write
+      id-token: write
     steps:
       - uses: actions/checkout@v4
         with:
@@ -34,7 +54,8 @@ jobs:
           images: ghcr.io/${{ github.repository_owner }}/aicos-web
           tags: |
             type=sha,format=short
-            type=ref,event=branch
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+            type=semver,pattern={{version}}
       - uses: docker/build-push-action@v6
         with:
           context: .
@@ -43,23 +64,34 @@ jobs:
             VITE_USE_MOCK=true
           load: true
           tags: aicos/web:scan
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-      - uses: aquasecurity/trivy-action@v0.36.0
-        continue-on-error: true
+          cache-from: type=gha,scope=web
+          cache-to: type=gha,mode=max,scope=web
+      - name: Trivy SARIF report
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: aicos/web:scan
           severity: HIGH,CRITICAL
           ignore-unfixed: true
-          exit-code: "0"
           format: sarif
           output: trivy-web.sarif
-      - uses: github/codeql-action/upload-sarif@v3
-        if: always()
+          exit-code: "0"
+          trivyignores: .trivyignore
+      - name: Upload Trivy SARIF
+        if: hashFiles('trivy-web.sarif') != ''
+        uses: github/codeql-action/upload-sarif@v4
         continue-on-error: true
         with:
           sarif_file: trivy-web.sarif
           category: trivy-web
+      - name: Trivy gate (HIGH/CRITICAL with fixes)
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: aicos/web:scan
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          format: table
+          exit-code: "1"
+          trivyignores: .trivyignore
       - name: Smoke test
         run: |
           docker run -d --name web -p 8088:8080 aicos/web:scan
@@ -70,13 +102,14 @@ jobs:
           docker logs web
           exit 1
       - uses: docker/login-action@v3
-        if: github.event_name == 'push'
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - uses: docker/build-push-action@v6
-        if: github.event_name == 'push'
+      - name: Push with SBOM and provenance
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
+        uses: docker/build-push-action@v6
         with:
           context: .
           file: docker/Dockerfile
@@ -87,4 +120,4 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           sbom: true
           provenance: mode=max
-          cache-from: type=gha
+          cache-from: type=gha,scope=web

@@ -19,9 +19,13 @@ ENV VITE_API_BASE_URL=$VITE_API_BASE_URL \
     VITE_AI_BASE_URL=$VITE_AI_BASE_URL
 RUN pnpm exec tsc --noEmit && pnpm exec vite build
 
-FROM nginxinc/nginx-unprivileged:1.27-alpine AS runtime
+FROM nginxinc/nginx-unprivileged:1.29-alpine AS runtime
+USER root
+RUN apk upgrade --no-cache
 COPY docker/nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=build /app/dist /usr/share/nginx/html
+# nginx-unprivileged drops privileges; explicit USER satisfies Dockerfile scanners (DS-0002).
+USER 101
 EXPOSE 8080
 HEALTHCHECK --interval=15s --timeout=3s --start-period=10s --retries=3 \
   CMD wget -qO- http://127.0.0.1:8080/healthz || exit 1

@@ -1,0 +1,5 @@
+# Temporary CVE acceptances for Trivy (filesystem + image gates).
+# Always include reason + expiry. Prefer upgrading the dependency or base image.
+#
+# Currently empty: docker/Dockerfile runs `apk upgrade` on the nginx-unprivileged
+# base so OS packages pick up Alpine fixes. Re-add CVEs here only with an expiry.

@@ -79,6 +79,7 @@ const ManagerReports = lazy(() => import("./pages/manager/Reports"))
 const ManagerFeedback = lazy(() => import("./pages/manager/Feedback"))
 const ManagerEmployees = lazy(() => import("./pages/manager/Employees"))
 const ManagerPayroll = lazy(() => import("./pages/manager/Payroll"))
+const ManagerSalaries = lazy(() => import("./pages/brand/ManagerSalaries"))
 const ManagerPayrollDetail = lazy(() => import("./pages/manager/PayrollDetail"))
 const ManagerAttendance = lazy(() => import("./pages/manager/Attendance"))
 const ManagerCashClosings = lazy(() => import("./pages/manager/CashClosings"))
@@ -177,6 +178,7 @@ export default function App() {
     "branch-schedule": <BranchSchedule navigate={navigate} />,
     "branch-shift-requests": <ShiftRequests navigate={navigate} />,
     "manager-payroll": <ManagerPayroll navigate={navigate} />,
+    "brand-manager-payroll": <ManagerSalaries navigate={navigate} />,
     "manager-payroll-detail": <ManagerPayrollDetail navigate={navigate} />,
     "branch-tables": <BranchTables navigate={navigate} />,
     "branch-tables-print": <TablesPrint />,

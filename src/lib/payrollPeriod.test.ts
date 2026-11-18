@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { bankAccountError, finalizeBlocker, periodOf } from "./payrollPeriod"
+import { bankAccountError, finalizeBlocker, monthLabel, monthPayState, periodOf, recentMonths } from "./payrollPeriod"
 import type { PayrollPeriod } from "./api/manage"
 
 const period = (id: string, status: PayrollPeriod["status"], from = "2026-10-01", to = "2026-10-31", at = "2026-11-01T00:00:00Z"): PayrollPeriod => ({
@@ -45,5 +45,18 @@ describe("bankAccountError", () => {
     expect(bankAccountError({ ...ok, accountNumber: "0123 456" })).toMatch(/6-30/)
     expect(bankAccountError({ ...ok, accountNumber: "12345" })).toMatch(/6-30/)
     expect(bankAccountError({ ...ok, accountNumber: "1".repeat(31) })).toMatch(/6-30/)
+  })
+})
+
+describe("monthPayState and recentMonths", () => {
+  it("names the state of a month from its period", () => {
+    expect(monthPayState([], october)).toBe("open")
+    expect(monthPayState([period("a", "Reopened")], october)).toBe("open")
+    expect(monthPayState([period("a", "Finalized")], october)).toBe("finalized")
+    expect(monthPayState([period("a", "Paid")], october)).toBe("paid")
+  })
+  it("lists the months up to the current one across a new year", () => {
+    expect(recentMonths("2027-02", 4)).toEqual(["2026-11", "2026-12", "2027-01", "2027-02"])
+    expect(monthLabel("2026-09")).toBe("Tháng 9/2026")
   })
 })

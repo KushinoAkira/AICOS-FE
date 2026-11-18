@@ -85,6 +85,8 @@ export const PAGE_PATHS = {
   "brand-subscription": "/brand/subscription",
   "brand-cancel-policy": "/brand/cancel-policy",
   "brand-pay-rules": "/brand/pay-rules",
+  /** The brand admin pays the branch managers a monthly salary. */
+  "brand-manager-payroll": "/brand/manager-payroll",
   "brand-merchant": "/brand/merchant",
   "admin-logs": "/brand/audit",
   "brand-reconciliation": "/brand/reconciliation",

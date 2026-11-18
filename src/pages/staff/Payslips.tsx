@@ -33,8 +33,8 @@ export default function MyPayslips({ navigate }: { navigate: (p: Page) => void }
 
   const columns: Column<Payslip>[] = [
     { key: "p", header: "Kỳ lương", sort: (s) => s.from, render: (s) => <button className="font-medium text-clay hover:underline" onClick={() => setOpen(s)}>{formatDate(s.from)} - {formatDate(s.to)}</button> },
-    { key: "d", header: "Ngày công", render: (s) => s.workedDays },
-    { key: "h", header: "Giờ", render: (s) => (s.regularHours + s.overtimeHours + s.replacementHours).toFixed(1) },
+    { key: "d", header: "Ngày công", render: (s) => (s.kind === "Managers" ? "Lương tháng" : s.workedDays) },
+    { key: "h", header: "Giờ", render: (s) => (s.kind === "Managers" ? "-" : (s.regularHours + s.overtimeHours + s.replacementHours).toFixed(1)) },
     { key: "a", header: "Điều chỉnh", render: (s) => formatSignedVND(s.adjustments) },
     { key: "n", header: "Thực nhận", sort: (s) => s.netPay, render: (s) => <b className="text-text-primary">{formatVND(s.netPay)}</b> },
     {
@@ -88,12 +88,18 @@ export default function MyPayslips({ navigate }: { navigate: (p: Page) => void }
       <Modal open={!!open} title={open ? `Phiếu lương ${formatDate(open.from)} - ${formatDate(open.to)}` : ""} onClose={() => setOpen(null)}>
         {open && (
           <dl className="grid grid-cols-[1fr_auto] gap-x-6 gap-y-2 text-sm">
-            <dt className="text-text-secondary">Ngày công</dt><dd className="text-right">{open.workedDays}</dd>
-            <dt className="text-text-secondary">Giờ thường · tăng ca · ca thay</dt><dd className="text-right">{open.regularHours.toFixed(1)} · {open.overtimeHours.toFixed(1)} · {open.replacementHours.toFixed(1)}</dd>
-            <dt className="text-text-secondary">Lương cơ bản</dt><dd className="text-right">{formatVND(open.basePay)}</dd>
-            <dt className="text-text-secondary">Tăng ca</dt><dd className="text-right">{formatVND(open.overtimePay)}</dd>
-            <dt className="text-text-secondary">Ca thay</dt><dd className="text-right">{formatVND(open.replacementPay)}</dd>
-            <dt className="text-text-secondary">Điều chỉnh</dt><dd className="text-right">{formatSignedVND(open.adjustments)}</dd>
+            {open.kind === "Managers" ? (
+              <><dt className="text-text-secondary">Lương tháng</dt><dd className="text-right">{formatVND(open.basePay)}</dd></>
+            ) : (
+              <>
+                <dt className="text-text-secondary">Ngày công</dt><dd className="text-right">{open.workedDays}</dd>
+                <dt className="text-text-secondary">Giờ thường · tăng ca · ca thay</dt><dd className="text-right">{open.regularHours.toFixed(1)} · {open.overtimeHours.toFixed(1)} · {open.replacementHours.toFixed(1)}</dd>
+                <dt className="text-text-secondary">Lương cơ bản</dt><dd className="text-right">{formatVND(open.basePay)}</dd>
+                <dt className="text-text-secondary">Tăng ca</dt><dd className="text-right">{formatVND(open.overtimePay)}</dd>
+                <dt className="text-text-secondary">Ca thay</dt><dd className="text-right">{formatVND(open.replacementPay)}</dd>
+              </>
+            )}
+            <dt className="text-text-secondary">{open.kind === "Managers" ? "Thưởng / trừ" : "Điều chỉnh"}</dt><dd className="text-right">{formatSignedVND(open.adjustments)}</dd>
             <dt className="border-t border-border pt-2 font-medium text-text-primary">Thực nhận</dt><dd className="border-t border-border pt-2 text-right font-serif text-xl">{formatVND(open.netPay)}</dd>
             {open.grossPay < 0 && <dd className="col-span-2 text-xs text-state-warning">Khoản trừ lớn hơn lương kỳ này nên không có khoản trả.</dd>}
             <dt className="text-text-secondary">Trạng thái</dt>

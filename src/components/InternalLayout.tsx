@@ -86,6 +86,8 @@ const navMap: Record<StaffRole, NavGroup[]> = {
     ] },
     { label: "Thanh toán và gói", items: [
       item("brand-cancel-policy", "Chính sách hủy", "clock"),
+      item("brand-manager-payroll", "Lương quản lý", "cash"),
+      item("manager-payroll", "Lương nhân viên", "cash"),
       item("brand-pay-rules", "Cấu hình lương", "card"),
       item("brand-merchant", "Cổng thanh toán", "card"),
       item("brand-reconciliation", "Đối soát", "list"),

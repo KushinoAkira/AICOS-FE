@@ -26,3 +26,23 @@ export function bankAccountError(b: BankAccount): string | null {
   if (n && !/^[A-Za-z0-9]{6,30}$/.test(n)) return "Số tài khoản gồm 6-30 chữ hoặc số, không có khoảng trắng."
   return null
 }
+
+/** Where a month stands in paying: not finalized yet, finalized with some pay left, or paid. A reopened period counts as not finalized. */
+export type MonthPayState = "open" | "finalized" | "paid"
+export function monthPayState(periods: PayrollPeriod[], range: { from: string; to: string }): MonthPayState {
+  const p = periodOf(periods, range)
+  if (!p || p.status === "Reopened") return "open"
+  return p.status === "Paid" ? "paid" : "finalized"
+}
+
+/** The `count` months up to `current` (yyyy-MM), oldest first. */
+export function recentMonths(current: string, count: number): string[] {
+  const [y, m] = current.split("-").map(Number)
+  return Array.from({ length: count }, (_, i) => {
+    const d = new Date(Date.UTC(y, m - 1 - (count - 1 - i), 1))
+    return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`
+  })
+}
+
+/** "2026-10" -> "Tháng 10/2026". */
+export const monthLabel = (month: string) => `Tháng ${Number(month.slice(5))}/${month.slice(0, 4)}`

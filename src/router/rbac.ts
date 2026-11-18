@@ -66,7 +66,8 @@ export const PAGE_ACCESS: Record<Page, Access> = {
   "manager-staff": BM,
   "branch-schedule": BM,
   "branch-shift-requests": BM,
-  "manager-payroll": BM,
+  /** The manager pays the staff; the brand admin reads it per branch. */
+  "manager-payroll": [...BM, ...BA],
   "manager-payroll-detail": BM,
   "branch-tables": BRAND_AND_BRANCH,
   "branch-tables-print": BRAND_AND_BRANCH,
@@ -90,6 +91,7 @@ export const PAGE_ACCESS: Record<Page, Access> = {
   "brand-subscription": BA,
   "brand-cancel-policy": BA,
   "brand-pay-rules": BA,
+  "brand-manager-payroll": BA,
   "brand-merchant": BA,
   "admin-logs": BA,
   "brand-reconciliation": BA,

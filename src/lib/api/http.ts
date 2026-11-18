@@ -55,7 +55,14 @@ function mockHref(path: string): string {
 }
 
 function buildUrl(path: string, query?: Query): string {
-  const url = new URL(env.useMock ? mockHref(path) : `${API_BASE_URL}${path}`)
+  // Mock helpers sometimes still pass `/api/v1/...`; the real base already ends with `/api/v1`.
+  const relative =
+    !env.useMock && path.startsWith("/api/v1/")
+      ? path.slice("/api/v1".length)
+      : !env.useMock && path === "/api/v1"
+        ? "/"
+        : path
+  const url = new URL(env.useMock ? mockHref(relative) : `${API_BASE_URL}${relative}`)
   for (const [key, value] of Object.entries(query ?? {})) {
     if (value !== undefined && value !== null && value !== "") url.searchParams.set(key, String(value))
   }

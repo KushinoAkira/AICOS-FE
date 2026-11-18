@@ -4,6 +4,7 @@ import type { Page } from "../../App"
 import { FloorPlanCanvas, type EditorTool } from "../../components/floor/FloorPlanCanvas"
 import { PageFrame } from "../../components/PageFrame"
 import { Banner, Button, ConfirmDialog, EmptyState, Field, LoadingState, QueryBoundary } from "../../components/ui"
+import { env } from "../../config/env"
 import { useToast } from "../../context/ToastContext"
 import { useActiveBranch } from "../../hooks/useActiveBranch"
 import { ApiError } from "../../lib/api/http"
@@ -29,6 +30,9 @@ import {
 import { canRedo, canUndo, createHistory, pushHistory, redoHistory, undoHistory, type HistoryState } from "../../lib/floorPlan/history"
 import type { FloorLayoutJson, LayoutElement } from "../../lib/floorPlan/schema"
 
+const TABLE_TOOLS: EditorTool[] = ["table-round", "table-square", "table-rect"]
+const DECOR_TOOLS: EditorTool[] = ["wall", "door", "window", "restroom", "stairs", "counter", "zone"]
+
 const TOOLS: { id: EditorTool; label: string }[] = [
   { id: "select", label: "Chọn" },
   { id: "pan", label: "Xoay khung" },
@@ -43,6 +47,14 @@ const TOOLS: { id: EditorTool; label: string }[] = [
   { id: "counter", label: "Quầy" },
   { id: "zone", label: "Khu vực" },
 ]
+
+function toolHint(tool: EditorTool): string | null {
+  if (TABLE_TOOLS.includes(tool)) return "Bấm lên sơ đồ để đặt bàn. Sau đó kéo để chỉnh vị trí, rồi Lưu nháp."
+  if (tool === "wall") return "Bấm từng điểm để vẽ tường · Enter hoặc double-click để kết thúc."
+  if (DECOR_TOOLS.includes(tool)) return "Bấm lên sơ đồ để đặt. Trong chế độ thật chỉ vị trí bàn được lưu lên máy chủ."
+  if (tool === "pan") return "Kéo để xoay khung nhìn (hoặc giữ Alt + kéo)."
+  return null
+}
 
 function emptyLayout(): FloorLayoutJson {
   return { unit: "grid", gridSize: 10, elements: [] }
@@ -95,6 +107,7 @@ export default function FloorPlanEditor({ navigate }: { navigate: (p: Page) => v
     | { kind: "qr"; table: DiningTableDto }
     | { kind: "leave"; nextFloorId: string }
   >(null)
+  const [deleteFloorPhrase, setDeleteFloorPhrase] = useState("")
   const [renameFloor, setRenameFloor] = useState<{ id: string; name: string } | null>(null)
 
   // Load draft into history when floor/layout arrives
@@ -191,8 +204,14 @@ export default function FloorPlanEditor({ navigate }: { navigate: (p: Page) => v
     if (shape) {
       try {
         const code = nextTableCode(tables.map((t) => t.code))
-        const created = await floorsApi.createTable(activeFloor.id, { code, seats: shape === "rect" ? 4 : 2 })
+        const created = await floorsApi.createTable(activeFloor.id, {
+          code,
+          seats: shape === "rect" ? 4 : 2,
+          x,
+          y,
+        })
         await qc.invalidateQueries({ queryKey: ["floor-tables", activeFloor.id] })
+        await qc.invalidateQueries({ queryKey: ["tables", branchId] })
         commit(addTableElement(layout, { tableId: created.id, seats: created.seats, shape }, x, y, bounds, layout.gridSize))
         setTool("select")
         showToast(`Đã thêm bàn ${created.code}`, "success")
@@ -202,6 +221,9 @@ export default function FloorPlanEditor({ navigate }: { navigate: (p: Page) => v
       return
     }
     if (tool === "door" || tool === "window" || tool === "restroom" || tool === "stairs" || tool === "counter" || tool === "zone") {
+      if (!env.useMock) {
+        showToast("Tường / cửa / WC… chỉ xem tạm trên máy — máy chủ thật chỉ lưu bàn.", "info")
+      }
       commit(addPlaced(layout, tool, x, y, bounds, layout.gridSize))
       setTool("select")
     }
@@ -266,9 +288,17 @@ export default function FloorPlanEditor({ navigate }: { navigate: (p: Page) => v
         level: (floors[floors.length - 1]?.level ?? 0) + 1,
       }),
     onSuccess: (f) => {
-      void qc.invalidateQueries({ queryKey: ["floors", branchId] })
+      // Patch cache first so the floor-id sync effect does not snap back to floors[0].
+      qc.setQueryData<FloorDto[]>(["floors", branchId], (old) => {
+        const list = old ?? []
+        return list.some((x) => x.id === f.id) ? list : [...list, f]
+      })
       setFloorId(f.id)
+      void qc.invalidateQueries({ queryKey: ["floors", branchId] })
       showToast("Đã thêm tầng", "success")
+    },
+    onError: (err: unknown) => {
+      showToast(err instanceof ApiError ? err.message : "Không thêm được tầng", "error")
     },
   })
 
@@ -355,11 +385,14 @@ export default function FloorPlanEditor({ navigate }: { navigate: (p: Page) => v
             {f.name}
           </button>
         ))}
-        <Button variant="ghost" onClick={() => createFloorMut.mutate()} loading={createFloorMut.isPending}>
+        <Button variant="secondary" onClick={() => createFloorMut.mutate()} loading={createFloorMut.isPending}>
           + Thêm tầng
         </Button>
         {activeFloor && (
           <>
+            <Button variant="secondary" onClick={() => setRenameFloor({ id: activeFloor.id, name: activeFloor.name })}>
+              Đổi tên
+            </Button>
             <Button
               variant="ghost"
               disabled={floors.findIndex((f) => f.id === activeFloor.id) <= 0}
@@ -367,9 +400,13 @@ export default function FloorPlanEditor({ navigate }: { navigate: (p: Page) => v
                 const i = floors.findIndex((f) => f.id === activeFloor.id)
                 if (i <= 0) return
                 const prev = floors[i - 1]
-                await floorsApi.update(activeFloor.id, { sortOrder: prev.sortOrder })
-                await floorsApi.update(prev.id, { sortOrder: activeFloor.sortOrder })
-                await qc.invalidateQueries({ queryKey: ["floors", branchId] })
+                try {
+                  await floorsApi.update(activeFloor.id, { name: activeFloor.name, sortOrder: prev.sortOrder })
+                  await floorsApi.update(prev.id, { name: prev.name, sortOrder: activeFloor.sortOrder })
+                  await qc.invalidateQueries({ queryKey: ["floors", branchId] })
+                } catch (err) {
+                  showToast(err instanceof ApiError ? err.message : "Không đổi thứ tự được", "error")
+                }
               }}
             >
               ←
@@ -381,17 +418,23 @@ export default function FloorPlanEditor({ navigate }: { navigate: (p: Page) => v
                 const i = floors.findIndex((f) => f.id === activeFloor.id)
                 if (i < 0 || i >= floors.length - 1) return
                 const next = floors[i + 1]
-                await floorsApi.update(activeFloor.id, { sortOrder: next.sortOrder })
-                await floorsApi.update(next.id, { sortOrder: activeFloor.sortOrder })
-                await qc.invalidateQueries({ queryKey: ["floors", branchId] })
+                try {
+                  await floorsApi.update(activeFloor.id, { name: activeFloor.name, sortOrder: next.sortOrder })
+                  await floorsApi.update(next.id, { name: next.name, sortOrder: activeFloor.sortOrder })
+                  await qc.invalidateQueries({ queryKey: ["floors", branchId] })
+                } catch (err) {
+                  showToast(err instanceof ApiError ? err.message : "Không đổi thứ tự được", "error")
+                }
               }}
             >
               →
             </Button>
             <Button
-              variant="ghost"
-              className="text-state-danger"
-              onClick={() => setConfirm({ kind: "delete-floor", floor: activeFloor })}
+              variant="danger"
+              onClick={() => {
+                setDeleteFloorPhrase("")
+                setConfirm({ kind: "delete-floor", floor: activeFloor })
+              }}
             >
               Xóa tầng
             </Button>
@@ -421,6 +464,14 @@ export default function FloorPlanEditor({ navigate }: { navigate: (p: Page) => v
           </Button>
         )}
       </div>
+      {toolHint(tool) && (
+        <p className="mb-3 text-xs text-text-secondary">{toolHint(tool)}</p>
+      )}
+      {!env.useMock && layout.elements.length === 0 && tool === "select" && (
+        <p className="mb-3 text-xs text-text-secondary">
+          Chọn <span className="font-medium text-text-primary">Bàn tròn / vuông / chữ nhật</span> rồi bấm lên lưới để thêm bàn vào tầng này.
+        </p>
+      )}
 
       <QueryBoundary query={floorsQ}>
         {(floorRows) =>
@@ -592,21 +643,33 @@ export default function FloorPlanEditor({ navigate }: { navigate: (p: Page) => v
       <ConfirmDialog
         open={confirm?.kind === "delete-floor"}
         title="Xóa tầng?"
-        message={`Xóa “${confirm?.kind === "delete-floor" ? confirm.floor.name : ""}” và toàn bộ sơ đồ của tầng này?`}
+        message={
+          confirm?.kind === "delete-floor"
+            ? `Thao tác này không hoàn tác. Tầng phải trống bàn trước khi xóa. Nhập tên tầng “${confirm.floor.name}” để xác nhận.`
+            : ""
+        }
         confirmLabel="Xóa tầng"
         danger
-        onCancel={() => setConfirm(null)}
+        confirmPhrase={confirm?.kind === "delete-floor" ? confirm.floor.name : undefined}
+        phrase={deleteFloorPhrase}
+        onPhrase={setDeleteFloorPhrase}
+        onCancel={() => {
+          setConfirm(null)
+          setDeleteFloorPhrase("")
+        }}
         onConfirm={async () => {
           if (confirm?.kind !== "delete-floor") return
           try {
             await floorsApi.remove(confirm.floor.id)
             setConfirm(null)
+            setDeleteFloorPhrase("")
             setDirty(false)
             await qc.invalidateQueries({ queryKey: ["floors", branchId] })
             showToast("Đã xóa tầng", "success")
           } catch (err) {
             showToast(err instanceof ApiError ? err.message : "Không xóa được tầng", "error")
             setConfirm(null)
+            setDeleteFloorPhrase("")
           }
         }}
       />

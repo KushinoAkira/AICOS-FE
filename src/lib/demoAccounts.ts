@@ -8,13 +8,13 @@ export interface DemoAccount { label: string; login: string; password: string }
  */
 const all = (): DemoAccount[] => [
   { label: "Quản trị nền tảng", login: "admin@aicos.local", password: env.demoAdminPassword },
-  { label: "Quản trị thương hiệu", login: "owner@demo.local", password: env.demoPassword },
-  { label: "Quản lý chi nhánh", login: "manager@demo.local", password: env.demoPassword },
-  { label: "Thu ngân", login: "cashier@demo.local", password: env.demoPassword },
-  { label: "Pha chế", login: "barista@demo.local", password: env.demoPassword },
-  { label: "Khách hàng", login: "customer@demo.local", password: env.demoPassword },
+  { label: "Quản trị thương hiệu", login: "owner@caphenha.local", password: env.demoPassword },
+  { label: "Quản lý chi nhánh", login: "manager@caphenha.local", password: env.demoPassword },
+  { label: "Thu ngân", login: "cashier@caphenha.local", password: env.demoPassword },
+  { label: "Pha chế", login: "barista@caphenha.local", password: env.demoPassword },
+  { label: "Khách hàng", login: "khach@demo.local", password: env.demoCustomerPassword || env.demoPassword },
 ]
 
 export const demoAccounts = () => (env.demo ? all().filter((a) => a.password) : [])
 
-export const demoCustomer = () => demoAccounts().find((a) => a.login === "customer@demo.local")
+export const demoCustomer = () => demoAccounts().find((a) => a.login === "khach@demo.local")

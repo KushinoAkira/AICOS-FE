@@ -1,7 +1,7 @@
 import { useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import InternalLayout from "../../components/InternalLayout"
-import { Button, EmptyState, KpiCard, QueryBoundary, StatusPill, type Tone } from "../../components/ui"
+import { Button, EmptyState, KpiCard, QueryBoundary, StatusPill, chipClass, type Tone } from "../../components/ui"
 import type { Page } from "../../router/pages"
 import { useAuth } from "../../context/AuthContext"
 import { useToast } from "../../context/ToastContext"
@@ -60,7 +60,7 @@ export default function ManagerFeedback({ navigate }: { navigate: (p: Page) => v
           const byStar = (s: number) => rows.filter((r) => r.rating === s).length
           const average = rows.reduce((s, r) => s + r.rating, 0) / rows.length
           const shown = rows.filter((r) => filter === "all" || (typeof filter === "number" ? r.rating === filter : groupOf(r.rating) === filter))
-          const chip = (active: boolean) => `inline-flex min-h-9 items-center gap-1.5 rounded-full px-4 text-sm ${active ? "bg-espresso text-white" : "border border-border bg-surface text-text-secondary hover:border-clay"}`
+          const chip = (active: boolean) => `inline-flex gap-1.5 ${chipClass(active, "outline")} !min-h-9`
           return (
             <div className="space-y-6">
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">

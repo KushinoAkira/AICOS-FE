@@ -1,4 +1,5 @@
 import type { OrderStatus, PaymentStatus } from "../../orderStateMachine"
+import { getActiveBranchId } from "../../branch"
 import { currentBrandSlug } from "../../brand"
 import { ApiError, http } from "../http"
 import type { CancelInput, Recommendations } from "../orders"
@@ -80,7 +81,9 @@ async function ticketOf(orderId: string): Promise<string> {
 }
 
 async function floorTables(): Promise<{ areaId: string; areaName: string; branchId: string; t: Raw }[]> {
-  const branchId = tokenStore.get()?.user.branchId ?? ""
+  // BrandAdmin has no JWT branch — use the branch picked in the sidebar.
+  const branchId = tokenStore.get()?.user.branchId ?? getActiveBranchId() ?? ""
+  if (!branchId) return []
   const raw = await http.get<Raw | Raw[]>("/tables/floor-plan", { query: { branchId } })
   const areas = Array.isArray(raw) ? raw : recs(rec(raw).areas ?? rec(raw).items)
   return recs(areas).flatMap((a) => recs(a.tables).map((t) => ({ areaId: str(a.id), areaName: str(a.name), branchId, t })))
@@ -93,11 +96,15 @@ export const beOrdersApi = {
   async tables(): Promise<TableRow[]> {
     const [tables, orders, sessions] = await Promise.all([floorTables(), listOrders({ paymentStatus: "Unpaid" }), http.get<Raw[]>("/orders/qr/sessions").catch(() => [] as Raw[])])
     const asked = new Map(recs(itemsOf(sessions)).filter((s) => str(s.billRequestedAtUtc)).map((s) => [str(s.tableCode), str(s.billRequestedMethod)]))
-    return tables.map(({ t, areaId, areaName }) => {
+    return tables.map(({ t, areaId, areaName, branchId }) => {
       const code = str(t.tableCode)
       return {
         id: code, code, seats: num(t.capacity),
-        branchId: str(t.branchId), floor: num(t.floor, 1) || 1,
+        // UUID for floor-plan canvas elements; `id` stays the code for pay/complete.
+        dbId: str(t.id) || undefined,
+        branchId: str(t.branchId) || branchId, floor: num(t.floor, 1) || 1,
+        // Floor plan editor maps each area ↔ one “tầng”; keep both keys for viewers.
+        floorId: areaId,
         areaId, areaName,
         positionX: typeof t.positionX === "number" ? t.positionX : null,
         positionY: typeof t.positionY === "number" ? t.positionY : null,
@@ -177,7 +184,14 @@ export const beOrdersApi = {
     const t = rec(await http.get<Raw>(`/tables/public/qr/${token}`, { anonymous: true }))
     const branchId = str(t.branchId)
     const tenantId = str(t.tenantId)
-    return { ...(await publicMenu(branchId, str(t.branchName) || (await branchName(branchId, tenantId)))), tableCode: str(t.tableCode), tenantId, branchId }
+    const tenantSlug = (await tenantCodeOf(tenantId)) || undefined
+    return {
+      ...(await publicMenu(branchId, str(t.branchName) || (await branchName(branchId, tenantId)))),
+      tableCode: str(t.tableCode),
+      tenantId,
+      branchId,
+      tenantSlug,
+    }
   },
   async guestPlace(token: string, lines: LineInput[], promotionCodeOrAsCustomer?: string | boolean, _asCustomer = false): Promise<Order> {
     const promotionCode = typeof promotionCodeOrAsCustomer === "string" ? promotionCodeOrAsCustomer : undefined
@@ -378,11 +392,21 @@ async function publicMenu(branchId: string, name: string): Promise<GuestMenu> {
   return { branchName: name || str(menu.branchName), tableCode: "", products }
 }
 
+/** Brand code (slug) from the public brand list — needed so AI scopes chat to the table's shop. */
+async function tenantCodeOf(tenantId: string): Promise<string> {
+  if (!tenantId) return ""
+  try {
+    const brands = recs(itemsOf(await http.get<Raw[]>("/identity/public/brands", { anonymous: true })))
+    return str(brands.find((b) => str(b.id) === tenantId)?.code)
+  } catch {
+    return ""
+  }
+}
+
 /** The public lookup of a table has no branch name; the public branches of the table's brand have it. */
 async function branchName(branchId: string, tenantId: string): Promise<string> {
   try {
-    const brands = recs(itemsOf(await http.get<Raw[]>("/identity/public/brands", { anonymous: true })))
-    const code = str(brands.find((b) => str(b.id) === tenantId)?.code) || currentBrandSlug()
+    const code = (await tenantCodeOf(tenantId)) || currentBrandSlug()
     if (!code) return ""
     const rows = recs(itemsOf(await http.get<Raw[]>("/identity/branches/active", { anonymous: true, query: { tenantCode: code } })))
     return str(rows.find((b) => str(b.id) === branchId)?.name)

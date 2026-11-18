@@ -57,6 +57,8 @@ export interface TableRow {
   code: string
   seats: number
   branchId: string
+  /** Dining-table UUID from the tables service (canvas layout / floor-plan). */
+  dbId?: string
   /** 1 = ground floor, 2+ = upper floors (display); prefer floorId when present. */
   floor: number
   /** Floor entity id (floor-plan model). */

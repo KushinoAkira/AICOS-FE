@@ -86,6 +86,7 @@ export default function CustomerTakeaway({ navigate }: { navigate: (p: Page) => 
       navigate={navigate}
       uc="UC-33"
       title="Đặt mang đi"
+      aiTenantCode={brand}
       aiBranchId={BRANCH_ID || null}
       aiBranchName={branch?.name ?? menu.data?.branchName}
       aiMenuItems={menu.data ? toAiMenuItems(menu.data.products) : undefined}

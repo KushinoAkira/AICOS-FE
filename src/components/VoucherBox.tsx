@@ -93,9 +93,9 @@ export function VoucherBox({ options, state, setState, total }: {
           onChange={(e) => setState({ ...state, input: e.target.value, problem: null })}
           onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); void apply(state.input) } }}
           placeholder="VD: SAVE10"
-          className={`min-h-11 min-w-0 flex-1 rounded-[10px] border bg-surface px-3 text-sm uppercase text-text-primary outline-none focus:border-terracotta ${state.problem ? "border-state-danger" : "border-border"}`}
+          className={`aicos-control min-h-11 min-w-0 flex-1 px-3 text-sm uppercase ${state.problem ? "!border-state-danger" : ""}`}
         />
-        <button type="button" disabled={state.checking || total <= 0} onClick={() => void apply(state.input)} className="min-h-11 rounded-[10px] border border-espresso px-4 text-sm font-medium text-espresso disabled:opacity-50">
+        <button type="button" disabled={state.checking || total <= 0} onClick={() => void apply(state.input)} className="min-h-11 rounded-[12px] border border-espresso bg-gradient-to-b from-white to-sand/60 px-4 text-sm font-medium text-espresso shadow-[0_1px_2px_rgb(60_40_25/0.06)] disabled:opacity-50">
           {state.checking ? "Đang kiểm tra…" : "Áp dụng"}
         </button>
       </div>

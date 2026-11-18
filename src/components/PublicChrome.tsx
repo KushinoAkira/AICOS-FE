@@ -13,8 +13,8 @@ const linkCls = "rounded-full px-3.5 py-2 text-[14px] font-medium tracking-[-0.0
 export function PublicHeader({ navigate }: { navigate: (p: Page) => void }) {
   const { user, role } = useAuth()
   function goStaffLogin() {
-    if (role === "customer") return
-    if (user) navigate(homePageOf(user))
+    const shopStaff = role === "brandAdmin" || role === "branchManager" || role === "barista" || role === "cashier"
+    if (user && shopStaff) navigate(homePageOf(user))
     else navigate("staff-entry")
   }
   return (
@@ -23,15 +23,26 @@ export function PublicHeader({ navigate }: { navigate: (p: Page) => void }) {
         <Link to="/" aria-label="Về trang chủ AICOS" className="inline-flex shrink-0">
           <PlatformLogo layout="horizontal" />
         </Link>
-        <nav aria-label="Điều hướng chính" className="flex items-center gap-0.5 sm:gap-1">
+        <nav aria-label="Điều hướng chính" className="flex min-w-0 items-center gap-0.5 sm:gap-1">
           <Link to="/#tinh-nang" className={`hidden md:inline-flex ${linkCls}`}>Tính năng</Link>
           <Link to="/#bang-gia" className={`hidden md:inline-flex ${linkCls}`}>{protectOrphans("Bảng giá")}</Link>
           <Link to="/#hoi-dap" className={`hidden lg:inline-flex ${linkCls}`}>Hỏi đáp</Link>
-          <button type="button" onClick={() => navigate("order-start")} className={`min-h-10 ${linkCls}`}>{protectOrphans("Đặt món")}</button>
-          {role !== "customer" && (
-            <button type="button" onClick={goStaffLogin} className={`min-h-10 ${linkCls}`}>{protectOrphans("Đăng nhập quán")}</button>
-          )}
-          <Button className="ml-1 min-h-10 px-4 py-2 text-[14px] font-semibold" onClick={() => navigate("register-brand")}>{protectOrphans("Đăng ký quán")}</Button>
+          <button type="button" onClick={() => navigate("order-start")} className={`hidden min-h-10 sm:inline-flex ${linkCls}`}>{protectOrphans("Đặt món")}</button>
+          <div className="ml-1 flex shrink-0 items-center gap-2">
+            <Button
+              variant="secondary"
+              className="min-h-10 px-3 py-2 text-[14px] font-semibold sm:px-4"
+              onClick={goStaffLogin}
+            >
+              {protectOrphans("Đăng nhập")}
+            </Button>
+            <Button
+              className="min-h-10 px-3 py-2 text-[14px] font-semibold sm:px-4"
+              onClick={() => navigate("register-brand")}
+            >
+              {protectOrphans("Đăng ký quán")}
+            </Button>
+          </div>
         </nav>
       </div>
     </header>
@@ -55,8 +66,8 @@ export function PublicFooter({ navigate }: { navigate: (p: Page) => void }) {
     <li><button type="button" onClick={() => navigate(p)} className={`text-left ${fl}`}>{protectOrphans(label)}</button></li>
   )
   function goStaffLogin() {
-    if (role === "customer") return
-    if (user) navigate(homePageOf(user))
+    const shopStaff = role === "brandAdmin" || role === "branchManager" || role === "barista" || role === "cashier"
+    if (user && shopStaff) navigate(homePageOf(user))
     else navigate("staff-entry")
   }
   return (
@@ -80,9 +91,7 @@ export function PublicFooter({ navigate }: { navigate: (p: Page) => void }) {
         </Col>
         <Col title="Bắt đầu">
           {btn("Đăng ký quán", "register-brand")}
-          {role !== "customer" && (
-            <li><button type="button" onClick={goStaffLogin} className={`text-left ${fl}`}>{protectOrphans("Đăng nhập quản lý và nhân viên")}</button></li>
-          )}
+          <li><button type="button" onClick={goStaffLogin} className={`text-left ${fl}`}>{protectOrphans("Đăng nhập quản lý và nhân viên")}</button></li>
           {btn("Cổng đặt món (khách)", "order-start")}
           {btn("Đăng nhập khách hàng", "auth-customer-login")}
           {btn("Đăng ký khách hàng", "auth-customer-register")}

@@ -4,7 +4,7 @@ import type { Page } from "../../App"
 import { CustomerFrame } from "../../components/CustomerFrame"
 import { OrderStatusPill, PaymentPill } from "../../components/OrderStatusPill"
 import { PayGateway } from "../../components/PayGateway"
-import { Banner, Button, EmptyState, Field, Modal, QueryBoundary } from "../../components/ui"
+import { Banner, Button, EmptyState, Field, Modal, QueryBoundary, chipClass } from "../../components/ui"
 import { useToast } from "../../context/ToastContext"
 import { ordersApi, type CancelInput, type Order, type PayOutcome } from "../../lib/api/orders"
 
@@ -83,7 +83,7 @@ export default function CustomerOrders({ navigate }: { navigate: (p: Page) => vo
           <div>
             <p className="mb-2 text-sm font-medium text-text-primary">Lý do hủy</p>
             <div className="mb-2 flex flex-wrap gap-2">
-              {REASONS.map((r) => <button key={r} type="button" aria-pressed={form.reason === r} onClick={() => setForm({ ...form, reason: r })} className={`rounded-full border px-3 py-1.5 text-xs ${form.reason === r ? "border-espresso bg-espresso text-white" : "border-border text-text-secondary"}`}>{r}</button>)}
+              {REASONS.map((r) => <button key={r} type="button" aria-pressed={form.reason === r} onClick={() => setForm({ ...form, reason: r })} className={`${chipClass(form.reason === r, "outline")} !min-h-9 !px-3 !py-1.5 !text-xs`}>{r}</button>)}
             </div>
             <textarea aria-label="Lý do hủy" value={form.reason} maxLength={300} rows={2} placeholder="Hoặc tự nhập lý do" onChange={(e) => setForm({ ...form, reason: e.target.value })} className="w-full rounded-[10px] border border-border p-3 text-sm" />
           </div>

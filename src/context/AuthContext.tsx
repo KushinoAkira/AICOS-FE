@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react"
 import { authApi, type LoginOpts, type UserDto } from "../lib/api/identity"
 import { tokenStore } from "../lib/api/tokenStore"
+import { clearAiChatsForUser, clearAllAiChats } from "../lib/aiChatStore"
 import { clearActiveBranchId } from "../lib/branch"
 import { HOME_PAGE } from "../router/rbac"
 import { normalizeRole, type Role } from "../router/roles"
@@ -46,7 +47,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<UserDto | null>(() => tokenStore.get()?.user ?? null)
 
   useEffect(() => {
-    const onExpired = () => setUser(null)
+    const onExpired = () => {
+      clearAllAiChats()
+      setUser(null)
+    }
     window.addEventListener("aicos:session-expired", onExpired)
     return () => window.removeEventListener("aicos:session-expired", onExpired)
   }, [])
@@ -84,7 +88,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const deleteMyData = useCallback(async (password: string) => {
+    const uid = tokenStore.get()?.user?.id
     await authApi.deleteMyData(password)
+    clearAiChatsForUser(uid)
     tokenStore.clear()
     clearRememberedBrand()
     clearActiveBranchId()
@@ -101,7 +107,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const logout = useCallback(async () => {
+    const uid = tokenStore.get()?.user?.id
     await authApi.logout()
+    clearAiChatsForUser(uid)
     clearActiveBranchId()
     clearRememberedBrand()
     setUser(null)

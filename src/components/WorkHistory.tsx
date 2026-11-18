@@ -2,7 +2,7 @@ import { Fragment, useState } from "react"
 import { TimeSelect24 } from "./TimeField24"
 import { useQuery } from "@tanstack/react-query"
 import { OrderStatusPill, PaymentPill } from "./OrderStatusPill"
-import { Button, QueryBoundary } from "./ui"
+import { Button, QueryBoundary, chipClass, controlClass, selectClass } from "./ui"
 import { ordersApi } from "../lib/api/orders"
 import type { Shift } from "../lib/api/staff"
 import { addDays, todayKey } from "../lib/dates"
@@ -45,14 +45,14 @@ export function WorkHistory({ shifts }: { shifts: Shift[] }) {
   const toDay = dayOf(range.toUtc)
   const orders = useQuery({ queryKey: ["work-history", fromDay, toDay], queryFn: () => ordersApi.ordersInRange(fromDay, toDay), refetchInterval: 30000 })
 
-  const chip = (active: boolean) => `min-h-9 rounded-full px-4 text-sm ${active ? "bg-espresso text-white" : "border border-border bg-surface text-text-secondary hover:border-clay"}`
-  const input = "rounded-[10px] border border-border bg-surface px-3 py-2 text-sm text-text-primary"
+  const chip = (active: boolean) => `${chipClass(active, "outline")} !min-h-9`
+  const input = `${controlClass} !min-h-10 !py-2`
 
   return (
     <section>
       <div className="space-y-3 rounded-[16px] border border-border bg-surface p-4">
         <input aria-label="Tìm đơn" type="search" autoFocus placeholder="Tìm theo mã đơn (vd 630A22), số bàn (vd A02) hoặc tên món…" value={search} onChange={(e) => setSearch(e.target.value)}
-          className="w-full rounded-[12px] border border-border bg-bg-base px-4 py-3 text-sm text-text-primary outline-none focus:border-terracotta" />
+          className={controlClass} />
         <div role="radiogroup" aria-label="Khoảng thời gian" className="flex flex-wrap gap-2">
           {lastShift && <button role="radio" aria-checked={preset === "shift"} onClick={() => setPreset("shift")} className={chip(preset === "shift")}>Ca gần nhất</button>}
           {([["today", "Hôm nay"], ["yesterday", "Hôm qua"], ["week", "7 ngày qua"], ["custom", "Chọn ngày giờ"]] as const).map(([p, l]) => (
@@ -67,8 +67,8 @@ export function WorkHistory({ shifts }: { shifts: Shift[] }) {
           </div>
         )}
         <div className="flex flex-wrap items-center gap-2">
-          <select aria-label="Loại đơn" value={type} onChange={(e) => setType(e.target.value as HistoryType)} className={input}>{TYPES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>
-          <select aria-label="Trạng thái" value={status} onChange={(e) => setStatus(e.target.value as HistoryStatus)} className={input}>{STATUSES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>
+          <select aria-label="Loại đơn" value={type} onChange={(e) => setType(e.target.value as HistoryType)} className={`${selectClass} !min-h-10 !py-2 w-auto`}>{TYPES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>
+          <select aria-label="Trạng thái" value={status} onChange={(e) => setStatus(e.target.value as HistoryStatus)} className={`${selectClass} !min-h-10 !py-2 w-auto`}>{STATUSES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>
         </div>
         <p className="text-xs text-text-secondary">{range.label}: {formatDateTime(range.fromUtc)} → {formatDateTime(range.toUtc)}{search.trim() ? (preset === "week" ? " · tìm trong 7 ngày, cũ hơn thì dùng Chọn ngày giờ" : " · tìm trong khoảng này, không thấy thì chọn 7 ngày qua hoặc ngày khác") : ""}</p>
       </div>

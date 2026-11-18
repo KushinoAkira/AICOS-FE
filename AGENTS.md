@@ -44,7 +44,7 @@ This project uses **Tailwind CSS v4** through the `@tailwindcss/vite` plugin con
 
 ## CodeGraph
 
-Local code intelligence for Cursor (and other agents): index lives in `.codegraph/` (gitignored DB). MCP entry is in `.cursor/mcp.json`.
+Local code intelligence for Cursor (and other agents): index lives in `.codegraph/` (gitignored DB). MCP entry is in project `.cursor/mcp.json` (and this folder’s `.cursor/mcp.json` for chrome-devtools).
 
 ```bash
 npm i -g @colbymchenry/codegraph   # once per machine
@@ -54,3 +54,14 @@ codegraph sync                     # optional manual refresh
 ```
 
 Prefer `codegraph_explore` for “where is X defined/called?” before broad grep.
+
+## Browser MCP (chrome-devtools)
+
+Use **proactively** for UI bugs, layout clips, broken clicks, and post-fix checks — do not wait for the user to say “mở MCP”.
+
+1. `list_pages` / `navigate_page` → `http://localhost:8443…`
+2. `take_snapshot` (a11y tree) before clicking
+3. `evaluate_script` for layout/overflow/session checks
+4. Re-verify in the browser after the fix
+
+See root rule `.cursor/rules/mcp-tools.mdc`.

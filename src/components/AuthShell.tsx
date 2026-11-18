@@ -16,23 +16,16 @@ export function PlatformLogo({
 }: {
   className?: string
   tone?: LogoTone
-  /** `horizontal` = mark crop + Literata wordmark for nav (stacked PNG is tall). */
+  /**
+   * `horizontal` keeps the same stacked PNG (icon + wordmark) at nav size.
+   * Do not CSS-crop this asset — it is wider than tall; overflow boxes always clip the mark.
+   */
   layout?: LogoLayout
 }) {
   const src = tone === "light" ? aicosLogoLight : aicosLogo
+  // Nav used to pair a cropped mark + Literata "AICOS"; the PNG already includes the wordmark.
   if (layout === "horizontal") {
-    const word = tone === "light" ? "text-on-dark" : "text-espresso"
-    return (
-      <span className={`inline-flex items-center gap-2.5 ${className}`}>
-        <img
-          src={src}
-          alt=""
-          aria-hidden
-          className="h-8 w-8 shrink-0 object-cover object-[center_12%]"
-        />
-        <span className={`type-title text-[1.2rem] leading-none tracking-[-0.03em] ${word}`}>AICOS</span>
-      </span>
-    )
+    return <img src={src} alt="AICOS" className="h-10 w-auto shrink-0 object-contain" />
   }
   return <img src={src} alt="AICOS" className={className} />
 }

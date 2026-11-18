@@ -118,8 +118,13 @@ export default function ShopPicker({ navigate }: { navigate: (p: Page) => void }
               <p className="m-0 text-sm text-[#CDB9A0]">
                 Đang ở <span className="font-medium text-[#F6EBDC]">{brand.brand.name}</span>
                 {" · "}
-                <button type="button" className="underline underline-offset-2 hover:text-white" onClick={() => navigate("customer-menu")}>
-                  Tiếp tục vào quán
+                <button
+                  type="button"
+                  className="underline underline-offset-2 hover:text-white disabled:opacity-60"
+                  disabled={entering !== null}
+                  onClick={() => void enter(brand.slug)}
+                >
+                  {entering === brand.slug ? "Đang vào…" : "Tiếp tục vào quán"}
                 </button>
               </p>
             )}

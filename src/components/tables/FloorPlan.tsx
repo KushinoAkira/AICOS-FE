@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState, type KeyboardEvent, type PointerEvent } from "react"
 import { useMutation } from "@tanstack/react-query"
-import { Banner, Button, EmptyState } from "../ui"
+import { Banner, Button, EmptyState, chipClass } from "../ui"
 import { useToast } from "../../context/ToastContext"
 import { tableApi, type Area, type DiningTable } from "../../lib/api/manage"
 import { byCode } from "../../lib/tableBatch"
@@ -121,7 +121,7 @@ export function FloorPlanEditor({ tables, areas, branchId, onSaved }: { tables: 
       <div className="mb-3 flex flex-wrap items-center gap-2">
         <div role="tablist" aria-label="Khu vực trên sơ đồ" className="mr-auto flex flex-wrap gap-2">
           {areas.map((a) => (
-            <button key={a.id} role="tab" aria-selected={a.id === current} onClick={() => setAreaId(a.id)} className={`min-h-10 rounded-full border px-4 text-sm ${a.id === current ? "border-espresso bg-espresso text-white" : "border-border bg-surface text-text-primary"}`}>{a.name}</button>
+            <button key={a.id} type="button" role="tab" aria-selected={a.id === current} onClick={() => setAreaId(a.id)} className={`${chipClass(a.id === current, "outline")} !min-h-10`}>{a.name}</button>
           ))}
         </div>
         <Button variant="secondary" disabled={here.length === 0} onClick={arrange}>Xếp tự động</Button>

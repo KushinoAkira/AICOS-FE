@@ -82,7 +82,7 @@ export default function UserMenu({ navigate, variant = "customer" }: Props) {
       {open && (
         <div
           role="menu"
-          className="absolute right-0 mt-2 w-60 rounded-2xl overflow-hidden z-50 animate-fade-in"
+          className="absolute right-0 z-[60] mt-2 w-60 animate-fade-in overflow-hidden rounded-2xl"
           style={{ backgroundColor: "#FFFFFF", border: "1px solid #E6DCCB", boxShadow: "0 12px 32px rgba(111,78,55,0.15)" }}
         >
           <div className="px-4 py-3" style={{ borderBottom: "1px solid #E6DCCB" }}>

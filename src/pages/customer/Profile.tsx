@@ -2,7 +2,7 @@ import { useState } from "react"
 import { useMutation, useQuery } from "@tanstack/react-query"
 import type { Page } from "../../App"
 import { CustomerFrame } from "../../components/CustomerFrame"
-import { Banner, Button, Field, Modal, QueryBoundary } from "../../components/ui"
+import { Banner, Button, Field, Modal, QueryBoundary, chipClass } from "../../components/ui"
 import { useAuth } from "../../context/AuthContext"
 import { useToast } from "../../context/ToastContext"
 import { customerApi, type Preferences } from "../../lib/api/customer"
@@ -79,7 +79,7 @@ function ChipGroup({ label, options, value, onChange }: { label: string; options
         {options.map((o) => (
           <button
             key={o.value} type="button" aria-pressed={value === o.value} onClick={() => onChange(o.value)}
-            className={`min-h-10 rounded-full border px-4 text-sm transition-colors ${value === o.value ? "border-espresso bg-espresso text-white" : "border-border bg-surface text-text-primary hover:border-clay"}`}
+            className={chipClass(value === o.value, "outline")}
           >
             {o.label}
           </button>

@@ -31,3 +31,7 @@ alwaysApply: false
 - `/impeccable critique` - đánh giá UX
 
 CLI: `pnpm impeccable:detect`. Hook `.cursor/hooks.json` chặn các thay đổi UI vi phạm trước khi ghi; tắt bằng `/impeccable hooks off`.
+
+## Browser proof (bắt buộc khi sửa UI)
+
+Sau khi sửa layout / CTA / logo / click: dùng MCP **chrome-devtools** trên `http://localhost:8443` (snapshot / click / đo overflow) — không chờ user bảo “mở MCP”. Chi tiết: rule gốc `mcp-tools.mdc`.

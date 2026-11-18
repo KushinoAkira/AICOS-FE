@@ -1,7 +1,7 @@
 import { useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import type { Page } from "../../App"
-import { Banner, Button, EmptyState, Modal, QueryBoundary, StatusPill } from "../../components/ui"
+import { Banner, Button, EmptyState, Modal, QueryBoundary, StatusPill, chipClass } from "../../components/ui"
 import { useToast } from "../../context/ToastContext"
 import { formatDateTime } from "../../lib/format"
 import { platformApi, type Lead } from "../../lib/api/platform"
@@ -39,7 +39,7 @@ export default function PlatformLeads({ navigate }: { navigate: (p: Page) => voi
               {fresh > 0 && <div className="mb-4"><Banner tone="warn">{fresh} khách mới đang chờ được liên hệ.</Banner></div>}
               <div className="mb-4 flex flex-wrap items-center gap-2">
                 {([["New", `Chưa liên hệ (${fresh})`], ["Handled", "Đã tư vấn"], ["All", "Tất cả"]] as const).map(([v, label]) => (
-                  <button key={v} type="button" aria-pressed={filter === v} onClick={() => setFilter(v)} className={`rounded-full px-4 py-1.5 text-sm ${filter === v ? "bg-espresso text-white" : "bg-sand text-text-secondary"}`}>{label}</button>
+                  <button key={v} type="button" aria-pressed={filter === v} onClick={() => setFilter(v)} className={`${chipClass(filter === v)} !min-h-9 !py-1.5`}>{label}</button>
                 ))}
                 <input aria-label="Tìm khách" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Tìm tên, email, số điện thoại…" className="ml-auto w-full max-w-xs rounded-[10px] border border-border bg-surface px-3 py-2 text-sm" />
               </div>

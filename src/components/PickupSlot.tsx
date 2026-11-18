@@ -1,5 +1,6 @@
 import { useState } from "react"
 import { useQuery } from "@tanstack/react-query"
+import { chipClass } from "./ui"
 import { TimePicker24 } from "./TimePicker24"
 import { addDays, todayKey } from "../lib/dates"
 import { ordersApi } from "../lib/api/orders"
@@ -30,10 +31,14 @@ export function usePickupSlot(branchId: string, enabled = true) {
         <legend className="mb-2 text-sm font-medium text-text-primary">{legend}</legend>
         <div className="flex flex-wrap items-center gap-3">
           <div role="radiogroup" aria-label="Ngày nhận" className="flex gap-2">
-            {(["today", "tomorrow"] as const).map((d) => <button key={d} type="button" role="radio" aria-checked={day === d} onClick={() => setDay(d)} className={`rounded-full px-4 py-2 text-sm ${day === d ? "bg-espresso text-white" : compact ? "bg-surface text-text-secondary" : "bg-sand text-text-secondary"}`}>{d === "today" ? "Hôm nay" : "Ngày mai"}</button>)}
+            {(["today", "tomorrow"] as const).map((d) => (
+              <button key={d} type="button" role="radio" aria-checked={day === d} onClick={() => setDay(d)} className={chipClass(day === d, compact ? "outline" : "fill")}>
+                {d === "today" ? "Hôm nay" : "Ngày mai"}
+              </button>
+            ))}
           </div>
           <TimePicker24 value={time} openHour={Number(hours.open.slice(0, 2))} closeHour={Number(hours.close.slice(0, 2))} onChange={setTime} />
-          <button type="button" onClick={() => { const first = earliestPickup(new Date(), hours); setDay(first.day); setTime(first.time) }} className="rounded-full border border-border px-3 py-2 text-sm text-clay hover:bg-sand">Sớm nhất có thể</button>
+          <button type="button" onClick={() => { const first = earliestPickup(new Date(), hours); setDay(first.day); setTime(first.time) }} className="min-h-11 rounded-full border border-border-strong bg-gradient-to-b from-white to-sand/70 px-4 py-2 text-sm font-medium text-clay shadow-[0_1px_2px_rgb(60_40_25/0.06)] hover:border-clay">Sớm nhất có thể</button>
           <span className="text-sm text-text-secondary">Quán mở {hours.open} - {hours.close}, đặt trước tối thiểu {hours.cutoffMinutes} phút</span>
         </div>
         {slot && check.data && <p role="status" className={`mt-2 text-sm ${check.data.ok ? "text-state-success" : "text-state-danger"}`}>{check.data.ok ? `Còn nhận được ${check.data.remaining} đơn quanh giờ này` : check.data.message}</p>}

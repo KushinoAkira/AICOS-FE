@@ -1,7 +1,8 @@
+import { controlClass, selectClass } from "./ui"
+
 const pad = (n: number) => String(n).padStart(2, "0")
 const HOURS = Array.from({ length: 24 }, (_, i) => pad(i))
 const MINUTES = Array.from({ length: 60 }, (_, i) => pad(i))
-const cls = "w-full rounded-[10px] border border-border bg-surface px-3 py-3 text-sm text-text-primary outline-none focus:border-terracotta"
 
 /**
  * A 24-hour time (00:00 to 23:59) chosen with two lists, hour and minute, instead of the browser's time box, which shows AM/PM on
@@ -9,7 +10,7 @@ const cls = "w-full rounded-[10px] border border-border bg-surface px-3 py-3 tex
  */
 export function TimeSelect24({ value, onChange, label, compact = false }: { value: string; onChange: (v: string) => void; label?: string; compact?: boolean }) {
   const [h = "", m = ""] = (value || "").split(":")
-  const box = compact ? cls.replace("w-full ", "").replace("py-3", "py-2") : cls
+  const box = compact ? `${selectClass} w-auto min-w-[4.5rem] !min-h-10 !py-2` : `${selectClass} w-auto min-w-[5rem]`
   return (
     <div className="flex items-center gap-1.5" role="group" aria-label={label ?? "Giờ (24 giờ)"}>
       <select aria-label={`${label ?? "Giờ"}: giờ`} value={h} onChange={(e) => onChange(`${e.target.value}:${m || "00"}`)} className={box}>
@@ -44,7 +45,7 @@ export function DateTimeField24({ label, value, onChange }: { label: string; val
     <div>
       <span className="mb-1.5 block text-sm font-medium text-text-primary">{label}</span>
       <div className="flex flex-wrap items-center gap-2">
-        <input type="date" aria-label={`${label}: ngày`} value={date} onChange={(e) => onChange(`${e.target.value}T${time || "00:00"}`)} className={cls.replace("w-full ", "")} />
+        <input type="date" aria-label={`${label}: ngày`} value={date} onChange={(e) => onChange(`${e.target.value}T${time || "00:00"}`)} className={`${controlClass} w-auto`} />
         <TimeSelect24 label={label} value={time} onChange={(t) => onChange(`${date}T${t}`)} />
       </div>
     </div>

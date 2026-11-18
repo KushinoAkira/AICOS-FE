@@ -37,6 +37,112 @@
   --font-sans: "Inter", system-ui, sans-serif;
 }
 
+/* Shared inputs/selects — warm paper, clearer edge than flat white+hairline */
+.aicos-control {
+  appearance: none;
+  border-radius: 12px;
+  border: 1.5px solid var(--color-border-strong);
+  background-color: #FFFCFA;
+  background-image: linear-gradient(180deg, #FFFFFF 0%, #FBF6EF 100%);
+  color: var(--color-text-primary);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.85), 0 1px 2px rgb(60 40 25 / 0.05);
+  transition: border-color 160ms ease, box-shadow 160ms ease;
+}
+.aicos-control:hover:not(:disabled):not(:focus) {
+  border-color: #C9B59A;
+}
+.aicos-control:focus,
+.aicos-control:focus-visible {
+  outline: none;
+  border-color: var(--color-terracotta);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.85), 0 0 0 3px rgb(201 123 74 / 0.22);
+}
+.aicos-control:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+  background: var(--color-sand);
+  background-image: none;
+}
+.aicos-control-select {
+  cursor: pointer;
+  padding-right: 2.4rem;
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--color-clay) 50%),
+    linear-gradient(135deg, var(--color-clay) 50%, transparent 50%),
+    linear-gradient(180deg, #FFFFFF 0%, #FBF6EF 100%);
+  background-position:
+    calc(100% - 18px) calc(50% - 2px),
+    calc(100% - 12px) calc(50% - 2px),
+    0 0;
+  background-size: 6px 6px, 6px 6px, 100% 100%;
+  background-repeat: no-repeat;
+}
+.aicos-control-select:focus,
+.aicos-control-select:focus-visible {
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--color-clay) 50%),
+    linear-gradient(135deg, var(--color-clay) 50%, transparent 50%),
+    linear-gradient(180deg, #FFFFFF 0%, #FBF6EF 100%);
+}
+
+/* Pill / chip selectors (category, size, day, filters) */
+.aicos-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.75rem;
+  white-space: nowrap;
+  border-radius: 9999px;
+  padding: 0.5rem 1.25rem;
+  font-size: 0.875rem;
+  line-height: 1.25;
+  border: 1.5px solid transparent;
+  transition: background-color 160ms ease, color 160ms ease, border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+}
+.aicos-chip-idle {
+  background: var(--color-sand);
+  color: var(--color-text-secondary);
+}
+.aicos-chip-idle:hover {
+  background: #E8D9C4;
+  color: var(--color-text-primary);
+  border-color: var(--color-border-strong);
+  box-shadow: 0 6px 14px -10px rgb(60 40 25 / 0.45);
+  transform: translateY(-1px);
+}
+.aicos-chip-outline {
+  background: #FFFCFA;
+  color: var(--color-text-secondary);
+  border-color: var(--color-border);
+}
+.aicos-chip-outline:hover {
+  background: var(--color-sand);
+  color: var(--color-text-primary);
+  border-color: var(--color-clay);
+  box-shadow: 0 6px 14px -10px rgb(60 40 25 / 0.4);
+  transform: translateY(-1px);
+}
+.aicos-chip-on {
+  background: var(--color-espresso);
+  color: #fff;
+  border-color: var(--color-espresso);
+  box-shadow: 0 8px 16px -10px rgb(111 78 55 / 0.9);
+}
+.aicos-chip-on:hover {
+  background: #5E422E;
+  border-color: #5E422E;
+  transform: translateY(-1px);
+}
+@media (prefers-reduced-motion: reduce) {
+  .aicos-chip,
+  .aicos-chip-idle:hover,
+  .aicos-chip-outline:hover,
+  .aicos-chip-on:hover {
+    transition: none;
+    transform: none;
+  }
+}
+
 *, *::before, *::after {
   box-sizing: border-box;
 }
@@ -130,6 +236,15 @@ h1, h2, h3, h4 {
   50%  { transform: translateY(-6px) scaleX(1.15); opacity: 0.4; }
   100% { transform: translateY(-12px) scaleX(0.9); opacity: 0; }
 }
+/* Product placeholder steam — stronger rise so it reads on small cup icons */
+@keyframes cup-steam {
+  0%   { transform: translateY(6px); opacity: 0; }
+  28%  { opacity: 0.9; }
+  100% { transform: translateY(-14px); opacity: 0; }
+}
+.cup-steam { animation: cup-steam 2.6s ease-in-out infinite; }
+.cup-steam-2 { animation: cup-steam 2.6s ease-in-out 0.85s infinite; }
+.cup-steam-3 { animation: cup-steam 2.6s ease-in-out 1.7s infinite; }
 @keyframes fade-in {
   /* Opacity only: a lingering transform would become the containing block of every
      position:fixed descendant (chat button, modals) and make them scroll with the page. */
@@ -218,11 +333,14 @@ button:active { transform: scale(0.98); }
 /* Accessibility: disable non-essential motion */
 @media (prefers-reduced-motion: reduce) {
   .stagger-item, .skeleton, .toast-enter, .toast-exit,
-  .cart-bounce, .badge-pop, .modal-enter, .modal-exit {
+  .cart-bounce, .badge-pop, .modal-enter, .modal-exit,
+  .animate-steam, .animate-steam-delay, .animate-pulse-dot, .animate-fade-in,
+  .cup-steam, .cup-steam-2, .cup-steam-3 {
     animation: none !important;
     transition: none !important;
   }
   .stagger-item { opacity: 1; transform: none; }
+  .animate-steam, .animate-steam-delay, .cup-steam, .cup-steam-2, .cup-steam-3 { opacity: 0.55; }
 }
 
 /* ── Public site motion ── */

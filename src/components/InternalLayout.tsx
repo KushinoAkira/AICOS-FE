@@ -257,7 +257,7 @@ function Sidebar({ role, activePage, navigate, onClose }: { role: StaffRole; act
                 {shop.name.charAt(0)}
               </span>
             ) : (
-              <PlatformLogo tone="light" className="h-9 w-auto max-w-[7.5rem] shrink-0 object-contain" />
+              <PlatformLogo tone="light" layout="horizontal" />
             )}
             {shop && (
               <span className="truncate font-serif text-xl font-medium" title={shop.name}>

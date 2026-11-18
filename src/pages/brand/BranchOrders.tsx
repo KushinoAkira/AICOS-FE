@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import type { Page } from "../../App"
 import { OrderStatusPill, PaymentPill } from "../../components/OrderStatusPill"
 import { PageFrame } from "../../components/PageFrame"
-import { Banner, ConfirmDialog, DataTable, Field, Modal, QueryBoundary, Button, type Column } from "../../components/ui"
+import { Banner, ConfirmDialog, DataTable, Field, Modal, QueryBoundary, Button, chipClass, type Column } from "../../components/ui"
 import { useToast } from "../../context/ToastContext"
 import { ordersApi, type Order } from "../../lib/api/orders"
 import { reconciliationApi } from "../../lib/api/manage"
@@ -58,7 +58,7 @@ export default function BranchOrders({ navigate }: { navigate: (p: Page) => void
       )}
       <h2 className="mb-3 font-serif text-lg text-text-primary">Tất cả đơn</h2>
       <div className="mb-4 flex flex-wrap gap-2">
-        {FILTERS.map((f) => <button key={f} aria-pressed={f === filter} onClick={() => setFilter(f)} className={`rounded-full px-4 py-1.5 text-sm ${f === filter ? "bg-espresso text-white" : "bg-sand text-text-secondary"}`}>{f === "all" ? "Tất cả" : ORDER_STATUS_LABEL[f]}</button>)}
+        {FILTERS.map((f) => <button key={f} type="button" aria-pressed={f === filter} onClick={() => setFilter(f)} className={`${chipClass(f === filter)} !min-h-9 !py-1.5`}>{f === "all" ? "Tất cả" : ORDER_STATUS_LABEL[f]}</button>)}
       </div>
       <QueryBoundary query={orders}>{(rows) => <DataTable rows={rows.filter((o) => filter === "all" || o.status === filter)} rowKey={(o) => o.id} columns={columns} pageSize={12} emptyTitle="Không có đơn nào" />}</QueryBoundary>
       <ConfirmDialog open={!!target} danger requireReason reason={reason} onReason={setReason} title={`Hủy đơn ${target?.code ?? ""}?`} message="Đơn sẽ bị hủy và ghi vào nhật ký cùng lý do." confirmLabel="Hủy đơn" onCancel={() => { setTarget(null); setReason("") }} onConfirm={() => target && cancel.mutate(target)} />

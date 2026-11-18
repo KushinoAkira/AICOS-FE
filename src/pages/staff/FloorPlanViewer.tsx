@@ -69,15 +69,25 @@ export default function FloorPlanViewer({ navigate }: { navigate: (p: Page) => v
   const tables = tablesQ.data ?? []
   const current = tables.find((t) => t.id === selectedTableId) ?? null
 
+  const floorTables = useMemo(() => {
+    return tables.filter((t) => {
+      if (!activeFloor) return true
+      if (t.floorId) return t.floorId === activeFloor.id
+      if (t.areaId) return t.areaId === activeFloor.id
+      return t.floor === activeFloor.level
+    })
+  }, [tables, activeFloor])
+
   const tableMeta = useMemo(() => {
     const m: Record<string, { code: string; status: ReturnType<typeof liveStatusOf> }> = {}
-    for (const t of tables) {
-      if (activeFloor && t.floorId && t.floorId !== activeFloor.id) continue
-      if (activeFloor && !t.floorId && t.floor !== activeFloor.level) continue
-      m[t.id] = { code: t.code, status: liveStatusOf(t) }
+    for (const t of floorTables) {
+      const meta = { code: t.code, status: liveStatusOf(t) }
+      // Layout elements use dining-table UUID; live rows still key by table code for pay/complete.
+      m[t.id] = meta
+      if (t.dbId) m[t.dbId] = meta
     }
     return m
-  }, [tables, activeFloor])
+  }, [floorTables])
 
   const pay = useMutation({
     mutationFn: (t: TableRow) => ordersApi.payTable(t.id, { method: "cash", received: Number(received) }),
@@ -102,6 +112,8 @@ export default function FloorPlanViewer({ navigate }: { navigate: (p: Page) => v
     onError: (e) => setError(e.message),
   })
 
+  const rowOf = (tableKey: string) => tables.find((t) => t.id === tableKey || t.dbId === tableKey)
+
   const onSelectElement = (elId: string | null) => {
     if (!elId || !layoutQ.data) {
       setSelectedTableId(null)
@@ -112,18 +124,17 @@ export default function FloorPlanViewer({ navigate }: { navigate: (p: Page) => v
       setSelectedTableId(null)
       return
     }
-    const row = tables.find((t) => t.id === el.tableId)
+    const row = rowOf(el.tableId)
     if (!row || liveStatusOf(row) === "Free") {
       setSelectedTableId(null)
       return
     }
-    if (!canBill) {
-      setSelectedTableId(el.tableId)
-      return
+    // Keep the code id so pay/complete still hit ordersApi.tables() keys.
+    setSelectedTableId(row.id)
+    if (canBill) {
+      setReceived("")
+      setError(null)
     }
-    setSelectedTableId(el.tableId)
-    setReceived("")
-    setError(null)
   }
 
   if (needsSelection) {
@@ -195,7 +206,11 @@ export default function FloorPlanViewer({ navigate }: { navigate: (p: Page) => v
                 tableMeta={tableMeta}
                 selectedId={
                   selectedTableId
-                    ? (layoutQ.data!.layout.elements.find((e) => e.type === "table" && e.tableId === selectedTableId)?.id ?? null)
+                    ? (layoutQ.data!.layout.elements.find((e) => {
+                        if (e.type !== "table") return false
+                        const row = rowOf(e.tableId)
+                        return row?.id === selectedTableId || e.tableId === selectedTableId
+                      })?.id ?? null)
                     : null
                 }
                 onSelect={onSelectElement}
@@ -203,25 +218,30 @@ export default function FloorPlanViewer({ navigate }: { navigate: (p: Page) => v
               <aside className="rounded-[16px] border border-border bg-surface p-4">
                 <h2 className="font-serif text-lg text-text-primary">Bàn trên tầng</h2>
                 <ul className="mt-3 space-y-2 text-sm">
-                  {Object.entries(tableMeta).length === 0 && (
+                  {floorTables.length === 0 && (
                     <li className="text-text-secondary">Chưa có bàn trên sơ đồ này.</li>
                   )}
-                  {Object.entries(tableMeta).map(([id, meta]) => (
-                    <li key={id}>
-                      <button
-                        type="button"
-                        className="flex w-full items-center justify-between rounded-md px-2 py-1.5 text-left hover:bg-sand"
-                        onClick={() => onSelectElement(
-                          layoutQ.data!.layout.elements.find((e) => e.type === "table" && e.tableId === id)?.id ?? null,
-                        )}
-                      >
-                        <span className="font-medium text-text-primary">{meta.code}</span>
-                        <StatusPill tone={meta.status === "Free" ? "neutral" : meta.status === "WaitingPayment" ? "danger" : "pending"}>
-                          {liveStatusLabel(meta.status)}
-                        </StatusPill>
-                      </button>
-                    </li>
-                  ))}
+                  {floorTables.map((t) => {
+                    const status = liveStatusOf(t)
+                    return (
+                      <li key={t.id}>
+                        <button
+                          type="button"
+                          className="flex w-full items-center justify-between rounded-md px-2 py-1.5 text-left hover:bg-sand"
+                          onClick={() => onSelectElement(
+                            layoutQ.data!.layout.elements.find((e) =>
+                              e.type === "table" && (e.tableId === t.dbId || e.tableId === t.id),
+                            )?.id ?? null,
+                          )}
+                        >
+                          <span className="font-medium text-text-primary">{t.code}</span>
+                          <StatusPill tone={status === "Free" ? "neutral" : status === "WaitingPayment" ? "danger" : "pending"}>
+                            {liveStatusLabel(status)}
+                          </StatusPill>
+                        </button>
+                      </li>
+                    )
+                  })}
                 </ul>
                 {!canBill && (
                   <p className="mt-4 text-xs text-text-secondary">Chỉ thu ngân mới mở được bill từ sơ đồ.</p>

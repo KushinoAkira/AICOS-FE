@@ -256,13 +256,23 @@ export default function App() {
   }
 
   function guard(page: Page): ReactElement {
+    // Super Admin login stays reachable even if a customer/staff session is still in the tab
+    // (demo/testing often switches roles). Only bounce away when already Super Admin.
+    if (page === "admin-login") {
+      if (role === "superAdmin") return <Navigate to={pathFor(homePageOf(user!))} replace />
+      return screens[page]
+    }
+    // Staff login stays reachable so a customer session can switch to a shop account.
+    // Already-signed-in shop staff go to their home (same idea as admin-login).
+    if (page === "staff-entry" || page === "login") {
+      const shopStaff = role === "brandAdmin" || role === "branchManager" || role === "barista" || role === "cashier"
+      if (user && shopStaff) return <Navigate to={pathFor(homePageOf(user))} replace />
+      return screens[page]
+    }
     if (user && GUEST_ONLY_PAGES.includes(page)) {
       const onCustomerAuth = page === "auth-customer-login" || page === "auth-customer-register"
-      const onStaffLogin = page === "login" || page === "staff-entry" || page === "admin-login"
       if (onCustomerAuth && role === "customer") return <Navigate to={pathFor(homePageOf(user))} replace />
-      if (onStaffLogin && role === "customer") return <Navigate to={PAGE_PATHS.landing} replace />
-      if (onStaffLogin && role !== null) return <Navigate to={pathFor(homePageOf(user))} replace />
-      if (!onCustomerAuth && !onStaffLogin) return <Navigate to={pathFor(homePageOf(user))} replace />
+      if (!onCustomerAuth) return <Navigate to={pathFor(homePageOf(user))} replace />
     }
     // Path-tenant: customer pages under /:tenantSlug need an active slug (or shops picker).
     if (

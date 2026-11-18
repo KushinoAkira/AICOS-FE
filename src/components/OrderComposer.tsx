@@ -1,27 +1,33 @@
 import { useMemo, useState } from "react"
-import { Button, EmptyState, StatusPill } from "./ui"
+import { Button, EmptyState, StatusPill, chipClass } from "./ui"
 import { CartPanel, type CartLine, type CartTab, type ExtraTabs } from "./CartPanel"
 import { emptyVoucher, liveQuote, type VoucherOptions, type VoucherState } from "./VoucherBox"
 import type { Product } from "../lib/api/brand"
 import type { LineInput, Recommendations, RecommendedItem } from "../lib/api/orders"
 import { formatVND } from "../lib/format"
 
-/** Photo with a lettered fallback so a broken URL never leaves a hole in the grid. */
-/** A drink without a photo, or whose photo fails to load, shows a cup drawing. `name` stays for the callers that pass it. */
-export function ProductImage({ src, className = "h-16 w-16" }: { src?: string; name: string; className?: string }) {
+/** Drink photo, or a steaming-cup placeholder when the URL is missing/broken. `name` kept for callers. */
+export function ProductImage({ src, name: _name, className = "h-16 w-16" }: { src?: string; name: string; className?: string }) {
   const [failed, setFailed] = useState(false)
   if (!src || failed) {
     return (
-      <span aria-hidden className={`${className} flex shrink-0 items-center justify-center rounded-[12px] bg-sand text-clay`}>
-        <svg viewBox="0 0 48 48" className="h-3/5 w-3/5" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M18 6c0 2-2 3-2 5s2 3 2 5M25 4c0 2-2 3-2 5s2 3 2 5M32 6c0 2-2 3-2 5s2 3 2 5" />
-          <path d="M9 21h28v8a12 12 0 0 1-12 12h-4A12 12 0 0 1 9 29z" fill="currentColor" fillOpacity="0.15" />
-          <path d="M37 24h2.5a5 5 0 0 1 0 10H36" />
+      <span
+        aria-hidden
+        className={`${className} relative flex shrink-0 items-center justify-center overflow-visible rounded-[14px] bg-gradient-to-b from-[#F8EFE3] via-sand to-[#E5D4BE] text-clay shadow-[inset_0_1px_0_rgb(255_255_255/0.55)] ring-1 ring-border/70`}
+      >
+        <svg viewBox="0 0 48 52" className="h-[72%] w-[72%]" fill="none" stroke="currentColor" strokeWidth="2.35" strokeLinecap="round" strokeLinejoin="round">
+          <path className="cup-steam" d="M17 20 C 14 14, 19 10, 16 4" opacity="0.85" />
+          <path className="cup-steam-2" d="M24 18 C 21 12, 26 8, 23 3" opacity="0.95" />
+          <path className="cup-steam-3" d="M31 20 C 28 14, 33 10, 30 4" opacity="0.8" />
+          <path d="M10 24h26v7.5a11.5 11.5 0 0 1-11.5 11.5h-3A11.5 11.5 0 0 1 10 31.5z" fill="currentColor" fillOpacity="0.16" />
+          <path d="M10 24h26v7.5a11.5 11.5 0 0 1-11.5 11.5h-3A11.5 11.5 0 0 1 10 31.5z" />
+          <path d="M36 27h2.8a5.2 5.2 0 0 1 0 10.4H35" />
+          <ellipse cx="23" cy="24" rx="11" ry="2.2" fill="currentColor" fillOpacity="0.22" stroke="none" />
         </svg>
       </span>
     )
   }
-  return <img src={src} alt="" loading="lazy" onError={() => setFailed(true)} className={`${className} shrink-0 rounded-[12px] object-cover`} />
+  return <img src={src} alt="" loading="lazy" onError={() => setFailed(true)} className={`${className} shrink-0 rounded-[14px] object-cover`} />
 }
 
 export type MenuItem = Product & { soldOut: boolean; price: number }
@@ -70,16 +76,20 @@ export function OrderComposer({ products, submitLabel, submitting, error, onSubm
   const forYou = onMenu(recommendations?.forYou).slice(0, 4)
   const bestSellers = onMenu(recommendations?.bestSellers).filter((s) => !forYou.some((f) => f.product.id === s.product.id)).slice(0, 4)
   const strip = (title: string, rows: typeof forYou, hint: (quantity: number) => string) => rows.length > 0 && (
-    <section aria-label={title} className="mb-5">
-      <h2 className="mb-2 font-serif text-lg text-text-primary">{title}</h2>
-      <ul className="-mx-1 flex gap-3 overflow-x-auto px-1 pb-1">
-        {rows.map(({ product, quantity }) => (
-          <li key={product.id} className="w-40 shrink-0">
-            <button onClick={() => pick(product)} className="flex h-full w-full flex-col gap-2 rounded-[16px] border border-border bg-surface p-3 text-left">
-              <ProductImage src={product.imageUrl} name={product.name} className="h-16 w-16" />
+    <section aria-label={title} className="mb-6">
+      <h2 className="mb-3 font-serif text-xl text-text-primary">{title}</h2>
+      <ul className="-mx-1 flex gap-3 overflow-x-auto px-1 pb-2">
+        {rows.map(({ product, quantity }, i) => (
+          <li key={product.id} className="w-[9.5rem] shrink-0 stagger-item" style={{ animationDelay: `${i * 45}ms` }}>
+            <button
+              type="button"
+              onClick={() => pick(product)}
+              className="hover-lift flex h-full w-full flex-col gap-2.5 rounded-[18px] border border-border/80 bg-surface p-3 text-left shadow-[0_8px_22px_-16px_rgb(60_40_25/0.45)]"
+            >
+              <ProductImage src={product.imageUrl} name={product.name} className="aspect-square h-auto w-full" />
               <span className="font-medium leading-snug text-text-primary">{product.name}</span>
               <span className="text-xs text-text-secondary">{hint(quantity)}</span>
-              <span className="mt-auto text-sm text-text-primary">{formatVND(product.price)}</span>
+              <span className="mt-auto text-sm font-medium text-clay">{formatVND(product.price)}</span>
             </button>
           </li>
         ))}
@@ -131,7 +141,7 @@ export function OrderComposer({ products, submitLabel, submitting, error, onSubm
       <legend className="mb-2 text-sm font-medium text-text-primary">{label}</legend>
       <div className="flex flex-wrap gap-2">
         {values.map((v) => (
-          <button key={v} type="button" aria-pressed={v === current} onClick={() => set(v)} className={`min-h-11 rounded-full border px-4 py-2 text-sm ${v === current ? "border-espresso bg-espresso text-white" : "border-border text-text-secondary"}`}>{v}{extra && <span className="ml-1.5 opacity-80">{extra(v)}</span>}</button>
+          <button key={v} type="button" aria-pressed={v === current} onClick={() => set(v)} className={chipClass(v === current, "outline")}>{v}{extra && <span className="ml-1.5 opacity-80">{extra(v)}</span>}</button>
         ))}
       </div>
     </fieldset>
@@ -142,7 +152,7 @@ export function OrderComposer({ products, submitLabel, submitting, error, onSubm
       <div>
         <div className="sticky top-0 z-20 -mx-4 mb-3 flex gap-2 overflow-x-auto bg-bg-base px-4 py-2 sm:-mx-8 sm:px-8 lg:static lg:mx-0 lg:mb-4 lg:px-0 lg:py-0 lg:pb-1" role="tablist" aria-label="Danh mục">
           {categories.map((c) => (
-            <button key={c} role="tab" aria-selected={c === category} onClick={() => setCategory(c)} className={`min-h-11 whitespace-nowrap rounded-full px-5 py-2 text-sm ${c === category ? "bg-espresso text-white" : "bg-sand text-text-secondary"}`}>{c}</button>
+            <button key={c} type="button" role="tab" aria-selected={c === category} onClick={() => setCategory(c)} className={chipClass(c === category)}>{c}</button>
           ))}
         </div>
         {category === "Tất cả" && <>
@@ -151,12 +161,21 @@ export function OrderComposer({ products, submitLabel, submitting, error, onSubm
         </>}
         {shown.length === 0 ? <EmptyState title="Chưa có món nào" /> : (
           <ul className="grid gap-3 sm:grid-cols-2">
-            {shown.map((p) => (
-              <li key={p.id}>
-                <button disabled={p.soldOut} onClick={() => pick(p)} className="flex w-full items-center gap-3 rounded-[16px] border border-border bg-surface p-3 text-left hover:border-clay active:border-clay disabled:opacity-50">
-                  <ProductImage src={p.imageUrl} name={p.name} className="h-20 w-20" />
-                  <span className="min-w-0 flex-1"><span className="block font-medium leading-snug text-text-primary">{p.name}</span>{p.description && <span className="line-clamp-1 text-xs text-text-secondary">{p.description}</span>}<span className="mt-1 block text-sm font-medium text-clay">{formatVND(p.price)}</span></span>
-                  {p.soldOut ? <StatusPill tone="danger">Hết</StatusPill> : <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-espresso text-xl text-white" aria-hidden>+</span>}
+            {shown.map((p, i) => (
+              <li key={p.id} className="stagger-item" style={{ animationDelay: `${Math.min(i, 8) * 40}ms` }}>
+                <button
+                  type="button"
+                  disabled={p.soldOut}
+                  onClick={() => pick(p)}
+                  className="hover-lift flex w-full items-center gap-3.5 rounded-[18px] border border-border/80 bg-surface p-3.5 text-left shadow-[0_10px_24px_-18px_rgb(60_40_25/0.5)] hover:border-clay disabled:opacity-50"
+                >
+                  <ProductImage src={p.imageUrl} name={p.name} className="h-[4.75rem] w-[4.75rem]" />
+                  <span className="min-w-0 flex-1">
+                    <span className="block font-medium leading-snug text-text-primary">{p.name}</span>
+                    {p.description && <span className="mt-0.5 line-clamp-2 text-xs text-text-secondary">{p.description}</span>}
+                    <span className="mt-1.5 block text-sm font-medium text-clay">{formatVND(p.price)}</span>
+                  </span>
+                  {p.soldOut ? <StatusPill tone="danger">Hết</StatusPill> : <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-espresso text-xl text-white shadow-[0_6px_14px_-6px_rgb(111_78_55/0.7)]" aria-hidden>+</span>}
                 </button>
               </li>
             ))}
@@ -196,7 +215,7 @@ export function OrderComposer({ products, submitLabel, submitting, error, onSubm
                     {picking.toppings.map((t) => {
                       const on = tops.includes(t.label)
                       return (
-                        <button key={t.id} type="button" aria-pressed={on} onClick={() => setTops(on ? tops.filter((x) => x !== t.label) : [...tops, t.label])} className={`min-h-11 rounded-full border px-4 py-2 text-sm ${on ? "border-espresso bg-espresso text-white" : "border-border text-text-secondary"}`}>
+                        <button key={t.id} type="button" aria-pressed={on} onClick={() => setTops(on ? tops.filter((x) => x !== t.label) : [...tops, t.label])} className={chipClass(on, "outline")}>
                           {on ? "✓ " : ""}{t.label}<span className="ml-1.5 opacity-80">{t.priceDelta > 0 ? `+${formatVND(t.priceDelta)}` : "miễn phí"}</span>
                         </button>
                       )

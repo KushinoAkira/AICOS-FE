@@ -150,6 +150,7 @@ export default function GuestMenu({ navigate }: { navigate: (p: Page, params?: R
         <PayGateway open={!!payingTakeaway} amount={payingTakeaway?.total ?? 0} code={payingTakeaway ? shortOrderCode(payingTakeaway.code) : ""} busy={payTakeaway.isPending} onOutcome={(o) => payTakeaway.mutate(o)} onClose={() => { setPayingTakeaway(null); navigate("customer-tracking") }} />
       </main>
       <AiChat
+        tenantCode={menu.data?.tenantSlug ?? undefined}
         branchId={branchId || null}
         branchName={menu.data?.branchName}
         menuItems={menu.data ? toAiMenuItems(menu.data.products) : undefined}

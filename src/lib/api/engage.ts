@@ -1,4 +1,4 @@
-﻿import { env } from "../../config/env"
+import { env } from "../../config/env"
 import { http } from "./http"
 import { itemsOf, num, rec, recs, str, type Raw } from "./be/util"
 import { beAiService, type AiContext, type AiMenuItem, type AiRecommendation, type FeedbackAnalysis } from "./be/ai"
@@ -19,7 +19,7 @@ export type { AiContext, AiMenuItem, AiRecommendation, FeedbackAnalysis }
 
 const mockAiApi = {
   chat: (message: string, ctx: AiContext = {}) =>
-    http.post<AiReply>("/api/v1/ai/chat", { message, history: ctx.history ?? [], tenantCode: ctx.tenantCode, branchId: ctx.branchId, menuItems: ctx.menuItems }),
+    http.post<AiReply>("/api/v1/ai/chat", { message, history: ctx.history ?? [], tenantCode: ctx.tenantCode, branchId: ctx.branchId, branchName: ctx.branchName, menuItems: ctx.menuItems }),
 }
 const mockFeedbackApi = {
   pending: () => http.get<Order[]>("/api/v1/feedback/pending"),
@@ -44,7 +44,11 @@ const beFeedbackApi: typeof mockFeedbackApi = {
   async pending() {
     const [orders, given] = await Promise.all([ordersApi.mine(), feedbackList("/orders/feedbacks/mine")])
     const rated = new Set(given.map((f) => f.orderId))
-    return orders.filter((o) => (o.status === "Served" || o.status === "PickedUp") && !rated.has(o.id))
+    return orders.filter((o) =>
+      (o.status === "Served" || o.status === "PickedUp" || !!o.completedAtUtc)
+      && o.paymentStatus === "Paid"
+      && !rated.has(o.id),
+    )
   },
   mine: () => feedbackList("/orders/feedbacks/mine"),
   branch: () => feedbackList("/orders/feedbacks"),
@@ -59,7 +63,7 @@ export const feedbackApi: typeof mockFeedbackApi = env.useMock ? mockFeedbackApi
 /** Personal recommendations (UC-54) and feedback analysis (UC-37/64) from the self-hosted models. */
 const mockAiModelsApi = {
   recommend: (history: string[], k = 5, ctx: AiContext = {}) =>
-    http.post<{ items: AiRecommendation[] }>("/api/v1/ai/recommendations", { history, k, tenantCode: ctx.tenantCode, branchId: ctx.branchId, menuItems: ctx.menuItems }).then((r) => r.items),
+    http.post<{ items: AiRecommendation[] }>("/api/v1/ai/recommendations", { history, k, tenantCode: ctx.tenantCode, branchId: ctx.branchId, branchName: ctx.branchName, menuItems: ctx.menuItems }).then((r) => r.items),
   analyzeFeedback: (texts: string[]) => http.post<FeedbackAnalysis>("/api/v1/ai/feedback/analyze", { texts }),
 }
 export const aiModelsApi: typeof mockAiModelsApi = env.useMock

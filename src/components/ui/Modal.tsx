@@ -20,12 +20,23 @@ export function Modal({ open, title, onClose, children, footer }: { open: boolea
   )
 }
 
-/** Sensitive actions: confirmation + optional mandatory reason (audit). */
-export function ConfirmDialog({ open, title, message, confirmLabel = "Xác nhận", requireReason, danger, onConfirm, onCancel, reason, onReason }: {
-  open: boolean; title: string; message: string; confirmLabel?: string; requireReason?: boolean; danger?: boolean
+/** Sensitive actions: confirmation + optional mandatory reason (audit) or typed phrase (GitHub-style). */
+export function ConfirmDialog({ open, title, message, confirmLabel = "Xác nhận", requireReason, confirmPhrase, danger, onConfirm, onCancel, reason, onReason, phrase, onPhrase }: {
+  open: boolean; title: string; message: string; confirmLabel?: string; requireReason?: boolean
+  /** Exact string the user must type to enable confirm (e.g. floor name). */
+  confirmPhrase?: string
+  danger?: boolean
   onConfirm: () => void; onCancel: () => void; reason?: string; onReason?: (v: string) => void
+  phrase?: string; onPhrase?: (v: string) => void
 }) {
-  const blocked = requireReason && !(reason ?? "").trim()
+  const reasonBlocked = requireReason && !(reason ?? "").trim()
+  const phraseBlocked = !!confirmPhrase && (phrase ?? "").trim() !== confirmPhrase
+  const blocked = reasonBlocked || phraseBlocked
+  const disabledReason = reasonBlocked
+    ? "Vui lòng nhập lý do"
+    : phraseBlocked
+      ? `Nhập đúng “${confirmPhrase}” để xác nhận`
+      : undefined
   return (
     <Modal
       open={open}
@@ -34,11 +45,26 @@ export function ConfirmDialog({ open, title, message, confirmLabel = "Xác nhậ
       footer={
         <>
           <Button variant="secondary" onClick={onCancel}>Hủy</Button>
-          <Button variant={danger ? "danger" : "primary"} disabled={blocked} disabledReason="Vui lòng nhập lý do" onClick={onConfirm}>{confirmLabel}</Button>
+          <Button variant={danger ? "danger" : "primary"} disabled={blocked} disabledReason={disabledReason} onClick={onConfirm}>{confirmLabel}</Button>
         </>
       }
     >
       <p className="text-sm text-text-secondary">{message}</p>
+      {confirmPhrase && (
+        <div className="mt-4">
+          <label className="mb-1.5 block text-sm text-text-secondary">
+            Nhập <span className="font-medium text-text-primary">{confirmPhrase}</span> để xác nhận
+          </label>
+          <input
+            aria-label="Xác nhận bằng cách nhập tên"
+            value={phrase ?? ""}
+            onChange={(e) => onPhrase?.(e.target.value)}
+            placeholder={confirmPhrase}
+            autoComplete="off"
+            className="w-full rounded-[10px] border border-border px-3 py-2 text-sm outline-none focus:border-terracotta"
+          />
+        </div>
+      )}
       {requireReason && (
         <textarea
           aria-label="Lý do"

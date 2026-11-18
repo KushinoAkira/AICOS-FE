@@ -23,12 +23,17 @@ type Failure =
   | { kind: "disabled" }
   | { kind: "unknown"; message: string }
 
-const DEMO_STAFF = [
-  { label: protectOrphans("Quản trị thương hiệu"), email: "brand@aicos.local", password: "Staff@12345" },
-  { label: protectOrphans("Quản lý chi nhánh"), email: "manager@aicos.local", password: "Staff@12345" },
-  { label: "Pha chế", email: "warehouse@aicos.local", password: "Staff@12345" },
-  { label: "Thu ngân", email: "cashier@aicos.local", password: "Staff@12345" },
-]
+/** CapheNha seed accounts — passwords from `.env.local` (`VITE_DEMO_PASSWORD`). */
+const DEMO_STAFF = () => {
+  const password = env.demoPassword
+  if (!password) return []
+  return [
+    { label: protectOrphans("Quản trị thương hiệu"), email: "owner@caphenha.local", password },
+    { label: protectOrphans("Quản lý chi nhánh"), email: "manager@caphenha.local", password },
+    { label: "Pha chế", email: "barista@caphenha.local", password },
+    { label: "Thu ngân", email: "cashier@caphenha.local", password },
+  ]
+}
 
 function classify(err: unknown): Failure {
   if (!(err instanceof ApiError)) return { kind: "unknown", message: "Đã có lỗi xảy ra" }
@@ -38,6 +43,9 @@ function classify(err: unknown): Failure {
   }
   if (err.code === "account_disabled") return { kind: "disabled" }
   if (err.status === 401) return { kind: "invalid" }
+  if (err.status === 429) {
+    return { kind: "unknown", message: "Quá nhiều lần đăng nhập. Đợi khoảng 1 phút rồi thử lại." }
+  }
   return { kind: "unknown", message: err.message }
 }
 
@@ -152,11 +160,11 @@ export default function StaffEntry({ navigate }: Props) {
         </p>
       </div>
 
-      {env.demo && (
+      {env.demo && DEMO_STAFF().length > 0 && (
         <div className="mt-8 border-t border-border pt-5">
           <p className="mb-3 text-xs font-medium uppercase tracking-wide text-text-secondary">Tài khoản demo</p>
           <div className="flex flex-wrap gap-2">
-            {DEMO_STAFF.map((a) => (
+            {DEMO_STAFF().map((a) => (
               <Button
                 key={a.email}
                 type="button"

@@ -134,6 +134,7 @@ export default function BrandMenu({ navigate }: { navigate: (p: Page) => void })
         )}
       </main>
       <AiChat
+        tenantCode={slug}
         branchId={branchId || null}
         branchName={branch?.name ?? menu.data?.branchName}
         menuItems={menu.data ? toAiMenuItems(menu.data.products) : undefined}

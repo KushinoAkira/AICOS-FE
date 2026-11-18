@@ -34,6 +34,14 @@ describe("tenantSlugFromPathname", () => {
     expect(tenantSlugFromPathname("/platform/tenants")).toBeNull()
   })
 
+  it("reads the brand slug from public /b/:brandSlug menus", () => {
+    expect(tenantSlugFromPathname("/b/caphenha")).toBe("caphenha")
+    expect(tenantSlugFromPathname("/b/trasuamay")).toBe("trasuamay")
+    expect(tenantSlugFromPathname("/b/democoffee")).toBe("democoffee")
+    expect(tenantSlugFromPathname("/b/")).toBeNull()
+    expect(tenantSlugFromPathname("/b/ab")).toBeNull()
+  })
+
   it("normalizeTenantSlug mirrors validation", () => {
     expect(normalizeTenantSlug("  CapheNha ")).toBe("caphenha")
     expect(normalizeTenantSlug("admin")).toBeNull()

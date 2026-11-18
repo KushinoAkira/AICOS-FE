@@ -10,6 +10,12 @@
   demo: import.meta.env.DEV || import.meta.env.VITE_DEMO === "true" || import.meta.env.VITE_USE_MOCK === "true",
   /** Passwords of the demo accounts, from the git-ignored .env.local. A production build drops them because this branch can never run there. */
   demoPassword: import.meta.env.DEV || import.meta.env.VITE_DEMO === "true" ? ((import.meta.env.VITE_DEMO_PASSWORD as string | undefined) ?? "") : "",
+  demoCustomerPassword:
+    import.meta.env.DEV || import.meta.env.VITE_DEMO === "true"
+      ? ((import.meta.env.VITE_DEMO_CUSTOMER_PASSWORD as string | undefined) ??
+        (import.meta.env.VITE_DEMO_PASSWORD as string | undefined) ??
+        "")
+      : "",
   demoAdminPassword: import.meta.env.DEV || import.meta.env.VITE_DEMO === "true" ? ((import.meta.env.VITE_DEMO_ADMIN_PASSWORD as string | undefined) ?? "") : "",
   /** Show the UC-xx tags on screens (traceability, never for end users). */
   showUcTags: import.meta.env.VITE_SHOW_UC_TAGS === "true",

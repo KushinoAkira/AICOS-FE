@@ -43,6 +43,7 @@ export function CustomerFrame({
   headerExtra,
   action,
   children,
+  aiTenantCode,
   aiBranchId,
   aiBranchName,
   aiMenuItems,
@@ -58,7 +59,8 @@ export function CustomerFrame({
   /** Optional header action (e.g. mark-all-read on notifications). */
   action?: ReactNode
   children: ReactNode
-  /** Branch + menu snapshot so the barista only suggests items sold here. */
+  /** Brand + branch + menu snapshot so the barista only suggests items sold here. */
+  aiTenantCode?: string | null
   aiBranchId?: string | null
   aiBranchName?: string | null
   aiMenuItems?: AiMenuItem[]
@@ -123,8 +125,13 @@ export function CustomerFrame({
   const shopLabel = brand.kind === "ready" ? brand.brand.name : null
 
   return (
-    <div data-uc={uc} className="min-h-screen bg-bg-base">
-      <header className="border-b border-border bg-surface px-4 py-3 sm:px-8">
+    <div data-uc={uc} className="relative min-h-screen bg-bg-base">
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[28rem] overflow-hidden bg-[radial-gradient(ellipse_at_20%_0%,rgb(245_232_216/0.95)_0%,transparent_55%),radial-gradient(ellipse_at_90%_10%,rgb(253_240_230/0.8)_0%,transparent_45%)]"
+      />
+      <div aria-hidden className="pointer-events-none absolute -right-24 top-28 -z-10 h-56 w-56 rounded-full bg-terracotta/10 blur-3xl" />
+      <header className="relative z-40 border-b border-border/80 bg-surface/90 px-4 py-3 backdrop-blur-sm sm:px-8">
         <div className="mx-auto flex max-w-5xl items-center justify-between gap-4">
           <button type="button" onClick={goCustomerHome} aria-label="Về khu khách của quán" className="shrink-0">
             <Logo />
@@ -138,7 +145,7 @@ export function CustomerFrame({
                   type="button"
                   aria-current={current ? "page" : undefined}
                   onClick={() => go(l)}
-                  className={`whitespace-nowrap rounded-full px-4 py-1.5 text-sm ${current ? "bg-espresso text-white" : "text-text-secondary hover:bg-sand"}`}
+                  className={`whitespace-nowrap rounded-full px-4 py-1.5 text-sm transition-all ${current ? "bg-espresso text-white shadow-[0_6px_14px_-8px_rgb(111_78_55/0.85)]" : "text-text-secondary hover:-translate-y-px hover:bg-sand hover:text-text-primary hover:shadow-[0_4px_12px_-8px_rgb(60_40_25/0.4)]"}`}
                 >
                   {l.label}
                 </button>
@@ -146,14 +153,14 @@ export function CustomerFrame({
             })}
           </nav>
           <div className="flex shrink-0 items-center gap-2">
-            {isCustomer && shopLabel && (
+            {isCustomer && (
               <button
                 type="button"
                 onClick={() => navigate("customer-shops")}
-                className="hidden max-w-[10rem] truncate rounded-full border border-border px-3 py-1.5 text-xs text-text-secondary hover:bg-sand sm:block"
-                title="Đổi quán"
+                className="hidden rounded-full border border-border px-3 py-1.5 text-xs text-text-secondary hover:bg-sand sm:block"
+                title={shopLabel ? `Đang xem ${shopLabel}` : "Đổi quán"}
               >
-                {shopLabel}
+                Đổi quán
               </button>
             )}
             {isCustomer ? (
@@ -168,7 +175,7 @@ export function CustomerFrame({
         </div>
         {headerExtra && <div className="mx-auto mt-3 max-w-5xl">{headerExtra}</div>}
       </header>
-      <main className="mx-auto max-w-5xl px-4 py-6 sm:px-8 sm:py-8">
+      <main className="relative z-0 mx-auto max-w-5xl px-4 py-6 sm:px-8 sm:py-8">
         {(!hideTitle && title || action) && (
           <div className="mb-2 flex flex-wrap items-start justify-between gap-3">
             {!hideTitle && title && <h1 className="type-title text-3xl text-text-primary">{title}</h1>}
@@ -178,7 +185,7 @@ export function CustomerFrame({
         {subtitle && <div className="type-body mb-7 text-text-secondary">{subtitle}</div>}
         {children}
       </main>
-      <AiChat branchId={aiBranchId} branchName={aiBranchName} menuItems={aiMenuItems} history={aiHistory} />
+      <AiChat tenantCode={aiTenantCode ?? getActiveBrandSlug()} branchId={aiBranchId} branchName={aiBranchName} menuItems={aiMenuItems} history={aiHistory} />
     </div>
   )
 }

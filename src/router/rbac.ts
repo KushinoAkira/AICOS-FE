@@ -142,6 +142,8 @@ export function loginPageFor(page: Page): Page {
 /**
  * Auth entry pages a signed-in user should not see again (bounced to their home).
  * Landing stays reachable so `/` always opens the marketing home, even when a customer session exists.
+ * `staff-entry` / `login` / `admin-login` are handled separately in App.guard so customer sessions
+ * can still open shop / platform login to switch accounts.
  *
  * Note: readable URLs under `/{slug}/...` are intentional. Authorization is enforced by
  * `canAccess` + the App guard (and by the API). Obfuscating paths is not access control.

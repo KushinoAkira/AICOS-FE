@@ -23,11 +23,11 @@ export function BrandGate({ children }: { children: ReactNode }) {
         <div className="mb-6 flex justify-center"><Logo /></div>
         {message ? (
           <>
-            <h1 className="font-serif text-2xl text-text-primary">{message.title}</h1>
-            <p className="mt-2 text-sm text-text-secondary">{message.body}</p>
+            <h1 className="type-title text-2xl text-text-primary">{message.title}</h1>
+            <p className="type-body mt-3 text-text-secondary">{message.body}</p>
             <div className="mt-6 flex flex-col items-center gap-3">
               <Link to={PAGE_PATHS["staff-entry"]}>
-                <Button>Chọn lại thương hiệu</Button>
+                <Button>Đăng nhập nhân viên</Button>
               </Link>
               <Link to={PAGE_PATHS.landing} className="text-xs text-text-secondary hover:text-espresso">
                 ← Về trang chủ AICOS

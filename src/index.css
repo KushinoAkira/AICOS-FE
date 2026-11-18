@@ -15,6 +15,7 @@
   --color-olive: #7A8450;
   --color-olive-bg: #EAEDE0;
   --color-border: #E6DCCB;
+  --color-border-strong: #D6C5B3;
   --color-state-success: #5C7A52;
   --color-state-warning: #B98A3D;
   --color-state-danger: #A6534B;
@@ -22,12 +23,124 @@
   --color-danger-bg: #FAE8E6;
   --color-success-bg: #EAEDE0;
   --color-sand: #F5E8D8;
+  --color-ink: #241610;
+  --color-ink-lift: #3A2418;
+  --color-on-dark: #F6EBDC;
+  --color-on-dark-muted: #E3D2BB;
+  --color-on-dark-soft: #CDB9A0;
+  --color-on-espresso: #FAF6F0;
   --radius-card: 16px;
   --radius-control: 10px;
 
   /* Inter — never Times/Georgia/serif: those split Vietnamese diacritics. */
   --font-serif: "Literata", "Inter", system-ui, sans-serif;
   --font-sans: "Inter", system-ui, sans-serif;
+}
+
+/* Shared inputs/selects — warm paper, clearer edge than flat white+hairline */
+.aicos-control {
+  appearance: none;
+  border-radius: 12px;
+  border: 1.5px solid var(--color-border-strong);
+  background-color: #FFFCFA;
+  background-image: linear-gradient(180deg, #FFFFFF 0%, #FBF6EF 100%);
+  color: var(--color-text-primary);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.85), 0 1px 2px rgb(60 40 25 / 0.05);
+  transition: border-color 160ms ease, box-shadow 160ms ease;
+}
+.aicos-control:hover:not(:disabled):not(:focus) {
+  border-color: #C9B59A;
+}
+.aicos-control:focus,
+.aicos-control:focus-visible {
+  outline: none;
+  border-color: var(--color-terracotta);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.85), 0 0 0 3px rgb(201 123 74 / 0.22);
+}
+.aicos-control:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+  background: var(--color-sand);
+  background-image: none;
+}
+.aicos-control-select {
+  cursor: pointer;
+  padding-right: 2.4rem;
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--color-clay) 50%),
+    linear-gradient(135deg, var(--color-clay) 50%, transparent 50%),
+    linear-gradient(180deg, #FFFFFF 0%, #FBF6EF 100%);
+  background-position:
+    calc(100% - 18px) calc(50% - 2px),
+    calc(100% - 12px) calc(50% - 2px),
+    0 0;
+  background-size: 6px 6px, 6px 6px, 100% 100%;
+  background-repeat: no-repeat;
+}
+.aicos-control-select:focus,
+.aicos-control-select:focus-visible {
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--color-clay) 50%),
+    linear-gradient(135deg, var(--color-clay) 50%, transparent 50%),
+    linear-gradient(180deg, #FFFFFF 0%, #FBF6EF 100%);
+}
+
+/* Pill / chip selectors (category, size, day, filters) */
+.aicos-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.75rem;
+  white-space: nowrap;
+  border-radius: 9999px;
+  padding: 0.5rem 1.25rem;
+  font-size: 0.875rem;
+  line-height: 1.25;
+  border: 1.5px solid transparent;
+  transition: background-color 160ms ease, color 160ms ease, border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+}
+.aicos-chip-idle {
+  background: var(--color-sand);
+  color: var(--color-text-secondary);
+}
+.aicos-chip-idle:hover {
+  background: #E8D9C4;
+  color: var(--color-text-primary);
+  border-color: var(--color-border-strong);
+  box-shadow: 0 6px 14px -10px rgb(60 40 25 / 0.45);
+  transform: translateY(-1px);
+}
+.aicos-chip-outline {
+  background: #FFFCFA;
+  color: var(--color-text-secondary);
+  border-color: var(--color-border);
+}
+.aicos-chip-outline:hover {
+  background: var(--color-sand);
+  color: var(--color-text-primary);
+  border-color: var(--color-clay);
+  box-shadow: 0 6px 14px -10px rgb(60 40 25 / 0.4);
+  transform: translateY(-1px);
+}
+.aicos-chip-on {
+  background: var(--color-espresso);
+  color: #fff;
+  border-color: var(--color-espresso);
+  box-shadow: 0 8px 16px -10px rgb(111 78 55 / 0.9);
+}
+.aicos-chip-on:hover {
+  background: #5E422E;
+  border-color: #5E422E;
+  transform: translateY(-1px);
+}
+@media (prefers-reduced-motion: reduce) {
+  .aicos-chip,
+  .aicos-chip-idle:hover,
+  .aicos-chip-outline:hover,
+  .aicos-chip-on:hover {
+    transition: none;
+    transform: none;
+  }
 }
 
 *, *::before, *::after {
@@ -38,8 +151,12 @@ html {
   font-family: "Inter", system-ui, sans-serif;
   background-color: #FAF6F0;
   color: #3A2E22;
-  line-height: 1.5;
+  font-size: 16px;
+  line-height: 1.6;
+  letter-spacing: -0.011em;
+  text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 body {
@@ -47,13 +164,68 @@ body {
   min-height: 100vh;
 }
 
+/* Shared type scale — Literata for display; Inter for UI. Leading stays open for Vietnamese marks. */
+.font-serif {
+  font-family: "Literata", "Inter", system-ui, sans-serif;
+  letter-spacing: -0.018em;
+  font-feature-settings: "kern" 1, "liga" 1;
+}
+.font-sans {
+  font-family: "Inter", system-ui, sans-serif;
+  letter-spacing: -0.011em;
+}
+
+.type-display {
+  font-family: "Literata", "Inter", system-ui, sans-serif;
+  font-weight: 600;
+  letter-spacing: -0.028em;
+  line-height: 1.18;
+  text-wrap: balance;
+}
+.type-title {
+  font-family: "Literata", "Inter", system-ui, sans-serif;
+  font-weight: 600;
+  letter-spacing: -0.022em;
+  line-height: 1.25;
+  text-wrap: balance;
+}
+.type-lead {
+  font-family: "Inter", system-ui, sans-serif;
+  font-size: 1.125rem;
+  font-weight: 400;
+  line-height: 1.7;
+  letter-spacing: -0.01em;
+}
+.type-body {
+  font-family: "Inter", system-ui, sans-serif;
+  font-size: 0.9375rem;
+  font-weight: 400;
+  line-height: 1.7;
+}
+.type-muted {
+  font-family: "Inter", system-ui, sans-serif;
+  font-size: 0.875rem;
+  font-weight: 400;
+  line-height: 1.65;
+  color: var(--color-text-secondary);
+}
+.type-eyebrow {
+  font-family: "Inter", system-ui, sans-serif;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  line-height: 1.4;
+}
+
+h1, h2, h3, h4 {
+  text-wrap: balance;
+}
+
 ::-webkit-scrollbar { width: 4px; height: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: #E6DCCB; border-radius: 999px; }
 ::-webkit-scrollbar-thumb:hover { background: #C97B4A; }
-
-.font-serif { font-family: "Literata", "Inter", system-ui, sans-serif; }
-.font-sans  { font-family: "Inter", system-ui, sans-serif; }
 
 @keyframes pulse-dot {
   0%, 100% { opacity: 1; transform: scale(1); }
@@ -64,6 +236,15 @@ body {
   50%  { transform: translateY(-6px) scaleX(1.15); opacity: 0.4; }
   100% { transform: translateY(-12px) scaleX(0.9); opacity: 0; }
 }
+/* Product placeholder steam — stronger rise so it reads on small cup icons */
+@keyframes cup-steam {
+  0%   { transform: translateY(6px); opacity: 0; }
+  28%  { opacity: 0.9; }
+  100% { transform: translateY(-14px); opacity: 0; }
+}
+.cup-steam { animation: cup-steam 2.6s ease-in-out infinite; }
+.cup-steam-2 { animation: cup-steam 2.6s ease-in-out 0.85s infinite; }
+.cup-steam-3 { animation: cup-steam 2.6s ease-in-out 1.7s infinite; }
 @keyframes fade-in {
   /* Opacity only: a lingering transform would become the containing block of every
      position:fixed descendant (chat button, modals) and make them scroll with the page. */
@@ -152,11 +333,14 @@ button:active { transform: scale(0.98); }
 /* Accessibility: disable non-essential motion */
 @media (prefers-reduced-motion: reduce) {
   .stagger-item, .skeleton, .toast-enter, .toast-exit,
-  .cart-bounce, .badge-pop, .modal-enter, .modal-exit {
+  .cart-bounce, .badge-pop, .modal-enter, .modal-exit,
+  .animate-steam, .animate-steam-delay, .animate-pulse-dot, .animate-fade-in,
+  .cup-steam, .cup-steam-2, .cup-steam-3 {
     animation: none !important;
     transition: none !important;
   }
   .stagger-item { opacity: 1; transform: none; }
+  .animate-steam, .animate-steam-delay, .cup-steam, .cup-steam-2, .cup-steam-3 { opacity: 0.55; }
 }
 
 /* ── Public site motion ── */
@@ -174,4 +358,61 @@ button:active { transform: scale(0.98); }
   .reveal { opacity: 1; transform: none; transition: none; }
   .kenburns, .animate-float, .rise-in { animation: none !important; }
   .hover-lift, .hover-lift:hover { transition: none; transform: none; }
+}
+
+/* ── Customer home (mockup: Trang chủ khách hàng) ── */
+@keyframes ch-steam {
+  0% { transform: translateY(14px); opacity: 0; }
+  30% { opacity: 0.9; }
+  100% { transform: translateY(-34px); opacity: 0; }
+}
+@keyframes ch-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-12px); }
+}
+@keyframes ch-marq {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+@keyframes ch-pulse-ring {
+  0% { box-shadow: 0 0 0 0 rgba(217, 139, 84, 0.55); }
+  100% { box-shadow: 0 0 0 16px rgba(217, 139, 84, 0); }
+}
+.ch-steam { animation: ch-steam 3.2s ease-in-out infinite; }
+.ch-steam-2 { animation: ch-steam 3.2s ease-in-out 1s infinite; }
+.ch-steam-3 { animation: ch-steam 3.2s ease-in-out 2s infinite; }
+.ch-float-1 { animation: ch-float 6s ease-in-out infinite; }
+.ch-float-2 { animation: ch-float 7s ease-in-out 1.2s infinite; }
+.ch-float-3 { animation: ch-float 8s ease-in-out 0.6s infinite; }
+.ch-marq { animation: ch-marq 32s linear infinite; width: max-content; }
+.ch-pulse { animation: ch-pulse-ring 1.8s ease-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .ch-steam, .ch-steam-2, .ch-steam-3, .ch-float-1, .ch-float-2, .ch-float-3, .ch-marq, .ch-pulse {
+    animation: none !important;
+  }
+}
+
+/* ── Shop picker (customer brand pick after login) ── */
+@keyframes shop-rise {
+  from { opacity: 0; transform: translateY(26px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes shop-drift {
+  0%, 100% { transform: translate(0, 0); }
+  50% { transform: translate(18px, -22px); }
+}
+.shop-rise { animation: shop-rise 0.7s ease both; }
+.shop-rise-d2 { animation-delay: 0.18s; }
+.shop-rise-d3 { animation-delay: 0.28s; }
+.shop-rise-d4 { animation-delay: 0.38s; }
+.shop-drift { animation: shop-drift 14s ease-in-out infinite; }
+.shop-card { transition: transform 0.3s ease, box-shadow 0.3s ease; }
+.shop-card:hover { transform: translateY(-8px) rotate(-0.4deg); box-shadow: 0 40px 80px rgba(0, 0, 0, 0.5); }
+.shop-card .shop-arrow { transition: transform 0.3s ease; }
+.shop-card:hover .shop-arrow { transform: translateX(6px); }
+.shop-card .shop-letter { transition: transform 0.5s ease; }
+.shop-card:hover .shop-letter { transform: scale(1.08) rotate(-4deg); }
+@media (prefers-reduced-motion: reduce) {
+  .shop-rise, .shop-drift { animation: none !important; }
+  .shop-card, .shop-card:hover { transition: none; transform: none; }
 }

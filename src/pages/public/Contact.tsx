@@ -1,4 +1,5 @@
 import { useState } from "react"
+import { useSearchParams } from "react-router"
 import { useMutation } from "@tanstack/react-query"
 import type { Page } from "../../App"
 import { PublicPage } from "../../components/PublicChrome"
@@ -8,6 +9,7 @@ import { publicApi, type ContactInput } from "../../lib/api/platform"
 import { CONTACT } from "../../lib/siteInfo"
 
 const TOPICS: { id: ContactInput["topic"]; label: string }[] = [
+  { id: "consult", label: "Cần tư vấn chọn gói" },
   { id: "demo", label: "Đặt lịch xem demo" },
   { id: "pricing", label: "Hỏi về bảng giá" },
   { id: "support", label: "Cần hỗ trợ kỹ thuật" },
@@ -17,7 +19,12 @@ const TOPICS: { id: ContactInput["topic"]; label: string }[] = [
 const EMPTY: ContactInput = { name: "", email: "", phone: "", topic: "demo", message: "" }
 
 export default function Contact({ navigate }: { navigate: (p: Page) => void }) {
-  const [form, setForm] = useState<ContactInput>(EMPTY)
+  const [params] = useSearchParams()
+  const [form, setForm] = useState<ContactInput>(() => {
+    const topic = TOPICS.find((t) => t.id === params.get("topic"))?.id ?? EMPTY.topic
+    const plan = params.get("plan")
+    return { ...EMPTY, topic, message: plan ? `Tôi muốn được tư vấn về gói ${plan}. Quán của tôi có … chi nhánh.` : "" }
+  })
   const [errors, setErrors] = useState<Partial<Record<keyof ContactInput, string>>>({})
   const [sent, setSent] = useState(false)
   const set = <K extends keyof ContactInput>(k: K, v: ContactInput[K]) => setForm((f) => ({ ...f, [k]: v }))
@@ -40,15 +47,15 @@ export default function Contact({ navigate }: { navigate: (p: Page) => void }) {
   return (
     <PublicPage navigate={navigate} uc="UC-05">
       <div className="mx-auto max-w-6xl px-4 py-12 sm:px-8">
-        <h1 className="font-serif text-4xl">Liên hệ AICOS</h1>
-        <p className="mt-2 max-w-2xl text-text-secondary">Muốn xem demo, hỏi về bảng giá hay cần hỗ trợ? Gửi lời nhắn cho chúng tôi. {CONTACT.responseTime}</p>
+        <h1 className="type-title text-4xl text-text-primary">Liên hệ AICOS</h1>
+        <p className="type-lead mt-4 max-w-2xl text-text-secondary">Muốn xem demo, hỏi về bảng giá hay cần hỗ trợ? Gửi lời nhắn cho chúng tôi. {CONTACT.responseTime}</p>
 
         <div className="mt-10 grid gap-8 lg:grid-cols-[1fr_340px]">
           <section aria-label="Biểu mẫu liên hệ" className="rounded-[16px] border border-border bg-surface p-6">
             {sent ? (
               <div role="status" className="py-8 text-center">
-                <h2 className="font-serif text-2xl">Đã nhận lời nhắn</h2>
-                <p className="mt-2 text-text-secondary">Cảm ơn bạn. Chúng tôi sẽ trả lời qua email trong vòng 1 ngày làm việc.</p>
+                <h2 className="type-title text-2xl text-text-primary">Đã nhận lời nhắn</h2>
+                <p className="type-body mt-3 text-text-secondary">Cảm ơn bạn. Chúng tôi sẽ trả lời qua email trong vòng 1 ngày làm việc.</p>
                 <Button variant="secondary" className="mt-6" onClick={() => setSent(false)}>Gửi lời nhắn khác</Button>
               </div>
             ) : (

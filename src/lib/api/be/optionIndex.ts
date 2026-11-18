@@ -23,7 +23,7 @@ export const optionOf = (id: string) => optionById.get(id)
 
 /** The option ids of a cart line, so the server prices the size that was chosen. A label the menu no longer offers is refused instead of being dropped silently. */
 export function optionIdsOf(l: LineInput): string[] {
-  const chosen: [string, string][] = [["size", l.size], ["sugar", l.sugar], ["ice", l.ice]]
+  const chosen: [string, string][] = [["size", l.size], ["sugar", l.sugar], ["ice", l.ice], ...(l.toppings ?? []).map((t): [string, string] => ["topping", t])]
   return chosen.filter(([, label]) => label).map(([kind, label]) => {
     const id = optionIdByLabel.get(`${l.productId}|${kind}|${label}`)
     if (!id) throw new ApiError(422, `Lựa chọn "${label}" không còn trong thực đơn. Hãy tải lại trang rồi chọn lại.`, "option_unknown")

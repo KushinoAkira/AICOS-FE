@@ -65,10 +65,14 @@ export function validateTenantSlug(raw: string): { ok: true; slug: string } | { 
 }
 
 /**
- * First path segment when it looks like a tenant slug (not a reserved platform segment).
- * Used to sync active brand from `/{slug}/...` URLs.
+ * Tenant slug from the URL when the path is brand-scoped.
+ * - `/{slug}/...` (customer / staff surfaces)
+ * - `/b/{slug}` public brand menu (first segment is reserved `b`, slug is second)
+ *
+ * Used to sync active brand so AI + X-Tenant never keep a previous shop's code.
  */
 export function tenantSlugFromPathname(pathname: string): string | null {
-  const seg = pathname.replace(/\/+$/, "").split("/").filter(Boolean)[0]
-  return normalizeTenantSlug(seg ?? null)
+  const parts = pathname.replace(/\/+$/, "").split("/").filter(Boolean)
+  if (parts[0] === "b" && parts[1]) return normalizeTenantSlug(parts[1])
+  return normalizeTenantSlug(parts[0] ?? null)
 }

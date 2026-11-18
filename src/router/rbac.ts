@@ -75,6 +75,7 @@ export const PAGE_ACCESS: Record<Page, Access> = {
   "branch-floor-plan": BM,
   "branch-pickup": BM,
   "branch-orders": BM,
+  "branch-refunds": BM,
   "branch-attendance": BM,
   "branch-cash-closings": BM,
 
@@ -88,6 +89,7 @@ export const PAGE_ACCESS: Record<Page, Access> = {
   "admin-users": BA,
   "brand-pickup": BA,
   "brand-promotions": BA,
+  "brand-apriori": BA,
   "brand-loyalty": BA,
   "brand-subscription": BA,
   "brand-cancel-policy": BA,
@@ -103,6 +105,7 @@ export const PAGE_ACCESS: Record<Page, Access> = {
   "platform-health": SA,
   "platform-revenue": SA,
   "platform-audit": SA,
+  "platform-leads": SA,
 }
 
 /** Landing page after login, per role. */
@@ -139,6 +142,8 @@ export function loginPageFor(page: Page): Page {
 /**
  * Auth entry pages a signed-in user should not see again (bounced to their home).
  * Landing stays reachable so `/` always opens the marketing home, even when a customer session exists.
+ * `staff-entry` / `login` / `admin-login` are handled separately in App.guard so customer sessions
+ * can still open shop / platform login to switch accounts.
  *
  * Note: readable URLs under `/{slug}/...` are intentional. Authorization is enforced by
  * `canAccess` + the App guard (and by the API). Obfuscating paths is not access control.

@@ -4,7 +4,7 @@ import type { Page } from "../../App"
 import { CustomerFrame } from "../../components/CustomerFrame"
 import { OrderComposer } from "../../components/OrderComposer"
 import { PayGateway } from "../../components/PayGateway"
-import { Banner, ErrorState, LoadingState } from "../../components/ui"
+import { Banner, Button, EmptyState, ErrorState, LoadingState } from "../../components/ui"
 import { useToast } from "../../context/ToastContext"
 import { branchesApi } from "../../lib/api/identity"
 import { customerApi } from "../../lib/api/customer"
@@ -19,6 +19,7 @@ import { currentBrandSlug } from "../../lib/brand"
 import { defaultBranch, rememberBranch, rememberedBranch } from "../../lib/takeawayBranch"
 import { BranchPicker } from "../../components/BranchPicker"
 import { clearDraft, draftFor, draftToCart } from "../../lib/orderDraft"
+import { toAiMenuItems } from "../../lib/aiMenu"
 
 /** Demo branch of the mock data, preselected there. With the real API the customer's last choice (or the first branch) is. */
 const MOCK_BRANCH_ID = "00000000-0000-0000-0000-000000000b01"
@@ -27,14 +28,19 @@ const MOCK_BRANCH_ID = "00000000-0000-0000-0000-000000000b01"
 export default function CustomerTakeaway({ navigate }: { navigate: (p: Page) => void }) {
   const qc = useQueryClient()
   const { showToast } = useToast()
-  const branches = useQuery({ queryKey: ["takeaway", "branches"], queryFn: () => branchesApi.listActive() })
   const brand = currentBrandSlug()
+  const branches = useQuery({
+    queryKey: ["takeaway", "branches", brand],
+    queryFn: () => branchesApi.listActiveOf(brand!),
+    enabled: !!brand,
+  })
   // Drinks chosen on the public brand page before signing in come back here, at the branch picked there.
   const [draft] = useState(() => draftFor(brand))
   useEffect(() => { if (draft) clearDraft() }, [draft])
   const [chosen, setChosen] = useState<string | null>(() => draft?.branchId ?? null)
   const list = branches.data ?? []
-  const branch = list.find((b) => b.id === chosen) ?? defaultBranch(list, rememberedBranch(brand), MOCK_BRANCH_ID)
+  const preferredFallback = brand === "caphenha" ? MOCK_BRANCH_ID : list[0]?.id
+  const branch = list.find((b) => b.id === chosen) ?? defaultBranch(list, rememberedBranch(brand), preferredFallback)
   const BRANCH_ID = branch?.id ?? ""
   const menu = useQuery({ queryKey: ["takeaway", "menu", BRANCH_ID], queryFn: () => ordersApi.takeawayMenu(BRANCH_ID), enabled: !!BRANCH_ID })
   const restored = draft && draft.branchId === BRANCH_ID && menu.data ? draftToCart(draft.lines, menu.data.products) : null
@@ -75,10 +81,26 @@ export default function CustomerTakeaway({ navigate }: { navigate: (p: Page) => 
   })
 
   return (
-    <CustomerFrame page="customer-menu" navigate={navigate} uc="UC-33" title="Đặt mang đi">
-      {branches.isError && <ErrorState description={branches.error.message} onRetry={() => void branches.refetch()} />}
-      {branches.data?.length === 0 && <ErrorState description="Thương hiệu chưa có chi nhánh nào nhận đơn mang đi." />}
-      {(branches.isPending || (!!BRANCH_ID && (menu.isPending || pickup.loading))) && <LoadingState />}
+    <CustomerFrame
+      page="customer-menu"
+      navigate={navigate}
+      uc="UC-33"
+      title="Đặt mang đi"
+      aiTenantCode={brand}
+      aiBranchId={BRANCH_ID || null}
+      aiBranchName={branch?.name ?? menu.data?.branchName}
+      aiMenuItems={menu.data ? toAiMenuItems(menu.data.products) : undefined}
+    >
+      {!brand && (
+        <EmptyState
+          title="Chưa chọn quán"
+          description="Chọn quán trước khi đặt mang đi."
+          action={<Button onClick={() => navigate("customer-brands")}>Chọn quán</Button>}
+        />
+      )}
+      {brand && branches.isError && <ErrorState description={branches.error.message} onRetry={() => void branches.refetch()} />}
+      {brand && branches.data?.length === 0 && <ErrorState description="Thương hiệu chưa có chi nhánh nào nhận đơn mang đi." />}
+      {brand && (branches.isPending || (!!BRANCH_ID && (menu.isPending || pickup.loading))) && <LoadingState />}
       {menu.isError && <ErrorState description={menu.error.message} onRetry={() => void menu.refetch()} />}
       {branch && <BranchPicker branches={list} value={BRANCH_ID} onChange={pickBranch} />}
       {menu.data && pickup.ready && (
@@ -86,7 +108,7 @@ export default function CustomerTakeaway({ navigate }: { navigate: (p: Page) => 
           {pickup.picker(`Giờ nhận hàng · ${branch?.name || menu.data.branchName}`)}
           {restored && restored.dropped > 0 && <div className="mb-4"><Banner tone="warn">{restored.dropped} món bạn chọn trước đó đã hết hoặc không còn ở chi nhánh này nên chưa được thêm vào giỏ.</Banner></div>}
           <OrderComposer key={BRANCH_ID} initialCart={restored?.cart} products={menu.data.products} recommendations={picks.data} submitLabel="Đặt và thanh toán" submitting={place.isPending} error={pickup.problem ?? error} onSubmit={(l, code) => { if (pickup.problem) return setError(pickup.problem); setError(null); place.mutate({ lines: l, code }) }}
-            voucher={env.useMock || featureFlags.voucherAtTakeaway ? { suggestions, hint: "Giảm giá được trừ khi đặt đơn, trước bước thanh toán." } : undefined} />
+            voucher={env.useMock || featureFlags.voucherAtTakeaway ? { suggestions, preview: (code, amount) => ordersApi.previewVoucher(code, amount, BRANCH_ID), hint: "Giảm giá được trừ khi đặt đơn, trước bước thanh toán." } : undefined} />
         </>
       )}
       <PayGateway open={!!paying} amount={paying?.total ?? 0} code={paying ? shortOrderCode(paying.code) : ""} busy={pay.isPending} onOutcome={(o) => pay.mutate(o)} onClose={() => { setPaying(null); navigate("customer-tracking") }} />

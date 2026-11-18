@@ -42,7 +42,18 @@ export function CartPanel({ cart, setCart, total, submitLabel, submitting, error
     <div className="flex h-full flex-col">
       {tabs && (
         <div role="tablist" className="mb-4 flex gap-4 border-b border-border">
-          {TABS.map(([k, label]) => <button key={k} role="tab" aria-selected={tab === k} onClick={() => setTab(k)} className={`-mb-px border-b-2 pb-2 text-sm ${tab === k ? "border-terracotta font-medium text-text-primary" : "border-transparent text-text-secondary"}`}>{label}</button>)}
+          {TABS.map(([k, label]) => (
+            <button
+              key={k}
+              type="button"
+              role="tab"
+              aria-selected={tab === k}
+              onClick={() => setTab(k)}
+              className={`-mb-px border-b-2 pb-2 text-sm transition-colors ${tab === k ? "border-terracotta font-medium text-text-primary" : "border-transparent text-text-secondary hover:border-border-strong hover:text-text-primary"}`}
+            >
+              {label}
+            </button>
+          ))}
         </div>
       )}
       {tab === "ordered" && tabs ? <div className="flex-1 overflow-y-auto">{tabs.ordered}</div>
@@ -60,7 +71,7 @@ export function CartPanel({ cart, setCart, total, submitLabel, submitting, error
                   {cart.map((l, i) => (
                     <li key={i} className="py-3 text-sm">
                       <div className="flex items-start justify-between gap-2">
-                        <span><span className="font-medium text-text-primary">{l.name}</span><br /><span className="text-xs text-text-secondary">{[l.size, l.sugar && `đường ${l.sugar}`, l.ice, l.note].filter(Boolean).join(" · ")}</span></span>
+                        <span><span className="font-medium text-text-primary">{l.name}</span><br /><span className="text-xs text-text-secondary">{[l.size, ...(l.toppings ?? []).map((t) => `+${t}`), l.sugar && `đường ${l.sugar}`, l.ice, l.note].filter(Boolean).join(" · ")}</span></span>
                         <span className="font-medium text-text-primary">{formatVND(l.unit * l.qty)}</span>
                       </div>
                       <div className="mt-2 flex items-center gap-2">

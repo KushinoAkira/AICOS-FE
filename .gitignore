@@ -27,3 +27,4 @@ ExtentionProject(donotpush)/
 exports/
 
 .firebase/
+.codegraph/

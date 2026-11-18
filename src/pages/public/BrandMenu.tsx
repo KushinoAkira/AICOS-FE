@@ -14,6 +14,7 @@ import { ordersApi, type LineInput } from "../../lib/api/orders"
 import { publicApi } from "../../lib/api/platform"
 import { peekDraft, saveDraft } from "../../lib/orderDraft"
 import { defaultBranch, rememberBranch, rememberedBranch } from "../../lib/takeawayBranch"
+import { toAiMenuItems } from "../../lib/aiMenu"
 
 /**
  * Public menu of one brand, `/b/:brandSlug`: anyone can see the branches and their drinks and fill a cart (size, sugar, ice, note).
@@ -97,7 +98,7 @@ export default function BrandMenu({ navigate }: { navigate: (p: Page) => void })
                 ? <img src={brand.data.logoUrl} alt="" className="h-14 w-14 shrink-0 rounded-[14px] object-contain" />
                 : <span aria-hidden className="flex h-14 w-14 shrink-0 items-center justify-center rounded-[14px] font-serif text-2xl text-white" style={{ backgroundColor: brand.data.brandColor ?? "#C97B4A" }}>{brand.data.name.charAt(0).toUpperCase()}</span>}
               <div className="min-w-0">
-                <h1 className="font-serif text-3xl text-text-primary">{brand.data.name}</h1>
+                <h1 className="type-title text-3xl text-text-primary">{brand.data.name}</h1>
                 <p className="text-sm text-text-secondary">Chọn chi nhánh và món bạn muốn uống. {isCustomer ? "Bước sau là chọn giờ nhận và thanh toán." : "Đăng nhập khi đặt hàng để chọn giờ nhận, thanh toán và tích điểm."}</p>
               </div>
             </section>
@@ -132,7 +133,12 @@ export default function BrandMenu({ navigate }: { navigate: (p: Page) => void })
           </>
         )}
       </main>
-      <AiChat />
+      <AiChat
+        tenantCode={slug}
+        branchId={branchId || null}
+        branchName={branch?.name ?? menu.data?.branchName}
+        menuItems={menu.data ? toAiMenuItems(menu.data.products) : undefined}
+      />
     </div>
   )
 }

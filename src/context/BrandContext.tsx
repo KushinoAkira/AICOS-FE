@@ -28,6 +28,7 @@ function slugForChrome(pathname: string, pathSlug: string | null, storedSlug: st
   // Guest QR, shop picker, and staff pages outside `/{slug}` (e.g. account-settings) keep the session brand.
   if (
     pathname.startsWith("/t/")
+    || pathname.startsWith("/b/")
     || pathname === "/shops"
     || pathname.startsWith("/shops/")
     || pathname === "/brands"

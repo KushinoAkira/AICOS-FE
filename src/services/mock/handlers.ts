@@ -80,12 +80,31 @@ async function handleLogin(request: Request, mode: LoginMode) {
     found = db.users.find((u) => u.email === login && (u.role === "SystemAdmin" || u.role === "SuperAdmin"))
   } else if (tenantSlug) {
     found = db.findUserByEmailInTenant(login, tenantSlug)
+    // Customer portal posts to /identity/auth/login; X-Tenant may still be set from a chosen shop.
+    // Fall back to platform Customer so brand selection does not block customer sign-in.
+    if (!found && mode.kind === "legacy") {
+      const platformUser = db.findUserByEmailInTenant(login, null)
+      if (platformUser?.role === "Customer") found = platformUser
+    }
   } else {
-    // Legacy platform login without tenant: Super Admin or Customer only.
+    // No brand picker: resolve by email alone (real BE emails are unique). Prefer platform
+    // Customer/Admin; otherwise staff — when demo duplicates exist, prefer `caphenha`.
     found = db.findUserByEmailInTenant(login, null)
+    if (!found) {
+      const staffHits = db.users.filter((u) => u.email === login && !!db.tenantSlugOfUserId[u.id])
+      found =
+        staffHits.find((u) => db.tenantSlugOfUserId[u.id] === "caphenha") ??
+        staffHits[0]
+    }
   }
 
-  const expectedPwd = found ? db.passwords[db.passwordKey(tenantSlugOf(found) ?? (mode.kind === "admin" ? "platform" : tenantSlug), found.email)] : undefined
+  // Customer passwords are always under `platform:`; staff under their tenant slug.
+  const pwdScope = !found
+    ? null
+    : found.role === "Customer" || found.role === "SystemAdmin" || found.role === "SuperAdmin"
+      ? "platform"
+      : (tenantSlugOf(found) ?? (mode.kind === "admin" ? "platform" : tenantSlug))
+  const expectedPwd = found && pwdScope != null ? db.passwords[db.passwordKey(pwdScope, found.email)] : undefined
   if (!found || expectedPwd !== body.password) {
     state.count += 1
     if (state.count >= MAX_ATTEMPTS) {
@@ -212,11 +231,29 @@ export const handlers = [
     problem(422, "Đăng nhập Google không có trong bản demo.", { code: "auth.google_not_configured" })),
 
   http.get("*/api/v1/identity/branches/active", ({ request }) => {
+    const url = new URL(request.url)
+    const tenantCode =
+      url.searchParams.get("tenantCode")?.trim()
+      || request.headers.get("x-tenant")?.trim()
+      || null
+    const actor = userFromRequest(request)
+
+    // Public / customer takeaway: Active branches of one brand (no staff JWT required).
+    if (!actor || actor.role === "Customer") {
+      const slug = tenantCode
+      if (!slug) {
+        return actor
+          ? problem(422, "Chọn quán trước khi xem chi nhánh", { code: "brand_required" })
+          : problem(401, "Bạn cần đăng nhập", { code: "unauthorized" })
+      }
+      const ids = new Set(db.branchesOfTenant[slug] ?? [])
+      return ok(db.branches.filter((b) => b.status === "Active" && ids.has(b.id)))
+    }
+
     // Floor staff may read their own branch (label in sidebar); Brand Admin sees all of the tenant.
     const denied = denyUnless(request, [...BRAND_STAFF, ...FLOOR_STAFF])
     if (denied) return denied
-    const actor = userFromRequest(request)!
-    const slug = tenantSlugOf(actor)
+    const slug = tenantSlugOf(actor) ?? tenantCode
     const ids = slug ? new Set(db.branchesOfTenant[slug] ?? []) : null
     let list = db.branches.filter((b) => b.status === "Active" && (!ids || ids.has(b.id)))
     // BR-05: branch-locked accounts only see the branch on their JWT.
@@ -525,6 +562,13 @@ export const brandHandlers = [
     const created: Voucher = { ...b, code: b.code.toUpperCase(), id: `v${bdb.vouchers.length + 1}`, used: 0, active: true }
     bdb.vouchers.unshift(created)
     return ok(created)
+  }),
+  http.delete("*/api/v1/brand/vouchers/:id", ({ params }) => {
+    const i = bdb.vouchers.findIndex((x) => x.id === params.id)
+    if (i < 0) return problem(404, "Không tìm thấy voucher")
+    if (bdb.vouchers[i]!.used > 0) return problem(409, "Mã đã dùng cho đơn hàng, chỉ tắt được")
+    bdb.vouchers.splice(i, 1)
+    return new HttpResponse(null, { status: 204 })
   }),
   http.patch("*/api/v1/brand/vouchers/:id", async ({ params, request }) => {
     const denied = denyUnless(request, BRAND_STAFF)

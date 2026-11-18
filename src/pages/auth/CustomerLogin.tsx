@@ -1,38 +1,41 @@
-import AuthHero from "../../components/AuthHero"
-import { Logo } from "../../components/AuthShell"
-import { BrandGate } from "../../components/BrandGate"
 import { useState } from "react"
 import { useNavigate } from "react-router"
 import type { Page } from "../../App"
+import { BrandGate } from "../../components/BrandGate"
+import { CustomerAuthLayout, customerAuthInputClass, customerAuthPrimaryBtn } from "../../components/CustomerAuthLayout"
 import { homePageOf, useAuth } from "../../context/AuthContext"
 import { useToast } from "../../context/ToastContext"
 import { ApiError } from "../../lib/api/http"
 import { getActiveBrandSlug } from "../../lib/brand"
 import { normalizeRole } from "../../router/roles"
+import { protectOrphans } from "../../lib/typography"
 
 interface Props {
   navigate: (p: Page) => void
 }
 
 export default function CustomerLogin(props: Props) {
-  return <BrandGate><CustomerLoginForm {...props} /></BrandGate>
+  return (
+    <BrandGate>
+      <CustomerLoginForm {...props} />
+    </BrandGate>
+  )
 }
 
 function CustomerLoginForm({ navigate }: Props) {
   const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
+  const [showPass, setShowPass] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const routerNavigate = useNavigate()
   const { login, logout } = useAuth()
   const { showToast } = useToast()
-  const [password, setPassword] = useState("")
-  const [showPass, setShowPass] = useState(false)
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setSubmitting(true)
     try {
       const user = await login(email, password)
-      // Customer portal only — staff must use /login (SaaS ops surface).
       if (normalizeRole(user) !== "customer") {
         await logout()
         showToast("Tài khoản quản lý / nhân viên vui lòng dùng trang Đăng nhập quán.", "error")
@@ -40,7 +43,6 @@ function CustomerLoginForm({ navigate }: Props) {
       }
       const back = sessionStorage.getItem("aicos.returnTo")
       sessionStorage.removeItem("aicos.returnTo")
-      // QR / deep-link return keeps the shop already set; otherwise go pick a shop.
       if (back) routerNavigate(back, { replace: true })
       else if (getActiveBrandSlug()) navigate("customer-menu")
       else navigate(homePageOf(user))
@@ -52,113 +54,70 @@ function CustomerLoginForm({ navigate }: Props) {
   }
 
   return (
-    <div className="min-h-screen flex" style={{ backgroundColor: "#FAF6F0" }}>
-      <AuthHero />
-      <div className="flex-1 flex items-center justify-center px-6 sm:px-8 py-12">
-      <div className="w-full max-w-[420px]">
-        {/* Logo */}
-        <div className="mb-8"><Logo linked /></div>
-
-        <h1
-          className="font-serif text-2xl font-medium mb-2"
-          style={{ color: "#3A2E22", fontFamily: "'Literata', 'Inter', system-ui, sans-serif", lineHeight: 1.25 }}
-        >
-          Chào bạn quay lại
-        </h1>
-        <p className="text-sm mb-7" style={{ color: "#8A7A6C", lineHeight: 1.6 }}>
-          Đăng nhập AICOS một lần, rồi chọn quán để đặt món và tích điểm.
+    <CustomerAuthLayout
+      title="Chào bạn quay lại"
+      subtitle={protectOrphans("Đăng nhập AICOS một lần, rồi chọn quán để đặt món và tích điểm.")}
+      footer={
+        <p className="mt-10 text-center text-sm text-text-secondary">
+          {protectOrphans("Chưa có tài khoản?")}{" "}
+          <button type="button" className="font-semibold text-clay hover:text-espresso" onClick={() => navigate("auth-customer-register")}>
+            {protectOrphans("Đăng ký miễn phí")}
+          </button>
         </p>
+      }
+    >
+      <form onSubmit={handleSubmit} className="space-y-5">
+        <div>
+          <label className="mb-2 block text-sm font-medium text-text-primary">Email</label>
+          <input
+            type="email"
+            autoComplete="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="ten@email.com"
+            required
+            className={customerAuthInputClass}
+          />
+        </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium mb-1.5" style={{ color: "#3A2E22" }}>Email</label>
+        <div>
+          <label className="mb-2 block text-sm font-medium text-text-primary">Mật khẩu</label>
+          <div className="relative">
             <input
-              type="email"
-              autoComplete="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="ten@email.com"
+              type={showPass ? "text" : "password"}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="••••••••"
               required
-              className="w-full px-4 py-3 text-sm outline-none"
-              style={{ border: "1px solid #E6DCCB", borderRadius: "10px", backgroundColor: "#FFFFFF", color: "#3A2E22", fontFamily: "'Inter', system-ui, sans-serif" }}
+              className={`${customerAuthInputClass} pr-11`}
             />
+            <button
+              type="button"
+              onClick={() => setShowPass(!showPass)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-text-primary opacity-45 hover:opacity-100"
+              aria-label={showPass ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
+            >
+              {showPass ? <EyeOff /> : <EyeOn />}
+            </button>
           </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-1.5" style={{ color: "#3A2E22" }}>Mật khẩu</label>
-            <div className="relative">
-              <input
-                type={showPass ? "text" : "password"}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                required
-                className="w-full px-4 py-3 pr-11 text-sm outline-none transition-all duration-150"
-                style={{ border: "1px solid #E6DCCB", borderRadius: "10px", backgroundColor: "#FFFFFF", color: "#3A2E22", fontFamily: "'Inter', system-ui, sans-serif" }}
-                onFocus={(e) => { e.currentTarget.style.borderColor = "#C97B4A" }}
-                onBlur={(e) => { e.currentTarget.style.borderColor = "#E6DCCB" }}
-              />
-              <button
-                type="button"
-                onClick={() => setShowPass(!showPass)}
-                className="absolute right-3 top-1/2 -translate-y-1/2"
-                style={{ background: "none", border: "none", cursor: "pointer", opacity: 0.45, color: "#3A2E22" }}
-                onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.opacity = "1" }}
-                onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.opacity = "0.45" }}
-                aria-label={showPass ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
-              >
-                {showPass ? <EyeOff /> : <EyeOn />}
-              </button>
-            </div>
-            <div className="mt-1.5 text-right">
-              <button
-                type="button"
-                className="text-xs transition-colors"
-                style={{ color: "#8B5E3C", background: "none", border: "none", cursor: "pointer" }}
-                onClick={() => navigate("auth-forgot-password")}
-                onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "#6F4E37" }}
-                onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "#8B5E3C" }}
-              >
-                Quên mật khẩu?
-              </button>
-            </div>
+          <div className="mt-2 text-right">
+            <button type="button" className="text-xs font-medium text-clay hover:text-espresso" onClick={() => navigate("auth-forgot-password")}>
+              Quên mật khẩu?
+            </button>
           </div>
+        </div>
 
-          <button
-            type="submit"
-            disabled={submitting}
-            className="w-full py-3 text-sm font-medium transition-all duration-150 mt-1"
-            style={{
-              backgroundColor: "#C97B4A",
-              color: "#FAF6F0",
-              borderRadius: "10px",
-              border: "none",
-              cursor: "pointer",
-              fontFamily: "'Inter', system-ui, sans-serif",
-            }}
-            onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = "#8B5E3C" }}
-            onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = "#C97B4A" }}
-          >
-            Đăng nhập
-          </button>
-        </form>
+        <button type="submit" disabled={submitting} className={customerAuthPrimaryBtn}>
+          {submitting ? "Đang đăng nhập…" : "Đăng nhập"}
+        </button>
+      </form>
 
-        <p className="mt-7 text-sm text-center" style={{ color: "#8A7A6C" }}>
-          Chưa có tài khoản?{" "}
-          <button
-            type="button"
-            className="font-medium transition-colors"
-            style={{ color: "#8B5E3C", background: "none", border: "none", cursor: "pointer" }}
-            onClick={() => navigate("auth-customer-register")}
-            onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "#6F4E37" }}
-            onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "#8B5E3C" }}
-          >
-            Tạo tài khoản mới
-          </button>
-        </p>
-      </div>
-      </div>
-    </div>
+      <p className="mt-8 text-center text-xs text-text-secondary">
+        <button type="button" className="underline underline-offset-2 hover:text-espresso" onClick={() => navigate("order-start")}>
+          ← Về trang chủ khách hàng
+        </button>
+      </p>
+    </CustomerAuthLayout>
   )
 }
 
@@ -180,4 +139,3 @@ function EyeOff() {
     </svg>
   )
 }
-

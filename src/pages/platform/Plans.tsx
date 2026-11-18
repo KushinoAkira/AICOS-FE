@@ -1,7 +1,7 @@
 ﻿import { useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import type { Page } from "../../App"
-import { Banner, Button, Card, Field, Modal, QueryBoundary } from "../../components/ui"
+import { ConfirmDialog, Banner, Button, Card, Field, Modal, QueryBoundary } from "../../components/ui"
 import { useToast } from "../../context/ToastContext"
 import { formatVND } from "../../lib/format"
 import { platformApi, type Plan } from "../../lib/api/platform"
@@ -19,6 +19,17 @@ export default function PlatformPlans({ navigate }: { navigate: (p: Page) => voi
     mutationFn: (p: Plan) => platformApi.updatePlan(p.id, { name: p.name, monthlyFee: p.monthlyFee, billingCycle: p.billingCycle, maxBranches: p.maxBranches, maxUsers: p.maxUsers, graceDays: p.graceDays }),
     onSuccess: () => { void qc.invalidateQueries({ queryKey: ["platform"] }); showToast("Đã lưu gói", "success"); setEditing(null) },
     onError: (e) => setError(e.message),
+  })
+  const [deleting, setDeleting] = useState<Plan | null>(null)
+  const remove = useMutation({
+    mutationFn: (p: Plan) => platformApi.deletePlan(p.id),
+    onSuccess: (_d, p) => { void qc.invalidateQueries({ queryKey: ["platform"] }); void qc.invalidateQueries({ queryKey: ["public", "plans"] }); showToast(`Đã xóa gói ${p.name}`, "success"); setDeleting(null) },
+    onError: (e) => { showToast(e.message, "error"); setDeleting(null) },
+  })
+  const setActive = useMutation({
+    mutationFn: (p: Plan) => platformApi.setPlanActive(p.id, p.isActive === false),
+    onSuccess: () => { void qc.invalidateQueries({ queryKey: ["platform"] }); showToast("Đã cập nhật gói", "success") },
+    onError: (e) => showToast(e.message, "error"),
   })
 
   function open(p: Plan) {
@@ -41,7 +52,11 @@ export default function PlatformPlans({ navigate }: { navigate: (p: Page) => voi
                   <li>Tối đa <b className="text-text-primary">{p.maxUsers}</b> người dùng</li>
                   <li>Gia hạn trễ: <b className="text-text-primary">{p.graceDays}</b> ngày</li>
                 </ul>
-                <Button variant="secondary" className="mt-5 w-full" onClick={() => open(p)}>Chỉnh sửa</Button>
+                <div className="mt-5 flex gap-2">
+                  <Button variant="secondary" className="flex-1" onClick={() => open(p)}>Chỉnh sửa</Button>
+                  <Button variant="ghost" loading={setActive.isPending && setActive.variables?.id === p.id} onClick={() => setActive.mutate(p)}>{p.isActive === false ? "Mở bán lại" : "Ngừng bán"}</Button>
+                  <Button variant="ghost" className="text-state-danger" onClick={() => setDeleting(p)}>Xóa</Button>
+                </div>
               </Card>
             ))}
           </div>
@@ -57,6 +72,9 @@ export default function PlatformPlans({ navigate }: { navigate: (p: Page) => voi
           ))}
         </div>
       </Modal>
+      <ConfirmDialog open={!!deleting} danger title={`Xóa gói ${deleting?.name ?? ""}?`}
+        message={deleting?.subscribers ? `${deleting.subscribers} thương hiệu đang dùng gói này vẫn giữ gói tới khi đổi gói. Gói không còn được bán, không hiện trên bảng giá và không gán được nữa.` : "Gói không còn được bán, không hiện trên bảng giá và không gán được nữa."}
+        confirmLabel="Xóa gói" onCancel={() => setDeleting(null)} onConfirm={() => deleting && !remove.isPending && remove.mutate(deleting)} />
     </PlatformPage>
   )
 }

@@ -20,17 +20,33 @@ const feedback: (Feedback & { customerId: string })[] = [
 const hits: number[] = []
 const LIMIT = 8
 
-/** Recommendation is limited to published, in-stock products so the AI never offers something unorderable. */
-function reply(message: string): AiReply {
+type Snap = { id: string; name: string; price?: number; category?: string }
+
+/** Recommendation is limited to the active branch menu (snapshot or published stock) so the AI never offers something unorderable. */
+function liveProducts(snap?: Snap[]) {
+  if (snap?.length) return snap.map((p) => ({ id: p.id, name: p.name, price: p.price ?? 0, category: p.category ?? "Khác" }))
+  return bdb.products
+    .filter((p) => p.published && !p.soldOutAt.includes(odb.BRANCH_ID))
+    .map((p) => ({ id: p.id, name: p.name, price: p.branchPrices[odb.BRANCH_ID] ?? p.basePrice, category: p.category }))
+}
+
+function reply(message: string, snap?: Snap[]): AiReply {
   const m = message.toLowerCase()
-  const live = bdb.products.filter((p) => p.published && !p.soldOutAt.includes(odb.BRANCH_ID))
-  const pick = (cat: string[], reason: string, n = 3) => ({ reply: "", suggestions: live.filter((p) => cat.includes(p.category)).slice(0, n).map((p) => ({ productId: p.id, name: p.name, price: p.branchPrices[odb.BRANCH_ID] ?? p.basePrice, reason })) })
+  const live = liveProducts(snap)
+  const pick = (cat: string[], reason: string, n = 3) => ({
+    reply: "",
+    suggestions: live.filter((p) => !cat.length || cat.some((c) => (p.category || "").includes(c) || c.includes(p.category || ""))).slice(0, n)
+      .map((p) => ({ productId: p.id, name: p.name, price: p.price, reason })),
+  })
   let r: { reply: string; suggestions: AiReply["suggestions"] }
-  if (/ít ngọt|ít đường|không ngọt/.test(m)) { r = pick(["Cà phê", "Trà trái cây"], "Có thể chọn mức đường 0-30%"); r.reply = "Bạn có thể chọn các món này và hạ mức đường xuống 0-30%:" }
-  else if (/không đắng|dễ uống|nhẹ/.test(m)) { r = pick(["Trà sữa", "Đá xay"], "Vị béo, ít đắng"); r.reply = "Nếu bạn không thích vị đắng, thử các món béo và ngọt dịu này:" }
-  else if (/trà|mát|nóng bức|mùa/.test(m)) { r = pick(["Trà trái cây"], "Thanh mát"); r.reply = "Các món trà trái cây đang được chọn nhiều:" }
+  if (/ít ngọt|ít đường|không ngọt/.test(m)) { r = pick(["Cà phê", "Trà"], "Có thể chọn mức đường 0-30%"); r.reply = "Bạn có thể chọn các món này và hạ mức đường xuống 0-30%:" }
+  else if (/không đắng|dễ uống|nhẹ/.test(m)) { r = pick(["Trà sữa", "Đá xay", "Bánh"], "Vị béo, ít đắng"); r.reply = "Nếu bạn không thích vị đắng, thử các món béo và ngọt dịu này:" }
+  else if (/ăn kèm|bánh|combo/.test(m)) { r = pick(["Bánh", "Ăn vặt"], "Hay gọi kèm đồ uống"); r.reply = "Trong menu chi nhánh này, bạn có thể gọi kèm:" }
+  else if (/trà|mát|nóng bức|mùa/.test(m)) { r = pick(["Trà", "Nước"], "Thanh mát"); r.reply = "Các món mát đang có tại chi nhánh:" }
   else if (/cà phê|caffeine|tỉnh/.test(m)) { r = pick(["Cà phê"], "Cà phê pha tại quán"); r.reply = "Một vài lựa chọn cà phê cho bạn:" }
-  else r = { reply: "Mình chỉ có thể tư vấn về thực đơn của quán. Bạn thử hỏi về món ít ngọt, không đắng hoặc đồ uống mát nhé.", suggestions: [] }
+  else {
+    r = { reply: "Mình chỉ tư vấn món trong menu chi nhánh bạn đang xem. Thử hỏi ít ngọt, không đắng, đồ mát hoặc ăn kèm nhé.", suggestions: live.slice(0, 3).map((p) => ({ productId: p.id, name: p.name, price: p.price, reason: "Có trong menu chi nhánh này" })) }
+  }
   return r
 }
 
@@ -39,9 +55,9 @@ export const engageHandlers = [
     const denied = denyUnless(request, CUSTOMER_ONLY)
     if (denied) return denied
     await delay(300)
-    const { k = 5 } = (await request.json()) as { history?: string[]; k?: number }
-    const live = bdb.products.filter((p) => p.published && !p.soldOutAt.includes(odb.BRANCH_ID))
-    return ok({ items: live.slice(0, k).map((p, i) => ({ productId: p.id, name: p.name, price: p.branchPrices[odb.BRANCH_ID] ?? p.basePrice, reason: "Hợp với những món bạn hay gọi", score: 0.95 - i * 0.1 })) })
+    const body = (await request.json()) as { history?: string[]; k?: number; menuItems?: Snap[] }
+    const live = liveProducts(body.menuItems)
+    return ok({ items: live.slice(0, body.k ?? 5).map((p, i) => ({ productId: p.id, name: p.name, price: p.price, reason: "Hợp với những món bạn hay gọi", score: 0.95 - i * 0.1 })) })
   }),
   http.post("*/api/v1/ai/feedback/analyze", async ({ request }) => {
     const denied = denyUnless(request, BRAND_STAFF)
@@ -63,10 +79,10 @@ export const engageHandlers = [
     while (hits.length && now - hits[0] > 60_000) hits.shift()
     if (hits.length >= LIMIT) return problem(429, "Bạn hỏi quá nhanh. Vui lòng thử lại sau ít phút.", { "Retry-After": "30" })
     hits.push(now)
-    const { message } = (await request.json()) as { message: string }
-    if (!message.trim()) return problem(422, "Nhập câu hỏi")
-    if (message.toLowerCase().includes("lỗi ai")) return problem(503, "Trợ lý AI tạm thời không khả dụng")
-    return ok(reply(message))
+    const body = (await request.json()) as { message: string; menuItems?: Snap[] }
+    if (!body.message?.trim()) return problem(422, "Nhập câu hỏi")
+    if (body.message.toLowerCase().includes("lỗi ai")) return problem(503, "Trợ lý AI tạm thời không khả dụng")
+    return ok(reply(body.message, body.menuItems))
   }),
   http.get("*/api/v1/feedback/pending", ({ request }) => {
     const denied = denyUnless(request, CUSTOMER_ONLY)

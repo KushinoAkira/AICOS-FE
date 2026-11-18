@@ -1,10 +1,12 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
+import { useSearchParams } from "react-router"
 import { useMutation, useQuery } from "@tanstack/react-query"
 import type { Page } from "../../App"
 import { PublicPage } from "../../components/PublicChrome"
 import { Banner, Button, Field } from "../../components/ui"
 import { ApiError } from "../../lib/api/http"
 import { publicApi, type RegisterBrandInput } from "../../lib/api/platform"
+import { formatVND } from "../../lib/format"
 
 const EMPTY: RegisterBrandInput = { brandName: "", code: "", ownerFullName: "", email: "", phone: "", password: "", confirmPassword: "", description: "" }
 type Errors = Partial<Record<keyof RegisterBrandInput, string>>
@@ -32,11 +34,16 @@ function validate(f: RegisterBrandInput): Errors {
 
 /** Flow 1 of the platform: a shop owner registers a brand and waits for the Super Admin's approval. */
 export default function RegisterBrand({ navigate }: { navigate: (p: Page) => void }) {
-  const [form, setForm] = useState<RegisterBrandInput>(EMPTY)
+  const [params] = useSearchParams()
+  // Coming from the pricing page: the plan the owner picked goes with the registration (it can still be changed on the right).
+  const [form, setForm] = useState<RegisterBrandInput>(() => ({ ...EMPTY, planId: params.get("plan") || undefined }))
   const [codeEdited, setCodeEdited] = useState(false)
   const [errors, setErrors] = useState<Errors>({})
   const plans = useQuery({ queryKey: ["public", "plans"], queryFn: publicApi.plans, retry: 1 })
   const set = <K extends keyof RegisterBrandInput>(k: K, v: RegisterBrandInput[K]) => setForm((f) => ({ ...f, [k]: v }))
+  const chosen = plans.data?.find((p) => p.id === form.planId)
+  // Arriving from the pricing section further down the landing page: start at the top of the form.
+  useEffect(() => { window.scrollTo(0, 0) }, [])
 
   const send = useMutation({
     mutationFn: () => publicApi.registerBrand({ ...form, email: form.email.trim(), brandName: form.brandName.trim(), ownerFullName: form.ownerFullName.trim() }),
@@ -61,19 +68,20 @@ export default function RegisterBrand({ navigate }: { navigate: (p: Page) => voi
   return (
     <PublicPage navigate={navigate} uc="UC-05">
       <div className="mx-auto max-w-5xl px-4 py-12 sm:px-8">
-        <h1 className="font-serif text-4xl">Đăng ký quán trên AICOS</h1>
-        <p className="mt-2 max-w-2xl text-text-secondary">Điền thông tin thương hiệu và tài khoản chủ quán. Đội ngũ AICOS xét duyệt và báo kết quả qua email; sau khi được duyệt, bạn đăng nhập để tạo chi nhánh, thực đơn và nhân viên.</p>
+        <h1 className="type-title text-4xl text-text-primary">Đăng ký quán trên AICOS</h1>
+        <p className="type-lead mt-4 max-w-2xl text-text-secondary">Điền thông tin thương hiệu và tài khoản chủ quán. Đội ngũ AICOS xét duyệt và báo kết quả qua email; sau khi được duyệt, bạn đăng nhập để tạo chi nhánh, thực đơn và nhân viên.</p>
 
         <div className="mt-10 grid gap-8 lg:grid-cols-[1fr_320px]">
           <section aria-label="Biểu mẫu đăng ký quán" className="rounded-[16px] border border-border bg-surface p-6">
-            {send.isSuccess ? (
-              <div role="status" className="py-8 text-center">
-                <h2 className="font-serif text-2xl">Đã nhận đăng ký</h2>
-                <p className="mt-2 text-text-secondary">Thương hiệu với mã <strong>{send.data.code}</strong> đang chờ duyệt. Chúng tôi sẽ gửi kết quả tới <strong>{form.email}</strong>.</p>
+              {send.isSuccess ? (
+                <div role="status" className="py-8 text-center">
+                <h2 className="type-title text-2xl text-text-primary">Đã nhận đăng ký</h2>
+                <p className="type-body mt-3 text-text-secondary">Thương hiệu với mã <strong>{send.data.code}</strong> đang chờ duyệt. Chúng tôi sẽ gửi kết quả tới <strong>{form.email}</strong>. Sau khi duyệt, AICOS liên hệ để thanh toán gói{chosen ? <> <strong>{chosen.name}</strong></> : null}; quán hoạt động ngay khi khoản thanh toán được xác nhận.</p>
                 <Button variant="secondary" className="mt-6" onClick={() => navigate("login")}>Về trang đăng nhập quán</Button>
               </div>
             ) : (
               <form noValidate onSubmit={(e) => { e.preventDefault(); submit() }} className="space-y-4">
+                {chosen && <Banner tone="success">Gói đã chọn: <b>{chosen.name}</b> ({formatVND(chosen.monthlyFee)}/tháng). Điền thông tin quán để gửi đăng ký.</Banner>}
                 {send.isError && !(send.error instanceof ApiError && send.error.fieldErrors) && <Banner>{send.error instanceof ApiError ? send.error.message : "Chưa gửi được đăng ký. Hãy thử lại."}</Banner>}
                 <Field label="Tên thương hiệu" value={form.brandName} error={errors.brandName} onChange={(e) => { const v = e.target.value; setForm((f) => ({ ...f, brandName: v, code: codeEdited ? f.code : toCode(v) })) }} />
                 <Field label="Mã quán" hint="Dùng làm định danh của quán trên AICOS" value={form.code} error={errors.code} onChange={(e) => { setCodeEdited(true); set("code", e.target.value.toLowerCase()) }} />
@@ -94,14 +102,20 @@ export default function RegisterBrand({ navigate }: { navigate: (p: Page) => voi
 
           <aside aria-label="Các gói dịch vụ" className="rounded-[16px] bg-sand p-6">
             <h2 className="font-serif text-xl">Các gói dịch vụ</h2>
-            <p className="mt-1 text-sm text-text-secondary">Bạn chốt gói với AICOS sau khi đăng ký được duyệt.</p>
+            <p className="mt-1 text-sm text-text-secondary">Chọn gói cho quán. Bạn thanh toán gói sau khi đăng ký được duyệt.</p>
             <ul className="mt-4 space-y-3">
-              {(plans.data ?? []).map((p) => (
-                <li key={p.id} className="rounded-[12px] bg-surface p-3">
-                  <p className="font-medium text-text-primary">{p.name}</p>
-                  <p className="text-sm text-text-secondary">{new Intl.NumberFormat("vi-VN").format(p.monthlyFee)} đ/tháng</p>
-                </li>
-              ))}
+              {(plans.data ?? []).map((p) => {
+                const on = form.planId === p.id
+                return (
+                  <li key={p.id}>
+                    <button type="button" aria-pressed={on} onClick={() => set("planId", on ? undefined : p.id)} disabled={send.isSuccess}
+                      className={`w-full rounded-[12px] border-2 bg-surface p-3 text-left transition-colors ${on ? "border-terracotta" : "border-transparent hover:border-border"}`}>
+                      <span className="flex items-center justify-between gap-2"><span className="font-medium text-text-primary">{p.name}</span>{on && <span className="text-xs font-medium text-terracotta">Đã chọn</span>}</span>
+                      <span className="block text-sm text-text-secondary">{formatVND(p.monthlyFee)}/tháng · tối đa {p.maxBranches} chi nhánh</span>
+                    </button>
+                  </li>
+                )
+              })}
             </ul>
           </aside>
         </div>

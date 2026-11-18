@@ -1,11 +1,12 @@
 import { useState } from "react"
 import { useNavigate } from "react-router"
 import type { Page } from "../../App"
-import { Logo } from "../../components/AuthShell"
+import { CustomerAuthLayout, customerAuthInputClass, customerAuthPrimaryBtn } from "../../components/CustomerAuthLayout"
 import { GoogleButton } from "../../components/GoogleButton"
 import { homePageOf, useAuth } from "../../context/AuthContext"
 import { useToast } from "../../context/ToastContext"
 import { ApiError } from "../../lib/api/http"
+import { protectOrphans } from "../../lib/typography"
 
 interface Props {
   navigate: (p: Page) => void
@@ -14,8 +15,12 @@ interface Props {
 type FieldName = "fullName" | "email" | "password" | "confirmPassword"
 type FieldErrors = Partial<Record<FieldName, string>>
 
-/** Server field names (PascalCase) to the form's fields. */
-const SERVER_FIELDS: Record<string, FieldName> = { FullName: "fullName", Email: "email", Password: "password", ConfirmPassword: "confirmPassword" }
+const SERVER_FIELDS: Record<string, FieldName> = {
+  FullName: "fullName",
+  Email: "email",
+  Password: "password",
+  ConfirmPassword: "confirmPassword",
+}
 
 function validate(v: Record<FieldName, string>): FieldErrors {
   const errors: FieldErrors = {}
@@ -27,7 +32,7 @@ function validate(v: Record<FieldName, string>): FieldErrors {
   return errors
 }
 
-/** One account for every shop on AICOS: registering signs the customer in at once (no email code), then they pick a brand. */
+/** One account for every shop on AICOS: registering signs the customer in at once, then they pick a brand. */
 export default function CustomerRegister({ navigate }: Props) {
   const [fullName, setFullName] = useState("")
   const [email, setEmail] = useState("")
@@ -52,7 +57,8 @@ export default function CustomerRegister({ navigate }: Props) {
       showToast("Tạo tài khoản thành công. Chọn quán để bắt đầu gọi món.", "success")
       const back = sessionStorage.getItem("aicos.returnTo")
       sessionStorage.removeItem("aicos.returnTo")
-      if (back) routerNavigate(back, { replace: true }); else navigate(homePageOf(user))
+      if (back) routerNavigate(back, { replace: true })
+      else navigate(homePageOf(user))
     } catch (err) {
       if (err instanceof ApiError && err.fieldErrors) {
         const mapped: FieldErrors = {}
@@ -75,143 +81,125 @@ export default function CustomerRegister({ navigate }: Props) {
       const user = await googleLogin(idToken)
       const back = sessionStorage.getItem("aicos.returnTo")
       sessionStorage.removeItem("aicos.returnTo")
-      if (back) routerNavigate(back, { replace: true }); else navigate(homePageOf(user))
+      if (back) routerNavigate(back, { replace: true })
+      else navigate(homePageOf(user))
     } catch (err) {
       showToast(err instanceof ApiError ? err.message : "Không thể kết nối máy chủ", "error")
     }
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-6 py-12" style={{ backgroundColor: "#FAF6F0" }}>
-      <div className="w-full max-w-[420px]">
-        {/* Logo */}
-        <div className="mb-8"><Logo /></div>
-
-        <h1
-          className="font-serif text-2xl font-medium mb-2 leading-snug"
-          style={{ color: "#3A2E22", fontFamily: "'Fraunces', Georgia, serif" }}
-        >
-          Một tài khoản, gọi món ở mọi quán trên AICOS
-        </h1>
-        <p className="text-sm mb-7" style={{ color: "#8A7A6C", lineHeight: 1.6 }}>
-          Đăng ký một lần, rồi chọn quán bạn muốn để đặt mang đi, gọi món tại bàn và tích điểm.
-        </p>
-
-        <form onSubmit={handleSubmit} className="space-y-4" noValidate>
-          <Field label="Họ và tên" error={errors.fullName}>
-            <input
-              type="text"
-              autoComplete="name"
-              value={fullName}
-              onChange={(e) => setFullName(e.target.value)}
-              placeholder="Nguyễn Văn An"
-              maxLength={255}
-              className="w-full px-4 py-3 text-sm outline-none transition-all duration-150"
-              style={inputStyle}
-              onFocus={focusBorder}
-              onBlur={blurBorder}
-            />
-          </Field>
-
-          <Field label="Email" error={errors.email}>
-            <input
-              type="email"
-              autoComplete="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="ten@email.com"
-              className="w-full px-4 py-3 text-sm outline-none transition-all duration-150"
-              style={inputStyle}
-              onFocus={focusBorder}
-              onBlur={blurBorder}
-            />
-          </Field>
-
-          <Field label="Mật khẩu" error={errors.password} hint="Từ 8 ký tự, có chữ cái và chữ số.">
-            <PasswordInput value={password} onChange={setPassword} show={showPass} onToggle={() => setShowPass(!showPass)} />
-          </Field>
-
-          <Field label="Xác nhận mật khẩu" error={errors.confirmPassword}>
-            <PasswordInput value={confirmPassword} onChange={setConfirmPassword} show={showPass} onToggle={() => setShowPass(!showPass)} />
-          </Field>
-
-          <label className="flex items-start gap-3 cursor-pointer select-none">
-            <input
-              type="checkbox"
-              checked={agreed}
-              onChange={(e) => setAgreed(e.target.checked)}
-              className="mt-0.5 flex-shrink-0"
-              style={{ accentColor: "#C97B4A", width: "15px", height: "15px" }}
-            />
-            <span className="text-sm" style={{ color: "#8A7A6C", lineHeight: 1.6 }}>
-              Tôi đồng ý với{" "}
-              <a href="/terms" target="_blank" rel="noreferrer" className="font-medium text-clay underline underline-offset-2">Điều khoản sử dụng</a>
-              {" "}và{" "}
-              <a href="/privacy" target="_blank" rel="noreferrer" className="font-medium text-clay underline underline-offset-2">Chính sách bảo mật</a>
-            </span>
-          </label>
-
-          <button
-            type="submit"
-            disabled={!agreed || submitting}
-            className="w-full py-3 text-sm font-medium transition-all duration-150 mt-1"
-            style={{
-              backgroundColor: agreed && !submitting ? "#C97B4A" : "#D6C5B3",
-              color: "#FAF6F0",
-              borderRadius: "10px",
-              border: "none",
-              cursor: agreed && !submitting ? "pointer" : "not-allowed",
-              fontFamily: "'Inter', system-ui, sans-serif",
-            }}
-            onMouseEnter={(e) => { if (agreed && !submitting) (e.currentTarget as HTMLButtonElement).style.backgroundColor = "#8B5E3C" }}
-            onMouseLeave={(e) => { if (agreed && !submitting) (e.currentTarget as HTMLButtonElement).style.backgroundColor = "#C97B4A" }}
-          >
-            {submitting ? "Đang tạo tài khoản…" : "Tạo tài khoản"}
-          </button>
-        </form>
-
-        {/* Divider + Google */}
-        <div className="my-5 flex items-center gap-3">
-          <div className="flex-1 h-px" style={{ backgroundColor: "#E6DCCB" }} />
-          <span className="text-xs" style={{ color: "#8A7A6C" }}>hoặc</span>
-          <div className="flex-1 h-px" style={{ backgroundColor: "#E6DCCB" }} />
-        </div>
-
-        <GoogleButton onCredential={handleGoogle} />
-
-        <p className="mt-7 text-sm text-center" style={{ color: "#8A7A6C" }}>
+    <CustomerAuthLayout
+      title={protectOrphans("Một tài khoản, mọi quán trên AICOS")}
+      subtitle={protectOrphans("Đăng ký miễn phí — đặt mang đi, gọi món tại bàn và tích điểm theo từng thương hiệu.")}
+      footer={
+        <p className="mt-8 text-center text-sm text-text-secondary">
           Đã có tài khoản?{" "}
-          <button
-            type="button"
-            className="font-medium transition-colors"
-            style={{ color: "#8B5E3C", background: "none", border: "none", cursor: "pointer" }}
-            onClick={() => navigate("auth-customer-login")}
-            onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "#6F4E37" }}
-            onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "#8B5E3C" }}
-          >
+          <button type="button" className="font-semibold text-clay hover:text-espresso" onClick={() => navigate("auth-customer-login")}>
             Đăng nhập
           </button>
         </p>
+      }
+    >
+      <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+        <Field label="Họ và tên" error={errors.fullName}>
+          <input
+            type="text"
+            autoComplete="name"
+            value={fullName}
+            onChange={(e) => setFullName(e.target.value)}
+            placeholder="Nguyễn Văn An"
+            maxLength={255}
+            className={customerAuthInputClass}
+          />
+        </Field>
+
+        <Field label="Email" error={errors.email}>
+          <input
+            type="email"
+            autoComplete="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="ten@email.com"
+            className={customerAuthInputClass}
+          />
+        </Field>
+
+        <Field label="Mật khẩu" error={errors.password} hint="Từ 8 ký tự, có chữ cái và chữ số.">
+          <PasswordInput value={password} onChange={setPassword} show={showPass} onToggle={() => setShowPass(!showPass)} />
+        </Field>
+
+        <Field label="Xác nhận mật khẩu" error={errors.confirmPassword}>
+          <PasswordInput value={confirmPassword} onChange={setConfirmPassword} show={showPass} onToggle={() => setShowPass(!showPass)} />
+        </Field>
+
+        <label className="flex cursor-pointer select-none items-start gap-3">
+          <input
+            type="checkbox"
+            checked={agreed}
+            onChange={(e) => setAgreed(e.target.checked)}
+            className="mt-0.5 h-[15px] w-[15px] shrink-0"
+            style={{ accentColor: "#D98B54" }}
+          />
+          <span className="text-sm leading-relaxed text-text-secondary">
+            Tôi đồng ý với{" "}
+            <a href="/terms" target="_blank" rel="noreferrer" className="font-medium text-clay underline underline-offset-2">
+              Điều khoản sử dụng
+            </a>{" "}
+            và{" "}
+            <a href="/privacy" target="_blank" rel="noreferrer" className="font-medium text-clay underline underline-offset-2">
+              Chính sách bảo mật
+            </a>
+          </span>
+        </label>
+
+        <button type="submit" disabled={!agreed || submitting} className={customerAuthPrimaryBtn}>
+          {submitting ? "Đang tạo tài khoản…" : "Đăng ký miễn phí"}
+        </button>
+      </form>
+
+      <div className="my-5 flex items-center gap-3">
+        <div className="h-px flex-1 bg-[#E8DDCB]" />
+        <span className="text-xs text-text-secondary">hoặc</span>
+        <div className="h-px flex-1 bg-[#E8DDCB]" />
       </div>
-    </div>
+
+      <GoogleButton onCredential={handleGoogle} />
+
+      <p className="mt-6 text-center text-xs text-text-secondary">
+        <button type="button" className="underline underline-offset-2 hover:text-espresso" onClick={() => navigate("order-start")}>
+          ← Về trang chủ khách hàng
+        </button>
+      </p>
+    </CustomerAuthLayout>
   )
 }
 
 function Field({ label, error, hint, children }: { label: string; error?: string; hint?: string; children: React.ReactNode }) {
   return (
     <div>
-      <label className="block text-sm font-medium mb-1.5" style={{ color: "#3A2E22" }}>{label}</label>
+      <label className="mb-1.5 block text-sm font-medium text-text-primary">{label}</label>
       {children}
       {error ? (
-        <p role="alert" className="mt-1.5 text-xs" style={{ color: "#B3402F" }}>{error}</p>
+        <p role="alert" className="mt-1.5 text-xs text-state-danger">{error}</p>
       ) : hint ? (
-        <p className="mt-1.5 text-xs" style={{ color: "#8A7A6C" }}>{hint}</p>
+        <p className="mt-1.5 text-xs text-text-secondary">{hint}</p>
       ) : null}
     </div>
   )
 }
 
-function PasswordInput({ value, onChange, show, onToggle }: { value: string; onChange: (v: string) => void; show: boolean; onToggle: () => void }) {
+function PasswordInput({
+  value,
+  onChange,
+  show,
+  onToggle,
+}: {
+  value: string
+  onChange: (v: string) => void
+  show: boolean
+  onToggle: () => void
+}) {
   return (
     <div className="relative">
       <input
@@ -221,39 +209,18 @@ function PasswordInput({ value, onChange, show, onToggle }: { value: string; onC
         onChange={(e) => onChange(e.target.value)}
         placeholder="••••••••"
         maxLength={100}
-        className="w-full px-4 py-3 pr-11 text-sm outline-none transition-all duration-150"
-        style={inputStyle}
-        onFocus={focusBorder}
-        onBlur={blurBorder}
+        className={`${customerAuthInputClass} pr-11`}
       />
       <button
         type="button"
         onClick={onToggle}
-        className="absolute right-3 top-1/2 -translate-y-1/2 transition-opacity"
-        style={{ background: "none", border: "none", cursor: "pointer", opacity: 0.45, color: "#3A2E22" }}
-        onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.opacity = "1" }}
-        onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.opacity = "0.45" }}
+        className="absolute right-3 top-1/2 -translate-y-1/2 text-text-primary opacity-45 hover:opacity-100"
         aria-label={show ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
       >
         {show ? <EyeOff /> : <EyeOn />}
       </button>
     </div>
   )
-}
-
-const inputStyle: React.CSSProperties = {
-  border: "1px solid #E6DCCB",
-  borderRadius: "10px",
-  backgroundColor: "#FFFFFF",
-  color: "#3A2E22",
-  fontFamily: "'Inter', system-ui, sans-serif",
-}
-
-function focusBorder(e: React.FocusEvent<HTMLInputElement>) {
-  e.currentTarget.style.borderColor = "#C97B4A"
-}
-function blurBorder(e: React.FocusEvent<HTMLInputElement>) {
-  e.currentTarget.style.borderColor = "#E6DCCB"
 }
 
 function EyeOn() {

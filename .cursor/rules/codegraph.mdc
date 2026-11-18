@@ -1,0 +1,15 @@
+---
+description: Use CodeGraph for Frontend navigation (React / TS)
+alwaysApply: true
+---
+
+# CodeGraph — Frontend
+
+This repo is indexed by CodeGraph (`.codegraph/`). Prefer the `codegraph` MCP tool (`codegraph_explore`) over blind grep when locating components, routes, or API clients.
+
+```bash
+codegraph status   # index health
+codegraph sync     # manual refresh if needed
+```
+
+MCP is configured in `.cursor/mcp.json` (kept alongside `chrome-devtools`) with `--path` pointing at this Frontend root.

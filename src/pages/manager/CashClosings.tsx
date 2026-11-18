@@ -7,7 +7,7 @@ import { useToast } from "../../context/ToastContext"
 import { cashClosingApi, type CashClosing } from "../../lib/api/manage"
 import { formatDate, formatDateTime, formatSignedVND, formatVND } from "../../lib/format"
 
-/** UC-33 Confirm Shift Cash Closing: the manager reviews what the cashier counted; any difference stays in the audit trail (BR-55). */
+/** UC-33: the manager reviews what each incoming cashier counted when taking the drawer over; any difference stays in the audit trail (BR-55). */
 export default function ManagerCashClosings({ navigate }: { navigate: (p: Page) => void }) {
   const qc = useQueryClient()
   const { showToast } = useToast()
@@ -19,7 +19,7 @@ export default function ManagerCashClosings({ navigate }: { navigate: (p: Page) 
   const details = useQuery({ queryKey: ["cash-closings", selected?.id], queryFn: () => cashClosingApi.details(selected?.id ?? ""), enabled: !!selected })
   const confirm = useMutation({
     mutationFn: () => cashClosingApi.confirm(selected?.id ?? "", { note: note.trim() || null, acknowledgeExceptions: acknowledged }),
-    onSuccess: () => { void qc.invalidateQueries({ queryKey: ["cash-closings"] }); setSelected(null); showToast("Đã xác nhận chốt két.", "success") },
+    onSuccess: () => { void qc.invalidateQueries({ queryKey: ["cash-closings"] }); setSelected(null); showToast("Đã xác nhận lần nhận két.", "success") },
     onError: (e) => setError(e.message),
   })
   const open = (c: CashClosing) => { setSelected(c); setNote(""); setAcknowledged(false); setError(null) }
@@ -32,9 +32,9 @@ export default function ManagerCashClosings({ navigate }: { navigate: (p: Page) 
     confirm.mutate()
   }
   const columns: Column<CashClosing>[] = [
-    { key: "d", header: "Ngày", sort: (c) => c.workDate, render: (c) => `${formatDate(c.workDate)} · ${c.startTime.slice(0, 5)}-${c.endTime.slice(0, 5)}` },
-    { key: "n", header: "Thu ngân", sort: (c) => c.employeeName, render: (c) => <span className="font-medium text-text-primary">{c.employeeName}</span> },
-    { key: "e", header: "Dự kiến", render: (c) => formatVND(c.expectedAmount) },
+    { key: "d", header: "Ca", sort: (c) => c.submittedAtUtc, render: (c) => <>{formatDate(c.workDate)} · {c.startTime.slice(0, 5)}-{c.endTime.slice(0, 5)}<span className="block text-xs text-text-secondary">nhận két lúc {formatDateTime(c.submittedAtUtc)}</span></> },
+    { key: "n", header: "Thu ngân nhận két", sort: (c) => c.employeeName, render: (c) => <span className="font-medium text-text-primary">{c.employeeName}</span> },
+    { key: "e", header: "Két phải có", render: (c) => formatVND(c.expectedAmount) },
     { key: "c", header: "Đếm được", render: (c) => formatVND(c.countedAmount) },
     { key: "x", header: "Chênh lệch", sort: (c) => c.difference, render: (c) => <span className={c.difference === 0 ? "text-text-primary" : "font-medium text-state-danger"}>{formatSignedVND(c.difference)}</span> },
     { key: "s", header: "Trạng thái", render: (c) => <StatusPill tone={c.status === "Confirmed" ? "success" : "pending"}>{c.status === "Confirmed" ? "Đã xác nhận" : "Chờ xác nhận"}</StatusPill> },
@@ -42,11 +42,11 @@ export default function ManagerCashClosings({ navigate }: { navigate: (p: Page) 
   ]
   const isOpen = selected?.status === "PendingReview"
   return (
-    <PageFrame page="branch-cash-closings" navigate={navigate} uc="UC-33" title="Chốt két" subtitle="Tiền mặt thu ngân đếm cuối ca, đối chiếu với số hệ thống ghi nhận.">
-      <QueryBoundary query={list}>{(rows) => <DataTable rows={rows} rowKey={(c) => c.id} columns={columns} emptyTitle="Chưa có ca nào gửi chốt két" />}</QueryBoundary>
+    <PageFrame page="branch-cash-closings" navigate={navigate} uc="UC-33" title="Chốt két" subtitle="Đầu mỗi ca, thu ngân đếm két ca trước để lại và xác nhận. Lệch tiền thì bạn được báo để xử lý.">
+      <QueryBoundary query={list}>{(rows) => <DataTable rows={rows} rowKey={(c) => c.id} columns={columns} emptyTitle="Chưa có lần nhận két nào" />}</QueryBoundary>
       <Modal
         open={!!selected}
-        title={`Chốt két: ${selected?.employeeName ?? ""}`}
+        title={`Nhận két: ${selected?.employeeName ?? ""}`}
         onClose={() => setSelected(null)}
         footer={<><Button variant="secondary" onClick={() => setSelected(null)}>Đóng</Button>{isOpen && <Button loading={confirm.isPending} onClick={submit}>Xác nhận</Button>}</>}
       >
@@ -57,10 +57,11 @@ export default function ManagerCashClosings({ navigate }: { navigate: (p: Page) 
               {(d) => (
                 <>
                   <dl className="grid grid-cols-2 gap-2">
-                    <dt className="text-text-secondary">Tiền mặt thu</dt><dd className="text-right text-text-primary">{formatVND(d.cashReceived)}</dd>
-                    <dt className="text-text-secondary">Tiền mặt hoàn</dt><dd className="text-right text-text-primary">{formatVND(d.cashRefunded)}</dd>
-                    <dt className="text-text-secondary">Dự kiến trong két</dt><dd className="text-right text-text-primary">{formatVND(selected.expectedAmount)}</dd>
-                    <dt className="text-text-secondary">Thu ngân đếm</dt><dd className="text-right text-text-primary">{formatVND(selected.countedAmount)}</dd>
+                    <dt className="text-text-secondary">Ca trước bàn giao</dt><dd className="text-right text-text-primary">{formatVND(selected.openingAmount ?? 0)}</dd>
+                    <dt className="text-text-secondary">Tiền mặt thu từ đó</dt><dd className="text-right text-text-primary">{formatVND(d.cashReceived)}</dd>
+                    <dt className="text-text-secondary">Tiền mặt hoàn từ đó</dt><dd className="text-right text-text-primary">{formatVND(d.cashRefunded)}</dd>
+                    <dt className="text-text-secondary">Két phải có</dt><dd className="text-right text-text-primary">{formatVND(selected.expectedAmount)}</dd>
+                    <dt className="text-text-secondary">Thu ngân nhận đếm được</dt><dd className="text-right text-text-primary">{formatVND(selected.countedAmount)}</dd>
                     <dt className="font-medium text-text-primary">Chênh lệch</dt><dd className={`text-right font-medium ${selected.difference === 0 ? "text-text-primary" : "text-state-danger"}`}>{formatSignedVND(selected.difference)}</dd>
                   </dl>
                   {selected.cashierNote && <p className="rounded-[10px] bg-bg-warm p-3 text-text-primary">Thu ngân ghi: {selected.cashierNote}</p>}

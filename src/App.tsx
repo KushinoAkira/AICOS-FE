@@ -55,6 +55,7 @@ const AdminBranches = lazy(() => import("./pages/brand/Branches"))
 const BranchPickupPage = lazy(() => import("./pages/brand/BranchPickup"))
 const BrandProfile = lazy(() => import("./pages/brand/BrandProfile"))
 const BrandVouchers = lazy(() => import("./pages/brand/Vouchers"))
+const BrandApriori = lazy(() => import("./pages/brand/Apriori"))
 const BrandSubscription = lazy(() => import("./pages/brand/Subscription"))
 const BrandPickup = lazy(() => import("./pages/brand/SettingsPages").then((m) => ({ default: m.BrandPickup })))
 const BrandLoyalty = lazy(() => import("./pages/brand/SettingsPages").then((m) => ({ default: m.BrandLoyalty })))
@@ -83,6 +84,7 @@ const FloorPlanEditor = lazy(() => import("./pages/manager/FloorPlanEditor"))
 const FloorPlanViewer = lazy(() => import("./pages/staff/FloorPlanViewer"))
 const ManagerAttendance = lazy(() => import("./pages/manager/Attendance"))
 const ManagerCashClosings = lazy(() => import("./pages/manager/CashClosings"))
+const BranchRefunds = lazy(() => import("./pages/manager/Refunds"))
 const BrandReconciliation = lazy(() => import("./pages/brand/Reconciliation"))
 
 const AdminSystemLogs = lazy(() => import("./pages/admin/SystemLogs"))
@@ -95,6 +97,7 @@ const PlatformSubscriptions = lazy(() => import("./pages/platform/Subscriptions"
 const PlatformProviders = lazy(() => import("./pages/platform/Providers"))
 const PlatformHealth = lazy(() => import("./pages/platform/Health"))
 const PlatformRevenue = lazy(() => import("./pages/platform/Revenue"))
+const PlatformLeads = lazy(() => import("./pages/platform/Leads"))
 const PlatformAudit = lazy(() => import("./pages/platform/Audit"))
 
 function PageFallback() {
@@ -112,11 +115,8 @@ function LegacyQrRedirect({ status }: { status?: boolean }) {
 
 function loginPathFor(page: Page): string {
   const portal = loginPageFor(page)
-  if (portal === "login") {
-    const slug = getActiveBrandSlug() ?? tokenStore.get()?.tenantSlug
-    if (slug) return pathFor("login", { tenantSlug: slug })
-    return pathFor("staff-entry")
-  }
+  // Staff portal is always `/staff-login` — tenant comes from the account after sign-in.
+  if (portal === "login") return pathFor("staff-entry")
   return pathFor(portal)
 }
 
@@ -132,16 +132,11 @@ export default function App() {
 
   useEffect(() => {
     const onExpired = () => {
-      const slug = getActiveBrandSlug() ?? tokenStore.get()?.tenantSlug
-      const target = slug ? pathFor("login", { tenantSlug: slug }) : pathFor("staff-entry")
-      startTransition(() => routerNavigate(target, { replace: true }))
+      startTransition(() => routerNavigate(pathFor("staff-entry"), { replace: true }))
     }
     const onTenantDenied = () => {
       void logout().finally(() => {
-        const slug = getActiveBrandSlug()
-        startTransition(() => {
-          routerNavigate(slug ? pathFor("login", { tenantSlug: slug }) : pathFor("staff-entry"), { replace: true })
-        })
+        startTransition(() => routerNavigate(pathFor("staff-entry"), { replace: true }))
       })
     }
     window.addEventListener("aicos:session-expired", onExpired)
@@ -181,7 +176,7 @@ export default function App() {
     contact: <Contact navigate={navigate} />,
     "staff-entry": <StaffEntry navigate={navigate} />,
     "register-brand": <RegisterBrand navigate={navigate} />,
-    login: <Login navigate={navigate} />,
+    login: <Login />,
     "admin-login": <AdminLogin navigate={navigate} />,
     "auth-customer-register": <CustomerRegister navigate={navigate} />,
     "auth-customer-login": <CustomerLogin navigate={navigate} />,
@@ -228,6 +223,7 @@ export default function App() {
     "branch-floor-plan": <FloorPlanEditor navigate={navigate} />,
     "branch-pickup": <BranchPickupPage navigate={navigate} />,
     "branch-orders": <BranchOrders navigate={navigate} />,
+    "branch-refunds": <BranchRefunds navigate={navigate} />,
     "branch-attendance": <ManagerAttendance navigate={navigate} />,
     "branch-cash-closings": <ManagerCashClosings navigate={navigate} />,
 
@@ -241,6 +237,7 @@ export default function App() {
     "admin-users": <AdminUsers navigate={navigate} />,
     "brand-pickup": <BrandPickup navigate={navigate} />,
     "brand-promotions": <BrandVouchers navigate={navigate} />,
+    "brand-apriori": <BrandApriori navigate={navigate} />,
     "brand-loyalty": <BrandLoyalty navigate={navigate} />,
     "brand-subscription": <BrandSubscription navigate={navigate} />,
     "brand-cancel-policy": <BrandCancelPolicy navigate={navigate} />,
@@ -254,17 +251,28 @@ export default function App() {
     "platform-providers": <PlatformProviders navigate={navigate} />,
     "platform-health": <PlatformHealth navigate={navigate} />,
     "platform-revenue": <PlatformRevenue navigate={navigate} />,
+    "platform-leads": <PlatformLeads navigate={navigate} />,
     "platform-audit": <PlatformAudit navigate={navigate} />,
   }
 
   function guard(page: Page): ReactElement {
+    // Super Admin login stays reachable even if a customer/staff session is still in the tab
+    // (demo/testing often switches roles). Only bounce away when already Super Admin.
+    if (page === "admin-login") {
+      if (role === "superAdmin") return <Navigate to={pathFor(homePageOf(user!))} replace />
+      return screens[page]
+    }
+    // Staff login stays reachable so a customer session can switch to a shop account.
+    // Already-signed-in shop staff go to their home (same idea as admin-login).
+    if (page === "staff-entry" || page === "login") {
+      const shopStaff = role === "brandAdmin" || role === "branchManager" || role === "barista" || role === "cashier"
+      if (user && shopStaff) return <Navigate to={pathFor(homePageOf(user))} replace />
+      return screens[page]
+    }
     if (user && GUEST_ONLY_PAGES.includes(page)) {
       const onCustomerAuth = page === "auth-customer-login" || page === "auth-customer-register"
-      const onStaffLogin = page === "login" || page === "staff-entry" || page === "admin-login"
       if (onCustomerAuth && role === "customer") return <Navigate to={pathFor(homePageOf(user))} replace />
-      if (onStaffLogin && role === "customer") return <Navigate to={PAGE_PATHS.landing} replace />
-      if (onStaffLogin && role !== null) return <Navigate to={pathFor(homePageOf(user))} replace />
-      if (!onCustomerAuth && !onStaffLogin) return <Navigate to={pathFor(homePageOf(user))} replace />
+      if (!onCustomerAuth) return <Navigate to={pathFor(homePageOf(user))} replace />
     }
     // Path-tenant: customer pages under /:tenantSlug need an active slug (or shops picker).
     if (

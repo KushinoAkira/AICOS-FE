@@ -1,4 +1,5 @@
 import { useState } from "react"
+import { TimeField24 } from "../../components/TimeField24"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import type { Page } from "../../App"
 import { PageFrame } from "../../components/PageFrame"
@@ -173,8 +174,8 @@ export default function BranchSchedule({ navigate }: { navigate: (p: Page) => vo
           {formError && <Banner>{formError}</Banner>}
           <Field label="Tên ca" placeholder="Ca demo" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Giờ bắt đầu" type="time" value={form.startTime} onChange={(e) => setForm({ ...form, startTime: e.target.value })} />
-            <Field label="Giờ kết thúc" type="time" value={form.endTime} onChange={(e) => setForm({ ...form, endTime: e.target.value })} />
+            <TimeField24 label="Giờ bắt đầu" value={form.startTime} onChange={(v) => setForm({ ...form, startTime: v })} />
+            <TimeField24 label="Giờ kết thúc" value={form.endTime} onChange={(v) => setForm({ ...form, endTime: v })} />
           </div>
           <p className="text-xs text-text-secondary">Một ca dài từ 1 đến 12 giờ, không qua đêm. Nhân viên vào ca được từ 15 phút trước giờ bắt đầu. Sửa ca mẫu không đổi giờ của các ca đã xếp.</p>
         </div>

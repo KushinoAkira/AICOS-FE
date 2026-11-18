@@ -126,7 +126,7 @@ export default function ResetPassword({ navigate }: Props) {
   }
 
   return (
-    <AuthShell title="Đặt mật khẩu mới" subtitle="Mã đã đúng. Mật khẩu tối thiểu 8 ký tự, có chữ hoa và chữ số.">
+    <AuthShell title="Đặt mật khẩu mới" subtitle={env.useMock ? "Mã đã đúng. Mật khẩu tối thiểu 8 ký tự, có chữ hoa và chữ số." : `Mã đã đúng. Mật khẩu mới cho tài khoản ${token}: tối thiểu 8 ký tự, có chữ hoa và chữ số.`}>
       <form onSubmit={(e) => { e.preventDefault(); void submit() }} className="space-y-4" noValidate>
         {networkError && <Banner>Không thể kết nối máy chủ. Thử lại sau.</Banner>}
         <PasswordField label="Mật khẩu mới" autoComplete="new-password" autoFocus value={newPassword} onChange={(e) => setNewPassword(e.target.value)} error={errors.newPassword} />

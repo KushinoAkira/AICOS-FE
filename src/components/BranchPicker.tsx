@@ -1,3 +1,4 @@
+import { selectClass } from "./ui"
 import { hoursLabel, isOpenAt, type BranchChoice } from "../lib/takeawayBranch"
 
 /**
@@ -39,7 +40,7 @@ export function BranchPicker({
             const hours = hoursLabel(b)
             return (
               <button key={b.id} type="button" role="radio" aria-checked={selected} onClick={() => onChange(b.id)}
-                className={`rounded-[14px] border p-3 text-left ${selected ? "border-espresso bg-sand/60 ring-1 ring-espresso" : "border-border bg-surface hover:border-espresso/40"}`}>
+                className={`rounded-[14px] border p-3 text-left transition-all ${selected ? "border-espresso bg-sand/60 ring-1 ring-espresso shadow-[0_8px_18px_-14px_rgb(111_78_55/0.7)]" : "border-border bg-surface hover:-translate-y-px hover:border-clay hover:shadow-[0_8px_18px_-14px_rgb(60_40_25/0.45)]"}`}>
                 <span className="flex items-center justify-between gap-2">
                   <span className="font-medium text-text-primary">{b.name}</span>
                   {open !== null && <span className={`shrink-0 text-xs ${open ? "text-state-success" : "text-text-secondary"}`}>{open ? "Đang mở" : "Đã đóng"}</span>}
@@ -60,8 +61,7 @@ export function BranchPicker({
   return (
     <div className="mb-6 max-w-md">
       <label htmlFor="branch-picker" className="mb-1 block text-sm font-medium text-text-primary">{label}</label>
-      <select id="branch-picker" value={value} onChange={(e) => onChange(e.target.value)}
-        className="w-full rounded-[10px] border border-border bg-surface px-3 py-3 text-sm text-text-primary">
+      <select id="branch-picker" value={value} onChange={(e) => onChange(e.target.value)} className={selectClass}>
         {branches.map((b) => <option key={b.id} value={b.id}>{b.name}{isOpenAt(b, now) === false ? " (đã đóng cửa)" : ""}</option>)}
       </select>
       {current && (

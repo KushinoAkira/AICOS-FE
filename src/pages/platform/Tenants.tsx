@@ -11,8 +11,8 @@ import { platformApi, type Plan, type Tenant, type TenantInput, type TenantStatu
 import { validateTenantSlug } from "../../lib/tenantSlug"
 import { PLAN_NAME, PlatformPage } from "./PlatformPage"
 
-const STATUS_LABEL: Record<TenantStatus, string> = { Pending: "Chờ duyệt", Active: "Đang hoạt động", Suspended: "Tạm ngưng", Closed: "Đã đóng", Rejected: "Đã từ chối" }
-const STATUS_TONE: Record<TenantStatus, Tone> = { Pending: "info", Active: "success", Suspended: "pending", Closed: "neutral", Rejected: "danger" }
+const STATUS_LABEL: Record<TenantStatus, string> = { Pending: "Chờ duyệt", Active: "Đang hoạt động", Suspended: "Tạm ngưng", Closed: "Đã đóng", Rejected: "Đã từ chối", AwaitingPayment: "Chờ thanh toán", Deleted: "Đã xóa" }
+const STATUS_TONE: Record<TenantStatus, Tone> = { Pending: "info", Active: "success", Suspended: "pending", Closed: "neutral", Rejected: "danger", AwaitingPayment: "pending", Deleted: "neutral" }
 
 const infoSchema = z.object({
   name: z.string().trim().min(2, "Nhập tên thương hiệu"),
@@ -46,6 +46,13 @@ export default function PlatformTenants({ navigate }: { navigate: (p: Page) => v
   const [wizard, setWizard] = useState(false)
   const [action, setAction] = useState<{ tenant: Tenant; status: TenantStatus } | null>(null)
   const [reason, setReason] = useState("")
+  const [deleting, setDeleting] = useState<Tenant | null>(null)
+  const [deleteReason, setDeleteReason] = useState("")
+  const remove = useMutation({
+    mutationFn: (t: Tenant) => platformApi.deleteTenant(t.id, deleteReason),
+    onSuccess: (_d, t) => { void qc.invalidateQueries({ queryKey: ["platform"] }); showToast(`Đã xóa ${t.name}. Dữ liệu vẫn được giữ lại.`, "success"); setDeleting(null); setDeleteReason("") },
+    onError: (e) => showToast(e.message, "error"),
+  })
 
   const setStatus = useMutation({
     mutationFn: (v: { id: string; status: TenantStatus; reason?: string }) => platformApi.setTenantStatus(v.id, v.status, v.reason),
@@ -53,10 +60,23 @@ export default function PlatformTenants({ navigate }: { navigate: (p: Page) => v
     onError: (e) => showToast(e.message, "error"),
   })
 
+  const assign = useMutation({
+    mutationFn: (v: { id: string; planId: string }) => platformApi.changeSubscription(v.id, { planId: v.planId }),
+    onSuccess: () => { void qc.invalidateQueries({ queryKey: ["platform"] }); showToast("Đã gán gói", "success") },
+    onError: (e) => showToast(e.message, "error"),
+  })
+
   const planList = plans.data ?? []
   const columns: Column<Tenant>[] = [
-    { key: "name", header: "Thương hiệu", sort: (t) => t.name, render: (t) => <div className="flex items-center gap-3">{t.logoUrl ? <img src={t.logoUrl} alt="" className="h-9 w-9 shrink-0 rounded-[10px] border border-border object-contain" /> : <span aria-hidden className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-sand font-serif text-clay">{t.name.charAt(0)}</span>}<div><p className="font-medium text-text-primary">{t.name}</p><p className="text-xs text-text-secondary">{t.slug}</p>{t.applicantEmail && <p className="text-xs text-text-secondary">{t.applicantName} · {t.applicantEmail}{t.applicantPhone ? ` · ${t.applicantPhone}` : ""}</p>}{t.rejectReason && <p className="text-xs text-state-danger">Lý do từ chối: {t.rejectReason}</p>}</div></div> },
-    { key: "plan", header: "Gói", sort: (t) => t.planId, render: (t) => PLAN_NAME(planList, t.planId) },
+    { key: "name", header: "Thương hiệu", sort: (t) => t.name, render: (t) => <div className="flex items-center gap-3">{t.logoUrl ? <img src={t.logoUrl} alt="" className="h-9 w-9 shrink-0 rounded-[10px] border border-border object-contain" /> : <span aria-hidden className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-sand font-serif text-clay">{t.name.charAt(0)}</span>}<div><p className="font-medium text-text-primary">{t.name}</p><p className="text-xs text-text-secondary">Mã: {t.slug}</p>{t.applicantEmail && <p className="text-xs text-text-secondary">{t.applicantName} · {t.applicantEmail}{t.applicantPhone ? ` · ${t.applicantPhone}` : ""}</p>}{t.rejectReason && <p className="text-xs text-state-danger">Lý do từ chối: {t.rejectReason}</p>}{(t.status === "Pending" || t.status === "AwaitingPayment") && t.requestedPlanId && <p className="text-xs text-clay">Chọn gói {PLAN_NAME(planList, t.requestedPlanId)} trên bảng giá{t.paymentClaimReference ? ` · báo đã thanh toán, mã ${t.paymentClaimReference}` : ""}</p>}</div></div> },
+    {
+      key: "plan", header: "Gói", sort: (t) => t.planName ?? "",
+      render: (t) => t.planId
+        ? t.planName ?? PLAN_NAME(planList, t.planId)
+        : t.status === "Active" || t.status === "AwaitingPayment"
+          ? <select aria-label={`Gán gói cho ${t.name}`} value="" disabled={assign.isPending} onChange={(e) => assign.mutate({ id: t.id, planId: e.target.value })} className="rounded-[8px] border border-border bg-surface px-2 py-1.5 text-sm"><option value="" disabled>Gán gói…</option>{planList.filter((p) => p.isActive !== false).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select>
+          : <span className="text-text-secondary">Chưa có</span>,
+    },
     { key: "branches", header: "Chi nhánh", sort: (t) => t.branchCount, render: (t) => t.branchCount },
     { key: "status", header: "Trạng thái", render: (t) => <StatusPill tone={STATUS_TONE[t.status]}>{STATUS_LABEL[t.status]}</StatusPill> },
     { key: "created", header: "Tạo ngày", sort: (t) => t.createdAtUtc, render: (t) => formatDate(t.createdAtUtc) },
@@ -68,6 +88,8 @@ export default function PlatformTenants({ navigate }: { navigate: (p: Page) => v
           {t.status === "Active" && <Button variant="secondary" className="px-3 py-1.5 text-xs" onClick={() => setAction({ tenant: t, status: "Suspended" })}>Tạm ngưng</Button>}
           {t.status === "Suspended" && <Button variant="secondary" className="px-3 py-1.5 text-xs" onClick={() => setAction({ tenant: t, status: "Active" })}>Kích hoạt lại</Button>}
           {(t.status === "Active" || t.status === "Suspended") && <Button variant="ghost" className="px-3 py-1.5 text-xs text-state-danger" onClick={() => setAction({ tenant: t, status: "Closed" })}>Đóng</Button>}
+          {t.status === "AwaitingPayment" && <Button variant="secondary" className="px-3 py-1.5 text-xs" onClick={() => navigate("platform-subscriptions")}>Ghi nhận thanh toán</Button>}
+          {t.status !== "Pending" && <Button variant="ghost" className="px-3 py-1.5 text-xs text-state-danger" onClick={() => { setDeleteReason(""); setDeleting(t) }}>Xóa</Button>}
         </span>
       ),
     },
@@ -80,14 +102,30 @@ export default function PlatformTenants({ navigate }: { navigate: (p: Page) => v
     <PlatformPage page="platform-tenants" navigate={navigate} uc="UC-05" title="Quản lý tenant" subtitle="Các thương hiệu đang dùng nền tảng." action={<Button onClick={() => setWizard(true)}>Tạo tenant</Button>}>
       <QueryBoundary query={tenants}>{(rows) => {
         const pending = rows.filter((t) => t.status === "Pending").length
-        const sorted = [...rows].sort((a, b) => Number(b.status === "Pending") - Number(a.status === "Pending"))
+        const unpaid = rows.filter((t) => t.status === "AwaitingPayment").length
+        const rank = (t: Tenant) => (t.status === "Pending" ? 0 : t.status === "AwaitingPayment" ? 1 : 2)
+        const sorted = [...rows].sort((a, b) => rank(a) - rank(b))
         return (
           <>
             {pending > 0 && <div className="mb-4"><Banner tone="warn">{pending} thương hiệu mới đăng ký đang chờ bạn duyệt.</Banner></div>}
+            {unpaid > 0 && <div className="mb-4"><Banner tone="warn">{unpaid} thương hiệu chưa thanh toán gói nên chưa đăng nhập được. Ghi nhận thanh toán ở mục Đăng ký để mở thương hiệu.</Banner></div>}
             <DataTable rows={sorted} rowKey={(t) => t.id} columns={columns} emptyTitle="Chưa có tenant nào" />
           </>
         )
       }}</QueryBoundary>
+
+      <ConfirmDialog
+        open={!!deleting}
+        danger
+        title={`Xóa ${deleting?.name ?? ""}?`}
+        message="Xóa mềm: thương hiệu biến mất khỏi danh sách, mọi người dùng của thương hiệu bị đăng xuất và không đăng nhập được nữa. Dữ liệu và mã thương hiệu vẫn được giữ lại."
+        requireReason
+        reason={deleteReason}
+        onReason={setDeleteReason}
+        confirmLabel={remove.isPending ? "Đang xóa…" : "Xóa thương hiệu"}
+        onCancel={() => setDeleting(null)}
+        onConfirm={() => deleting && !remove.isPending && remove.mutate(deleting)}
+      />
 
       <TenantWizard open={wizard} plans={planList} onClose={() => setWizard(false)} onCreated={() => { setWizard(false); void qc.invalidateQueries({ queryKey: ["platform"] }); showToast("Đã tạo tenant", "success") }} />
 
@@ -95,8 +133,8 @@ export default function PlatformTenants({ navigate }: { navigate: (p: Page) => v
         open={!!action}
         danger={action?.status !== "Active"}
         title={action ? `${verb(action)} ${action.tenant.name}?` : ""}
-        message={approving ? "Thương hiệu sẽ được kích hoạt với thời gian dùng thử 14 ngày. Chủ quán nhận email mời đặt mật khẩu." : action?.status === "Rejected" ? "Lý do sẽ được gửi tới email của chủ quán." : suspending ? "Tạm ngưng sẽ chặn đăng nhập, API, QR bàn và đặt takeaway của toàn bộ thương hiệu này (BR-07)." : action?.status === "Closed" ? "Đóng tenant là hành động khó hoàn tác." : "Thương hiệu sẽ hoạt động trở lại."}
-        requireReason={action?.status !== "Active"}
+        message={approving ? "Thương hiệu chuyển sang Chờ thanh toán (gói chủ quán đã chọn được gán luôn). Chủ quán đăng nhập được sau khi bạn ghi nhận thanh toán ở mục Đăng ký." : action?.status === "Rejected" ? "Lý do sẽ được gửi tới email của chủ quán." : suspending ? "Tạm ngưng sẽ chặn đăng nhập, API, QR bàn và đặt takeaway của toàn bộ thương hiệu này (BR-07)." : action?.status === "Closed" ? "Đóng tenant là hành động khó hoàn tác." : "Thương hiệu sẽ hoạt động trở lại."}
+        requireReason={action?.status === "Rejected" || action?.status === "Closed"}
         reason={reason}
         onReason={setReason}
         confirmLabel="Xác nhận"
@@ -143,7 +181,7 @@ function TenantWizard({ open, plans, onClose, onCreated }: { open: boolean; plan
       footer={
         <>
           {step > 0 && <Button variant="secondary" onClick={() => setStep(step - 1)}>Quay lại</Button>}
-          {step < 3 ? <Button onClick={next}>Tiếp tục</Button> : <Button loading={create.isPending} onClick={() => create.mutate(form)}>Kích hoạt tenant</Button>}
+          {step < 3 ? <Button onClick={next}>Tiếp tục</Button> : <Button loading={create.isPending} onClick={() => create.mutate(form)}>Tạo tenant</Button>}
         </>
       }
     >
@@ -189,6 +227,7 @@ function TenantWizard({ open, plans, onClose, onCreated }: { open: boolean; plan
           {[["Thương hiệu", form.name], ["Mã định danh", form.slug], ["Gói", plan ? `${plan.name} · ${formatVND(plan.monthlyFee)}/tháng` : ""], ["Brand Admin", `${form.adminName} (${form.adminEmail})`]].map(([k, v]) => (
             <div key={k} className="flex justify-between gap-4"><dt className="text-text-secondary">{k}</dt><dd className="text-right text-text-primary">{v}</dd></div>
           ))}
+          <p className="pt-2 text-xs text-text-secondary">Tenant mới ở trạng thái Chờ thanh toán. Chủ quán đăng nhập được khi bạn ghi nhận thanh toán gói ở mục Đăng ký.</p>
         </dl>
       )}
     </Modal>

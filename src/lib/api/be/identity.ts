@@ -6,41 +6,41 @@ import { itemsOf } from "./util"
 
 const BASE = "/identity"
 
+/** Map BE `activeBrandCode` (staff home tenant / customer pick) onto FE `tenantSlug` for path routing. */
+function storeSession(session: StoredSession): StoredSession {
+  const slug = session.tenantSlug ?? session.activeBrandCode ?? null
+  const next = slug && session.tenantSlug !== slug ? { ...session, tenantSlug: slug } : session
+  tokenStore.set(next)
+  return next
+}
+
 /** Real backend (FE-INTEGRATION-API-REFERENCE section 1). */
 export const beAuthApi = {
-  async login(login: string, password: string, opts: { tenantSlug?: string | null; admin?: boolean } = {}): Promise<StoredSession> {
-    const path = opts.admin
-      ? "/admin/auth/login"
-      : opts.tenantSlug
-        ? `/${opts.tenantSlug}/auth/login`
-        : `${BASE}/auth/login`
-    const session = await http.post<StoredSession>(path, { login, password }, { anonymous: true })
-    tokenStore.set(session)
-    return session
+  async login(login: string, password: string, _opts: { tenantSlug?: string | null; admin?: boolean } = {}): Promise<StoredSession> {
+    // Real BE: one login path for staff, brand admin, super admin, and customers (FE-INTEGRATION §1).
+    // Path-tenant /admin routes exist only in the MSW mock. Staff tenant comes from the account, not the URL.
+    const session = await http.post<StoredSession>(`${BASE}/auth/login`, { login, password }, { anonymous: true })
+    return storeSession(session)
   },
   /** One customer account works at every brand; the brand is chosen after signing in (`selectBrand`). */
   /** Registering signs the customer in at once: no email code (the code is kept for the password reset). */
   async register(body: SignUpInput): Promise<StoredSession> {
     const session = await http.post<StoredSession>(`${BASE}/auth/register`, body, { anonymous: true })
-    tokenStore.set(session)
-    return session
+    return storeSession(session)
   },
   async verifyRegistration(email: string, code: string): Promise<StoredSession> {
     const session = await http.post<StoredSession>(`${BASE}/auth/register/verify`, { email, code }, { anonymous: true })
-    tokenStore.set(session)
-    return session
+    return storeSession(session)
   },
   resendRegistration: (email: string) =>
     http.post<SignUpPending>(`${BASE}/auth/register/resend`, { email }, { anonymous: true }),
   async selectBrand(target: { code?: string; tenantId?: string }): Promise<StoredSession> {
     const session = await http.post<StoredSession>(`${BASE}/auth/select-brand`, { refreshToken: tokenStore.get()?.refreshToken, tenantCode: target.code, tenantId: target.tenantId })
-    tokenStore.set(session)
-    return session
+    return storeSession(session)
   },
   async loginWithGoogle(idToken: string): Promise<StoredSession> {
     const session = await http.post<StoredSession>(`${BASE}/auth/google`, { idToken }, { anonymous: true })
-    tokenStore.set(session)
-    return session
+    return storeSession(session)
   },
   async logout(): Promise<void> {
     const session = tokenStore.get()

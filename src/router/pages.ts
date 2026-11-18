@@ -79,6 +79,7 @@ export const PAGE_PATHS = {
   "branch-floor-plan": "/:tenantSlug/branch/floor-plan",
   "branch-pickup": "/:tenantSlug/branch/pickup-settings",
   "branch-orders": "/:tenantSlug/branch/orders",
+  "branch-refunds": "/:tenantSlug/branch/refunds",
   "branch-attendance": "/:tenantSlug/branch/attendance",
   "branch-cash-closings": "/:tenantSlug/branch/cash-closings",
 
@@ -94,6 +95,7 @@ export const PAGE_PATHS = {
   "admin-users": "/:tenantSlug/brand/accounts",
   "brand-pickup": "/:tenantSlug/brand/pickup-settings",
   "brand-promotions": "/:tenantSlug/brand/promotions",
+  "brand-apriori": "/:tenantSlug/brand/apriori",
   "brand-loyalty": "/:tenantSlug/brand/loyalty",
   "brand-subscription": "/:tenantSlug/brand/subscription",
   "brand-cancel-policy": "/:tenantSlug/brand/cancel-policy",
@@ -110,6 +112,7 @@ export const PAGE_PATHS = {
   "platform-health": "/platform/health",
   "platform-revenue": "/platform/revenue",
   "platform-audit": "/platform/audit",
+  "platform-leads": "/platform/leads",
 } as const
 
 export type Page = keyof typeof PAGE_PATHS

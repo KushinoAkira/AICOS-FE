@@ -13,6 +13,7 @@ colors:
   clay: "#8B5E3C"
   olive: "#7A8450"
   olive-bg: "#EAEDE0"
+  sand: "#F5E8D8"
   border: "#E6DCCB"
   border-strong: "#D6C5B3"
   tertiary-bg: "#FDF0E6"
@@ -24,15 +25,20 @@ colors:
   on-primary: "#FAF6F0"
   on-espresso: "#FAF6F0"
   on-surface: "#3A2E22"
+  ink: "#241610"
+  ink-lift: "#3A2418"
+  on-dark: "#F6EBDC"
+  on-dark-muted: "#E3D2BB"
+  on-dark-soft: "#CDB9A0"
 typography:
   h1:
-    fontFamily: Fraunces
+    fontFamily: Literata
     fontSize: 2rem
     fontWeight: "500"
     lineHeight: 1.2
     letterSpacing: -0.01em
   h2:
-    fontFamily: Fraunces
+    fontFamily: Literata
     fontSize: 1.25rem
     fontWeight: "500"
     lineHeight: 1.3
@@ -101,14 +107,17 @@ never as flashy "magic".
 - **Tertiary (#C97B4A):** terracotta - highlights, active states, key figures.
 - **Neutral (#FAF6F0):** cream page background. **Surface (#FFFFFF)** cards sit on it.
 - **Espresso (#6F4E37):** primary action colour and the sidebar. **Clay / Olive** are supporting tones for categories.
+- **Ink (#241610):** deep roast for customer-portal dark heroes (OrderStart, customer auth panel). **On-dark** cream text sits on it.
+- **Sand (#F5E8D8):** warm band / secondary surface between cream and white.
 - **State colours:** success / warning / danger are earthy on purpose; always pair them with text or an icon, never colour alone.
+- Customer portal (`/dat-mon`, `/customer-login`) uses the same Warm Roast tokens — no parallel hardcoded palette.
 
 ## Typography
 
-- **Headlines:** Fraunces (serif, medium) - gives the warm, café-menu voice.
+- **Headlines:** Literata (serif, medium) - warm café-menu voice with full Vietnamese composites (Fraunces was dropped: missing VN glyphs).
 - **Body and data:** Inter at 14px for dense dashboards (POS, stock tables), 16px for customer-facing reading.
 - **Labels:** Inter 12px medium with slight tracking.
-- Vietnamese diacritics must render cleanly: always load both fonts with the Vietnamese subset.
+- Vietnamese diacritics must render cleanly: self-host latin + vietnamese subsets (Hosting CSP blocks Google Fonts).
 
 ## Layout
 

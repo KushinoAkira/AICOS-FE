@@ -8,6 +8,7 @@ import { useCountdown, mmss } from "../../hooks/useCountdown"
 import { ApiError } from "../../lib/api/http"
 import { clearActiveBrandSlug } from "../../lib/brand"
 import { normalizeRole } from "../../router/roles"
+import { protectOrphans } from "../../lib/typography"
 
 interface Props {
   navigate: (p: Page) => void
@@ -54,7 +55,11 @@ export default function AdminLogin({ navigate }: Props) {
   }
 
   return (
-    <AuthShell hero title="Đăng nhập quản trị nền tảng" subtitle="Cổng Super Admin — không gắn với thương hiệu nào.">
+    <AuthShell
+      hero
+      title={protectOrphans("Đăng nhập quản trị nền tảng")}
+      subtitle={protectOrphans("Cổng Super Admin — không gắn với thương hiệu nào.")}
+    >
       <form onSubmit={(e) => { e.preventDefault(); void submit() }} className="space-y-4" noValidate>
         {failure?.kind === "network" && (
           <Banner action={<button type="button" onClick={() => void submit()} className="font-medium underline">Thử lại</button>}>

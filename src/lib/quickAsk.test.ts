@@ -15,7 +15,7 @@ describe("quickAsk", () => {
     expect(r[0].body).toMatch(/499\.000|1\.490\.000/)
   })
   it("works without diacritics", () => expect(quickAsk("khach co phai tai app khong", plans)[0].title).toMatch(/ứng dụng/))
-  it("finds the trial period", () => expect(quickAsk("dung thu mien phi bao lau", plans).map((a) => a.body).join(" ")).toMatch(/14 ngày/))
+  it("finds the trial period", () => expect(quickAsk("dung thu mien phi bao lau", plans).map((a) => a.body).join(" ")).toMatch(/14[\u00A0 ]ngày/))
   it("returns nothing for unrelated text", () => expect(quickAsk("thời tiết hôm nay thế nào", plans)).toEqual([]))
   it("returns nothing for empty input", () => expect(quickAsk("   ", plans)).toEqual([]))
 })

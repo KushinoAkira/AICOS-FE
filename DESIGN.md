@@ -13,6 +13,7 @@ colors:
   clay: "#8B5E3C"
   olive: "#7A8450"
   olive-bg: "#EAEDE0"
+  sand: "#F5E8D8"
   border: "#E6DCCB"
   border-strong: "#D6C5B3"
   tertiary-bg: "#FDF0E6"
@@ -24,6 +25,11 @@ colors:
   on-primary: "#FAF6F0"
   on-espresso: "#FAF6F0"
   on-surface: "#3A2E22"
+  ink: "#241610"
+  ink-lift: "#3A2418"
+  on-dark: "#F6EBDC"
+  on-dark-muted: "#E3D2BB"
+  on-dark-soft: "#CDB9A0"
 typography:
   h1:
     fontFamily: Literata
@@ -101,7 +107,10 @@ never as flashy "magic".
 - **Tertiary (#C97B4A):** terracotta - highlights, active states, key figures.
 - **Neutral (#FAF6F0):** cream page background. **Surface (#FFFFFF)** cards sit on it.
 - **Espresso (#6F4E37):** primary action colour and the sidebar. **Clay / Olive** are supporting tones for categories.
+- **Ink (#241610):** deep roast for customer-portal dark heroes (OrderStart, customer auth panel). **On-dark** cream text sits on it.
+- **Sand (#F5E8D8):** warm band / secondary surface between cream and white.
 - **State colours:** success / warning / danger are earthy on purpose; always pair them with text or an icon, never colour alone.
+- Customer portal (`/dat-mon`, `/customer-login`) uses the same Warm Roast tokens — no parallel hardcoded palette.
 
 ## Typography
 

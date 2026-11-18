@@ -2,7 +2,8 @@ import { env } from "../../config/env"
 import { bePlatformApi, bePublicApi } from "./be/platform"
 import { http } from "./http"
 
-export type TenantStatus = "Pending" | "Active" | "Suspended" | "Closed" | "Rejected"
+/** AwaitingPayment: approved or created, opens once the Super Admin records the payment. Deleted: soft-deleted. */
+export type TenantStatus = "Pending" | "Active" | "Suspended" | "Closed" | "Rejected" | "AwaitingPayment" | "Deleted"
 export type SubscriptionStatus = "Active" | "PastDue" | "Suspended"
 
 export interface Tenant {
@@ -22,6 +23,11 @@ export interface Tenant {
   /** Brand identity shown on the brand's own login page. */
   logoUrl?: string
   brandColor?: string
+  /** Optional storefront / interior photo for the customer shop picker. */
+  coverUrl?: string
+  /** Registered from the pricing page: the plan picked and the reference of its (simulated) payment. */
+  requestedPlanId?: string
+  paymentClaimReference?: string
 }
 
 /** What the brand's public pages (login, sign-up) may know about a brand. */
@@ -41,6 +47,8 @@ export interface BrandCard {
   description?: string
   logoUrl?: string
   brandColor?: string
+  /** Wide photo for the shop picker card background. */
+  coverUrl?: string
   branchCount: number
 }
 
@@ -54,6 +62,9 @@ export interface RegisterBrandInput {
   password: string
   confirmPassword: string
   description: string
+  /** From the pricing page checkout. */
+  planId?: string
+  paymentReference?: string
 }
 
 export interface TenantInput {
@@ -94,6 +105,8 @@ export interface Subscription {
   overdueDays: number
   /** What is still unpaid for the current period. */
   outstanding?: number
+  /** The brand's own status (AwaitingPayment until its first payment). */
+  tenantStatus?: TenantStatus
 }
 
 export interface SubscriptionPaymentInput {
@@ -133,6 +146,12 @@ export interface HealthItem {
   checkedAtUtc: string
 }
 
+/** Revenue of a period: per month, per plan (how many payments: the plans bought most). */
+export interface RevenueReport { total: number; byMonth: RevenuePoint[]; byPlan: { planName: string; amount: number; payments: number }[] }
+
+/** A message from the contact form: a lead the platform team follows up. */
+export interface Lead { id: string; name: string; email: string; phone?: string; topic?: string; message: string; status: "New" | "Handled"; createdAtUtc: string; handledAtUtc?: string; note?: string }
+
 export interface RevenuePoint {
   month: string
   /** SaaS subscription revenue only - never the brands' sales revenue (BR-09). */
@@ -155,7 +174,7 @@ export interface ContactInput {
   name: string
   email: string
   phone?: string
-  topic: "demo" | "pricing" | "support" | "other"
+  topic: "consult" | "demo" | "pricing" | "support" | "other"
   message: string
 }
 
@@ -187,6 +206,12 @@ const mockPlatformApi = {
   setProviderEnabled: (id: string, enabled: boolean) => http.patch<PaymentProvider>(`${BASE}/payment-providers/${id}/status`, { enabled }),
   health: () => http.get<HealthItem[]>(`${BASE}/health`),
   revenue: () => http.get<RevenuePoint[]>(`${BASE}/revenue`),
+  /** `from`/`to`: YYYY-MM (first and last month included). */
+  revenueReport: (from: string, to: string) => http.get<RevenueReport>(`${BASE}/revenue/report?from=${from}&to=${to}`),
+  deleteTenant: (id: string, reason: string) => http.delete<void>(`${BASE}/tenants/${id}?reason=${encodeURIComponent(reason)}`),
+  deletePlan: (id: string) => http.delete<void>(`${BASE}/plans/${id}`),
+  leads: () => http.get<Lead[]>(`${BASE}/leads`),
+  handleLead: (id: string, note: string) => http.post<Lead>(`${BASE}/leads/${id}/handled`, { note }),
   audit: () => http.get<PlatformAuditEntry[]>(`${BASE}/audit`),
 }
 

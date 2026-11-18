@@ -5,10 +5,10 @@ function Shell({ code, title, body, onHome }: { code: string; title: string; bod
   const { t } = useTranslation()
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-bg-base px-6 text-center">
-      <p className="font-serif text-6xl text-terracotta">{code}</p>
-      <h1 className="mt-4 font-serif text-2xl text-text-primary">{title}</h1>
-      <p className="mt-2 max-w-sm text-sm text-text-secondary">{body}</p>
-      <Button className="mt-6" onClick={onHome}>{t("errors.home")}</Button>
+      <p className="type-display text-6xl text-terracotta">{code}</p>
+      <h1 className="type-title mt-4 text-2xl text-text-primary">{title}</h1>
+      <p className="type-body mt-3 max-w-sm text-text-secondary">{body}</p>
+      <Button className="mt-8" onClick={onHome}>{t("errors.home")}</Button>
     </div>
   )
 }

@@ -51,6 +51,9 @@ export interface AssignmentRow {
   id: string; branchId: string; employeeId: string; employeeName: string; shiftName: string; workDate: string; startTime: string; endTime: string
   isReplacement: boolean; checkInAtUtc: string | null; checkOutAtUtc: string | null; reviewStatus: "Unreviewed" | "Approved"; isAbsent: boolean
   adjustedCheckInAtUtc: string | null; adjustedCheckOutAtUtc: string | null; reviewNote: string | null; workedHours: number
+  /** Set by the manager over the automatic status: Late, LeftEarly, ExcusedAbsence, UnexcusedAbsence, Other. */
+  managerStatus?: string | null
+  managerNote?: string | null
 }
 export type AttendanceState = "Upcoming" | "InProgress" | "Worked" | "MissingCheckOut" | "NoShow" | string
 export interface AttendanceRow { shift: AssignmentRow; state: AttendanceState; isLate: boolean; lateMinutes: number; leftEarly: boolean; scheduledHours: number; workedHours: number }
@@ -71,12 +74,16 @@ export const attendanceApi = {
   approveRange: (b: { from: string; to: string }) => http.post<{ approved: number; needsAttention: number }>("/workforce/attendance/approve-range", b),
   adjust: (id: string, b: { checkInAt: string | null; checkOutAt: string | null; reason: string }) => http.post<Raw>(`/workforce/attendance/${id}/adjust`, b),
   absent: (id: string, reason: string) => http.post<Raw>(`/workforce/attendance/${id}/absent`, { reason }),
+  /** Empty status goes back to the automatic status (from check-in and check-out). */
+  setStatus: (id: string, b: { status: string; note: string }) => http.post<Raw>(`/workforce/attendance/${id}/status`, { status: b.status || null, note: b.note.trim() || null }),
 }
 
 // ---------- cash closing
 export interface CashClosing {
   id: string; branchId: string; employeeName: string; workDate: string; startTime: string; endTime: string; expectedAmount: number; countedAmount: number; difference: number
   cashierNote: string | null; status: "PendingReview" | "Confirmed"; managerNote: string | null; submittedAtUtc: string; confirmedAtUtc: string | null
+  /** What the previous handover left in the drawer (0 for the first one of the day). */
+  openingAmount?: number
 }
 export interface CashClosingDetails {
   closing: CashClosing; cashReceived: number; cashRefunded: number
@@ -124,12 +131,22 @@ export interface TableBatchRow { areaId?: string; areaName?: string; tableCode: 
 export const tableApi = {
   list: async (branchId?: string) => itemsOf(await http.get<DiningTable[]>("/tables/dining-tables", { query: { branchId } })),
   areas: async (branchId?: string) => itemsOf(await http.get<Area[]>("/tables/areas", { query: { branchId } })),
-  addArea: (name: string, branchId?: string) => http.post<Area>("/tables/areas", { branchId, name, sortOrder: 0 }),
+  addArea: (name: string, branchId?: string, sortOrder = 0) =>
+    http.post<Area>("/tables/areas", { branchId, name, sortOrder }),
+  updateArea: (id: string, body: { name: string; sortOrder: number }) =>
+    http.put<Area>(`/tables/areas/${id}`, body),
   cloneFloorPlan: (fromBranchId: string, toBranchIds: string[]) => http.post<{ branches: { branchId: string; tables: number; areasCreated: number }[] }>("/tables/floor-plan/clone", { fromBranchId, toBranchIds }),
   saveLayout: (positions: { tableId: string; positionX: number; positionY: number }[], branchId?: string) => http.put<{ moved: number }>("/tables/floor-plan/layout", { branchId, positions }),
   batch: (rows: TableBatchRow[], branchId?: string) => http.post<{ created: number; areasCreated: number; tables: DiningTable[] }>("/tables/dining-tables/batch", { branchId, rows }),
   removeArea: (id: string) => http.delete<void>(`/tables/areas/${id}`),
-  create: (b: { branchId?: string; areaId: string; tableCode: string; capacity: number }) => http.post<DiningTable>("/tables/dining-tables", b),
+  create: (b: {
+    branchId?: string
+    areaId: string
+    tableCode: string
+    capacity: number
+    positionX?: number
+    positionY?: number
+  }) => http.post<DiningTable>("/tables/dining-tables", b),
   update: (id: string, b: { areaId: string; tableCode: string; capacity: number }) => http.put<DiningTable>(`/tables/dining-tables/${id}`, b),
   setStatus: (id: string, status: DiningTable["status"]) => http.patch<DiningTable>(`/tables/dining-tables/${id}/status`, { status }),
   regenerateQr: (id: string) => http.post<DiningTable>(`/tables/dining-tables/${id}/qr/regenerate`, {}),
@@ -149,18 +166,31 @@ export interface Refund {
   /** Who asked for it: that person cannot approve it (unless brand admin). */
   requestedBy: string | null
   decidedBy: string | null; decidedAtUtc: string | null; decisionNote: string | null; createdAtUtc: string
+  /** Set when the customer asked for the money on their bank account: the brand admin transfers it by hand, then approves with the reference. */
+  bankName?: string | null; bankAccountNumber?: string | null; bankAccountHolder?: string | null
+  providerReference?: string | null
 }
 export const reconciliationApi = {
   report: (q: { from: string; to: string }) => http.get<ReconciliationReport>("/payments/reconciliation", { query: q }),
   auto: (q: { from: string; to: string }) => http.get<{ orders: number; matched: number; discrepancies: Discrepancy[] }>("/payments/reconciliation/auto", { query: q }),
   /** The branch manager gets the refunds of their own branch only (the server filters by the token). */
-  refunds: async () => itemsOf(await http.get<Refund[]>("/payments/refunds", { query: { limit: 100 } })),
+  /** `status`: only that state (PendingApproval for the waiting ones). `from`/`to`: asked in those shop days (the history). */
+  refunds: async (q: { status?: string; from?: string; to?: string } = {}) =>
+    itemsOf(await http.get<Refund[]>("/payments/refunds", { query: { limit: 200, ...Object.fromEntries(Object.entries(q).filter(([, v]) => !!v)) } })),
+  /** Order codes (the ones customers see) for refunds whose page has no order list; an order that cannot be read is left out. */
+  async orderCodes(ids: string[]): Promise<Record<string, string>> {
+    const rows = await Promise.all(ids.map(async (id) => {
+      try { const o = await http.get<{ orderCode?: string; code?: string }>(`/orders/${id}`); return [id, o.orderCode ?? o.code ?? ""] as const } catch { return [id, ""] as const }
+    }))
+    return Object.fromEntries(rows.filter(([, code]) => code))
+  },
   /** Who the brand lets decide refund exceptions (cancellation policy). */
   async approver(): Promise<RefundApprover> {
     const p = await http.get<{ exceptionApprover?: string }>("/payments/policies/cancellation")
     return p.exceptionApprover === "BrandAdmin" ? "BrandAdmin" : "BranchManager"
   },
-  approveRefund: (id: string, note: string) => http.post<Refund>(`/payments/refunds/${id}/approve`, { note }),
+  /** `reference`: the bank transaction reference, required for a refund to the customer's bank account. */
+  approveRefund: (id: string, note: string, reference?: string) => http.post<Refund>(`/payments/refunds/${id}/approve`, { note, reference: reference || null }),
   rejectRefund: (id: string, note: string) => http.post<Refund>(`/payments/refunds/${id}/reject`, { note }),
 }
 

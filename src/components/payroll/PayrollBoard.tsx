@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from "react"
+import { useState, type ReactNode } from "react"
 import { useMutation } from "@tanstack/react-query"
 import { BankAccountForm } from "../BankAccountForm"
 import { Banner, Button, Field, Modal } from "../ui"
@@ -76,8 +76,6 @@ export function PayrollBoard({
   const [reason, setReason] = useState("")
   const [account, setAccount] = useState<PayrollPeriodLine | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const activeTile = useRef<HTMLButtonElement>(null)
-  useEffect(() => { activeTile.current?.scrollIntoView?.({ block: "nearest", inline: "center" }) }, [month])
 
   const fail = (e: Error & { code?: string }) => setError(payrollErrorMessage(e))
   const pay = useMutation({
@@ -142,7 +140,7 @@ export function PayrollBoard({
             return (
               <li key={t.month}>
                 <button
-                  ref={active ? activeTile : undefined} type="button" aria-current={active ? "true" : undefined} onClick={() => onMonth(t.month)}
+                  type="button" aria-current={active ? "true" : undefined} onClick={() => onMonth(t.month)}
                   className={`flex min-h-14 min-w-[7.5rem] flex-col items-start justify-center rounded-[14px] border px-4 py-2 text-left transition-colors ${active ? "border-espresso bg-espresso text-bg-base" : "border-border bg-surface text-text-primary hover:border-clay"}`}
                 >
                   <span className="font-serif text-base leading-tight">{monthLabel(t.month)}</span>
@@ -194,11 +192,11 @@ export function PayrollBoard({
             const done = s.n < step || (s.n === 3 && period?.status === "Paid")
             const now = s.n === step && !done
             return (
-              <li key={s.n} aria-current={now ? "step" : undefined} className={`flex flex-col items-start gap-2 px-4 py-4 sm:flex-row sm:items-center sm:gap-3 sm:px-8 ${s.n > 1 ? "border-l border-border" : ""}`}>
+              <li key={s.n} aria-current={now ? "step" : undefined} className={`flex items-center gap-3 px-8 py-4 ${s.n > 1 ? "border-l border-border" : ""}`}>
                 <span aria-hidden className={`grid h-8 w-8 shrink-0 place-items-center rounded-full text-sm font-semibold ${done ? "bg-olive text-white" : now ? "bg-espresso text-bg-base" : "border border-border bg-surface text-text-secondary"}`}>{done ? "✓" : s.n}</span>
                 <span className="min-w-0">
                   <span className={`block text-sm font-medium ${now || done ? "text-text-primary" : "text-text-secondary"}`}>{s.title}</span>
-                  <span className="hidden truncate text-xs text-text-secondary sm:block">{s.text}</span>
+                  <span className="block truncate text-xs text-text-secondary">{s.text}</span>
                 </span>
               </li>
             )

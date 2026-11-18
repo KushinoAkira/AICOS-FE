@@ -1,5 +1,5 @@
 import { http } from "../http"
-import type { BrandCard, BrandPublic, ContactInput, RegisterBrandInput, HealthItem, PaymentProvider, Plan, PlatformAuditEntry, ProviderInput, RevenuePoint, Subscription, SubscriptionPaymentInput, Tenant, TenantInput, TenantStatus } from "../platform"
+import type { BrandCard, BrandPublic, ContactInput, Lead, RegisterBrandInput, HealthItem, PaymentProvider, Plan, PlatformAuditEntry, ProviderInput, RevenuePoint, RevenueReport, Subscription, SubscriptionPaymentInput, Tenant, TenantInput, TenantStatus } from "../platform"
 import { bool, itemsOf, num, randomPassword, rec, recs, str, unsupported, type Raw } from "./util"
 
 /** Real backend, SuperAdmin side (reference section 1 "Nền tảng", section 6 providers). Ids of subscriptions are tenant ids. */
@@ -9,7 +9,17 @@ const toTenant = (t: Raw): Tenant => ({
   id: str(t.id), name: str(t.name), slug: str(t.code), planId: str(t.planId), planName: str(t.planName) || undefined, status: str(t.status, "Active") as TenantStatus,
   branchCount: num(t.branchCount ?? t.activeBranches), createdAtUtc: str(t.createdAtUtc), logoUrl: str(t.logoUrl) || undefined,
   applicantName: str(t.ownerName) || undefined, applicantEmail: str(t.ownerEmail) || undefined, applicantPhone: str(t.ownerPhone) || undefined, rejectReason: str(t.reviewNote) || undefined,
+  requestedPlanId: str(t.requestedPlanId) || undefined, paymentClaimReference: str(t.paymentClaimReference) || undefined,
 })
+
+const toLead = (m: Raw): Lead => ({
+  id: str(m.id), name: str(m.fullName), email: str(m.email), phone: str(m.phone) || undefined, topic: str(m.subject) || undefined, message: str(m.message),
+  status: str(m.status) === "Handled" ? "Handled" : "New", createdAtUtc: str(m.createdAtUtc), handledAtUtc: str(m.handledAtUtc) || undefined, note: str(m.note) || undefined,
+})
+
+/** First day of a YYYY-MM month (UTC), and the last moment of the last month. */
+const monthStart = (ym: string) => `${ym}-01T00:00:00Z`
+const monthEnd = (ym: string) => { const [y, m] = ym.split("-").map(Number); return new Date(Date.UTC(y!, m!, 1) - 1).toISOString() }
 
 const toPlan = (p: Raw): Plan => ({
   id: str(p.id), name: str(p.name), monthlyFee: num(p.fee), billingCycle: str(p.billingPeriod, "Monthly") as Plan["billingCycle"],
@@ -36,6 +46,7 @@ function toSubscription(s: Raw): Subscription {
   return {
     id: str(s.tenantId) || str(s.id), tenantId: str(s.tenantId), tenantName: str(s.tenantName), planId: str(s.planId),
     status: str(s.tenantStatus) === "Suspended" ? "Suspended" : health === "Overdue" || health === "GracePeriod" ? "PastDue" : "Active",
+    tenantStatus: (str(s.tenantStatus) || undefined) as TenantStatus | undefined,
     paymentStatus: str(s.paymentStatus) === "Paid" ? "Paid" : "Unpaid", renewsAtUtc: str(s.periodEndUtc),
     overdueDays: Math.max(0, -num(s.daysUntilRenewal)), outstanding: num(s.outstanding),
   }
@@ -82,6 +93,18 @@ export const bePlatformApi = {
     const raw = rec(await http.get<Raw>(`${ID}/platform/revenue`))
     return recs(raw.byMonth).map((r) => ({ month: str(r.month), revenue: num(r.amount) }))
   },
+  async revenueReport(from: string, to: string): Promise<RevenueReport> {
+    const raw = rec(await http.get<Raw>(`${ID}/platform/revenue`, { query: { from: monthStart(from), to: monthEnd(to) } }))
+    return {
+      total: num(raw.total),
+      byMonth: recs(raw.byMonth).map((r) => ({ month: str(r.month), revenue: num(r.amount) })),
+      byPlan: recs(raw.byPlan).map((p) => ({ planName: str(p.planName), amount: num(p.amount), payments: num(p.payments) })),
+    }
+  },
+  deleteTenant: async (id: string, reason: string) => { await http.delete<void>(`${ID}/tenants/${id}`, { query: reason.trim() ? { reason: reason.trim() } : {} }) },
+  deletePlan: async (id: string) => { await http.delete<void>(`${ID}/subscription-plans/${id}`) },
+  leads: async () => recs(itemsOf(await http.get<Raw[]>(`${ID}/contact-messages`, { query: { pageSize: 100 } }))).map(toLead),
+  handleLead: async (id: string, note: string) => toLead(rec(await http.post<Raw>(`${ID}/contact-messages/${id}/handled`, { note: note.trim() || null }))),
   async audit(): Promise<PlatformAuditEntry[]> {
     return recs(itemsOf(await http.get<Raw[]>(`${ID}/audit-logs`, { query: { pageSize: 100 } }))).map((a) => ({
       id: str(a.id), at: str(a.createdAtUtc) || str(a.occurredAtUtc) || str(a.at), actor: str(a.actorName) || str(a.actorEmail) || str(a.actor),
@@ -90,7 +113,7 @@ export const bePlatformApi = {
   },
 }
 
-const TOPIC_LABEL: Record<ContactInput["topic"], string> = { demo: "Xem demo", pricing: "Bảng giá", support: "Hỗ trợ", other: "Khác" }
+const TOPIC_LABEL: Record<ContactInput["topic"], string> = { consult: "Tư vấn chọn gói", demo: "Xem demo", pricing: "Bảng giá", support: "Hỗ trợ", other: "Khác" }
 
 /** Anonymous endpoints. */
 export const bePublicApi = {
@@ -110,7 +133,7 @@ export const bePublicApi = {
     return { received: true }
   },
   async registerBrand(b: RegisterBrandInput): Promise<{ code: string; message: string }> {
-    const r = rec(await http.post<Raw>(`${ID}/auth/register-brand`, { ...b, phone: b.phone || null, description: b.description || null }, { anonymous: true }))
+    const r = rec(await http.post<Raw>(`${ID}/auth/register-brand`, { ...b, phone: b.phone || null, description: b.description || null, planId: b.planId || null, paymentReference: b.paymentReference || null }, { anonymous: true }))
     return { code: str(r.code), message: str(r.message) }
   },
 }

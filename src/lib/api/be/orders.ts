@@ -1,7 +1,7 @@
 import type { OrderStatus, PaymentStatus } from "../../orderStateMachine"
 import { currentBrandSlug } from "../../brand"
 import { ApiError, http } from "../http"
-import type { Recommendations } from "../orders"
+import type { CancelInput, Recommendations } from "../orders"
 import type { CupLabel, DigitalCharge, GuestMenu, PayMethod, LineInput, Order, PayOutcome, PickupCheck, PickupInfo, ProviderStatus, TableRow, VoucherQuote } from "../orders"
 import { isKioskOrder } from "../../kiosk"
 import { tokenStore } from "../tokenStore"
@@ -333,8 +333,8 @@ export const beOrdersApi = {
     return /^https?:\/\//.test(url) ? url : null
   },
   async mine(): Promise<Order[]> { return withLines(recs(itemsOf(await http.get<Raw[]>("/orders/mine")))) },
-  async cancelMine(id: string): Promise<Order> {
-    await http.post<Raw>(`/orders/${id}/cancel`, { reason: "Khách tự hủy đơn" })
+  async cancelMine(id: string, b: CancelInput): Promise<Order> {
+    await http.post<Raw>(`/orders/${id}/cancel`, { reason: b.reason, bankName: b.bankName ?? null, bankAccountNumber: b.bankAccountNumber ?? null, bankAccountHolder: b.bankAccountHolder ?? null })
     return detail(id)
   },
   /** Orders whose online payment is waiting or failed: the ones the counter may have to ask the provider about. */
@@ -461,7 +461,7 @@ function toQrOrder(o: Raw, tableCode: string): Order {
     return {
       ...order.lines[n]!,
       // Options of a menu this tab has not opened (the page was reloaded) are listed by name so the line still tells what was ordered.
-      size: known ? label("size") : options.map((x) => str(x.name)).join(", "),
+      size: known ? [label("size"), ...options.map((x) => optionOf(str(x.optionId))).filter((x) => x?.kind === "topping").map((x) => `+${x!.label}`)].filter(Boolean).join(", ") : options.map((x) => str(x.name)).join(", "),
       sugar: known ? label("sugar") : "",
       ice: known ? label("ice") : "",
     }

@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query"
 import type { Page } from "../../App"
 import { useEffect, type CSSProperties } from "react"
-import { useLocation } from "react-router"
+import { useLocation, useNavigate } from "react-router"
 import { PublicPage } from "../../components/PublicChrome"
 import { Reveal } from "../../components/Reveal"
 import { FaqSection, FinalCta } from "./LandingSections"
@@ -24,6 +24,7 @@ export default function Landing({ navigate }: { navigate: (p: Page) => void }) {
   const { hash } = useLocation()
   useEffect(() => { if (hash) document.getElementById(hash.slice(1))?.scrollIntoView() }, [hash])
   const plans = useQuery({ queryKey: ["public", "plans"], queryFn: publicApi.plans, retry: 1 })
+  const go = useNavigate()
   return (
     <PublicPage navigate={navigate} uc="UC-05">
         <section className="relative isolate overflow-hidden bg-espresso text-white">
@@ -117,7 +118,8 @@ export default function Landing({ navigate }: { navigate: (p: Page) => void }) {
                       <li>Tối đa {p.maxUsers} tài khoản nhân viên</li>
                       <li>QR gọi món, đặt mang đi, tích điểm</li>
                     </ul>
-                    <Button variant={i === 1 ? "primary" : "secondary"} className="mt-6 min-h-11 w-full" onClick={() => navigate("contact")}>Liên hệ về {p.name}</Button>
+                    <Button variant={i === 1 ? "primary" : "secondary"} className="mt-6 min-h-11 w-full" onClick={() => go(`/register-brand?plan=${p.id}`)}>Chọn gói này</Button>
+                    <button type="button" onClick={() => go(`/contact?topic=pricing&plan=${encodeURIComponent(p.name)}`)} className="mt-2 text-xs text-text-secondary underline underline-offset-2">Cần tư vấn về gói này?</button>
                   </Reveal>
                 ))}
               </ul>

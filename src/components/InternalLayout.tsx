@@ -2,6 +2,7 @@ import { type ReactNode, useEffect, useRef, useState } from "react"
 import { useAuth } from "../context/AuthContext"
 import UserMenu from "./CustomerUserMenu"
 import NotificationBell from "./NotificationBell"
+import { useNoticeBadges } from "../lib/useStaffNotices"
 import type { Page } from "../router/pages"
 import type { Role } from "../router/roles"
 
@@ -59,6 +60,7 @@ const navMap: Record<StaffRole, NavGroup[]> = {
       item("platform-providers", "Cổng thanh toán", "plug"),
       item("platform-health", "Sức khỏe hệ thống", "pulse"),
       item("platform-revenue", "Doanh thu nền tảng", "chart"),
+      item("platform-leads", "Tư vấn khách hàng", "users"),
       item("platform-audit", "Nhật ký", "shield"),
     ] },
   ],
@@ -94,6 +96,7 @@ const navMap: Record<StaffRole, NavGroup[]> = {
     { label: "Hằng ngày", items: [
       item("manager-dashboard", "Tổng quan", "grid"),
       item("branch-orders", "Đơn hàng", "list"),
+      item("branch-refunds", "Hoàn tiền", "card"),
       item("manager-menu", "Tình trạng món", "menu"),
       item("branch-tables", "Bàn & QR", "table"),
       item("kiosk", "Kiosk khách tự gọi", "cup"),
@@ -215,7 +218,9 @@ export default function InternalLayout({ activePage, navigate, children, headerR
 }
 
 function Sidebar({ role, activePage, navigate, onClose }: { role: StaffRole; activePage: string; navigate: (p: Page) => void; onClose?: () => void }) {
-  const { user, logout } = useAuth()
+  const { user, role: userRole, logout } = useAuth()
+  // New notifications counted on the menu item that handles them, so staff see where to go without reading the whole bell list.
+  const badges = useNoticeBadges(userRole, activePage, !!userRole && userRole !== "customer")
   const closeRef = useRef<HTMLButtonElement>(null)
   useEffect(() => { closeRef.current?.focus() }, [])
   return (
@@ -251,7 +256,12 @@ function Sidebar({ role, activePage, navigate, onClose }: { role: StaffRole; act
                       className={`flex w-full items-center gap-3 rounded-[10px] px-3 py-2 text-left text-sm font-medium transition-colors ${active ? "bg-white/15 text-bg-base" : "text-bg-base/70 hover:bg-white/5 hover:text-bg-base"}`}
                     >
                       <span className={active ? "" : "opacity-75"}>{it.icon}</span>
-                      {it.label}
+                      <span className="min-w-0 flex-1 truncate">{it.label}</span>
+                      {(badges.get(it.id) ?? 0) > 0 && (
+                        <span aria-label={`${badges.get(it.id)} thông báo mới`} className="flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-state-danger px-1.5 text-[11px] font-semibold leading-none text-white">
+                          {(badges.get(it.id) ?? 0) > 99 ? "99+" : badges.get(it.id)}
+                        </span>
+                      )}
                     </button>
                   </li>
                 )

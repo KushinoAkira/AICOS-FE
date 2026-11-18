@@ -7,7 +7,7 @@ import type { Role } from "../router/roles"
 /** Who the brand lets decide refund exceptions (cancellation policy, `exceptionApprover`). */
 export type RefundApprover = "BranchManager" | "BrandAdmin"
 
-export interface RefundForDecision { status: string; requestedBy: string | null }
+export interface RefundForDecision { status: string; requestedBy: string | null; bankAccountNumber?: string | null }
 
 export interface RefundDecision {
   canApprove: boolean

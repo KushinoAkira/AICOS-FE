@@ -1,5 +1,6 @@
 ﻿import { useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { TimeField24 } from "../../components/TimeField24"
 import type { Page } from "../../App"
 import { PageFrame } from "../../components/PageFrame"
 import { Banner, Button, ConfirmDialog, DataTable, Field, Modal, QueryBoundary, StatusPill, type Column } from "../../components/ui"
@@ -70,8 +71,8 @@ export default function BrandBranches({ navigate }: { navigate: (p: Page) => voi
           <Field label="Địa chỉ" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} />
           <Field label="Điện thoại" inputMode="tel" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Mở cửa" type="time" value={form.openingTime} onChange={(e) => setForm({ ...form, openingTime: e.target.value })} />
-            <Field label="Đóng cửa" type="time" value={form.closingTime} onChange={(e) => setForm({ ...form, closingTime: e.target.value })} />
+            <TimeField24 label="Mở cửa" value={form.openingTime} onChange={(v) => setForm({ ...form, openingTime: v })} />
+            <TimeField24 label="Đóng cửa" value={form.closingTime} onChange={(v) => setForm({ ...form, closingTime: v })} />
           </div>
         </div>
       </Modal>

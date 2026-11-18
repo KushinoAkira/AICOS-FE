@@ -1,4 +1,5 @@
 import { Fragment, useState } from "react"
+import { TimeSelect24 } from "./TimeField24"
 import { useQuery } from "@tanstack/react-query"
 import { OrderStatusPill, PaymentPill } from "./OrderStatusPill"
 import { Button, QueryBoundary } from "./ui"
@@ -61,8 +62,8 @@ export function WorkHistory({ shifts }: { shifts: Shift[] }) {
         {preset === "custom" && (
           <div className="flex flex-wrap items-center gap-2 text-sm text-text-secondary">
             <label className="flex items-center gap-2">Ngày <input type="date" value={day} max={todayKey()} onChange={(e) => setDay(e.target.value || todayKey())} className={input} /></label>
-            <label className="flex items-center gap-2">từ <input type="time" value={from} onChange={(e) => setFrom(e.target.value)} className={input} /></label>
-            <label className="flex items-center gap-2">đến <input type="time" value={to} onChange={(e) => setTo(e.target.value)} className={input} /></label>
+            <span className="flex items-center gap-2">từ <TimeSelect24 compact label="Từ" value={from} onChange={setFrom} /></span>
+            <span className="flex items-center gap-2">đến <TimeSelect24 compact label="Đến" value={to} onChange={setTo} /></span>
           </div>
         )}
         <div className="flex flex-wrap items-center gap-2">

@@ -32,6 +32,8 @@ export interface UserDto {
   phone: string | null
   role: ApiRole
   branchId: string | null
+  /** The brand of a staff account (null for platform admins and for a customer before choosing a brand). */
+  tenantId?: string | null
   status: UserStatus
   mustChangePassword: boolean
   lockoutEndUtc: string | null

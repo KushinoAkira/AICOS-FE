@@ -4,45 +4,82 @@ import type { Page } from "../../App"
 import { PageFrame } from "../../components/PageFrame"
 import { Banner, Button, EmptyState, Field, Modal, QueryBoundary, StatusPill } from "../../components/ui"
 import { useToast } from "../../context/ToastContext"
-import { shiftLabel, staffApi } from "../../lib/api/staff"
+import { usersApi } from "../../lib/api/identity"
+import { replacementOver, shiftLabel, staffApi, type Replacement } from "../../lib/api/staff"
 import { dayLabel, mondayOf, todayKey } from "../../lib/dates"
+import { normalizeRole } from "../../router/roles"
 
-/** Replacement shifts: the manager opens a request, staff (including other branches of the brand, BR-51) apply, the manager picks one. */
+/**
+ * Replacement shifts: a barista or cashier tells the manager they are busy for a coming shift (or the manager opens one), and the manager
+ * puts somebody of the branch on it. Staff do not pick up each other's shifts themselves.
+ */
 export default function ShiftRequests({ navigate }: { navigate: (p: Page) => void }) {
   const qc = useQueryClient()
   const { showToast } = useToast()
   const reqs = useQuery({ queryKey: ["replacements"], queryFn: staffApi.replacements, refetchInterval: 10000 })
   const shifts = useQuery({ queryKey: ["shifts", mondayOf(todayKey())], queryFn: () => staffApi.shifts(todayKey()) })
+  const users = useQuery({ queryKey: ["users"], queryFn: () => usersApi.list({ pageSize: 200 }) })
+  const staff = (users.data?.items ?? []).filter((u) => { const r = normalizeRole(u); return r === "barista" || r === "cashier" })
   const [open, setOpen] = useState(false)
   const [shiftId, setShiftId] = useState("")
   const [reason, setReason] = useState("")
   const [error, setError] = useState<string | null>(null)
+  const [picked, setPicked] = useState<Record<string, string>>({})
   const refresh = () => void qc.invalidateQueries({ queryKey: ["replacements"] })
-  const create = useMutation({ mutationFn: () => staffApi.openReplacement({ shiftId, reason }), onSuccess: () => { refresh(); setOpen(false); setReason(""); showToast("Đã mở ca thay", "success") }, onError: (e) => setError(e.message) })
-  const approve = useMutation({ mutationFn: (v: { id: string; userId: string }) => staffApi.approve(v.id, v.userId), onSuccess: () => { refresh(); void qc.invalidateQueries({ queryKey: ["shifts"] }); showToast("Đã duyệt người thay ca", "success") }, onError: (e) => { showToast(e.message, "error"); refresh() } })
+  const create = useMutation({ mutationFn: () => staffApi.openReplacement({ shiftId, reason }), onSuccess: () => { refresh(); setOpen(false); setReason(""); showToast("Đã mở ca cần người thay", "success") }, onError: (e) => setError(e.message) })
+  const approve = useMutation({
+    mutationFn: (v: { id: string; userId: string }) => staffApi.approve(v.id, v.userId),
+    onSuccess: (r) => { refresh(); void qc.invalidateQueries({ queryKey: ["shifts"] }); showToast(`Đã xếp ${r.filledBy ?? "người"} thay ca`, "success") },
+    onError: (e) => { showToast(e.message, "error"); refresh() },
+  })
+
+  const candidates = (r: Replacement) => staff.filter((u) => u.fullName !== r.shift.userName)
+  // Requests still waiting for a decision first, then the rest by date, newest first.
+  const waitingFirst = (r: Replacement) => Number(r.status === "open" && !replacementOver(r))
+  const sorted = (rows: Replacement[]) => [...rows].sort((a, b) => waitingFirst(b) - waitingFirst(a) || b.shift.date.localeCompare(a.shift.date))
 
   return (
-    <PageFrame page="branch-shift-requests" navigate={navigate} uc="UC-47" title="Ca thay" subtitle="Mở ca thay khi có người nghỉ. Nhân viên cùng chi nhánh có thể đăng ký; bạn chọn một người." action={<Button onClick={() => { setError(null); setOpen(true) }}>Mở ca thay</Button>}>
+    <PageFrame page="branch-shift-requests" navigate={navigate} uc="UC-47" title="Ca thay" subtitle="Nhân viên báo bận sẽ hiện ở đây. Bạn chọn người trong chi nhánh để thay ca." action={<Button variant="secondary" onClick={() => { setError(null); setOpen(true) }}>Mở ca cần người thay</Button>}>
       <QueryBoundary query={reqs}>
-        {(rows) => rows.length === 0 ? <EmptyState title="Chưa có yêu cầu ca thay" /> : (
-          <ul className="space-y-4">
-            {rows.map((r) => (
-              <li key={r.id} className="rounded-[16px] border border-border bg-surface p-5">
-                <div className="flex flex-wrap items-center justify-between gap-2"><p className="font-medium text-text-primary">{dayLabel(r.shift.date)} · {shiftLabel(r.shift)}</p><StatusPill tone={r.status === "open" ? "pending" : "success"}>{r.status === "open" ? "Đang nhận đăng ký" : `Đã có người thay: ${r.filledBy}`}</StatusPill></div>
-                <p className="mt-1 text-sm text-text-secondary">Người nghỉ: {r.shift.userName} · Lý do: {r.reason}</p>
-                {r.status === "open" && (r.applicants.length === 0 ? <p className="mt-3 text-sm text-text-secondary">Chưa có ai đăng ký.</p> : (
-                  <ul className="mt-3 divide-y divide-border text-sm">
-                    {r.applicants.map((a) => <li key={a.userId} className="flex items-center justify-between py-2"><span className="text-text-primary">{a.name} <span className="text-text-secondary">· {a.branchName}</span></span><Button className="px-3 py-1.5 text-xs" loading={approve.isPending && approve.variables?.userId === a.userId} onClick={() => approve.mutate({ id: r.id, userId: a.userId })}>Duyệt</Button></li>)}
-                  </ul>
-                ))}
-              </li>
-            ))}
-          </ul>
-        )}
+        {(rows) => {
+          const waiting = rows.filter((r) => r.status === "open" && !replacementOver(r)).length
+          return rows.length === 0 ? <EmptyState title="Chưa có ai báo bận" description="Khi nhân viên bấm Báo bận ở ca của họ, yêu cầu sẽ hiện ở đây." /> : (
+            <>
+              {waiting > 0 && <div className="mb-4"><Banner tone="warn">{waiting} ca đang chờ bạn xếp người thay.</Banner></div>}
+              <ul className="space-y-4">
+                {sorted(rows).map((r) => {
+                  const over = r.status === "open" && replacementOver(r)
+                  const choice = picked[r.id] ?? ""
+                  return (
+                    <li key={r.id} className={`rounded-[16px] border bg-surface p-5 ${r.status === "open" && !over ? "border-clay" : "border-border"}`}>
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <p className="font-medium text-text-primary">{dayLabel(r.shift.date)} · {shiftLabel(r.shift)}</p>
+                        <StatusPill tone={r.status === "filled" ? "success" : over ? "danger" : "pending"}>{r.status === "filled" ? `Đã xếp: ${r.filledBy}` : over ? "Đã qua giờ, không có người thay" : "Chờ xếp người thay"}</StatusPill>
+                      </div>
+                      <p className="mt-1 text-sm text-text-secondary">{r.shift.userName ? <>Người báo bận: <b className="text-text-primary">{r.shift.userName}</b></> : "Ca thêm người"} · Lý do: {r.reason}</p>
+                      {r.status === "open" && !over && (
+                        <div className="mt-3 flex flex-wrap items-end gap-2">
+                          <label className="block min-w-56 flex-1 text-sm font-medium text-text-primary">Người thay ca
+                            <select value={choice} onChange={(e) => setPicked((p) => ({ ...p, [r.id]: e.target.value }))} className="mt-1.5 w-full rounded-[10px] border border-border bg-surface px-3 py-2.5 text-sm font-normal">
+                              <option value="">Chọn nhân viên</option>
+                              {candidates(r).map((u) => <option key={u.id} value={u.id}>{u.fullName} · {normalizeRole(u) === "cashier" ? "Thu ngân" : "Pha chế"}</option>)}
+                            </select>
+                          </label>
+                          <Button loading={approve.isPending && approve.variables?.id === r.id} disabled={!choice} disabledReason="Chọn người thay ca" onClick={() => approve.mutate({ id: r.id, userId: choice })}>Xếp thay ca</Button>
+                        </div>
+                      )}
+                    </li>
+                  )
+                })}
+              </ul>
+            </>
+          )
+        }}
       </QueryBoundary>
-      <Modal open={open} title="Mở ca thay" onClose={() => setOpen(false)} footer={<><Button variant="secondary" onClick={() => setOpen(false)}>Hủy</Button><Button loading={create.isPending} disabled={!shiftId || !reason.trim()} disabledReason="Chọn ca và nhập lý do" onClick={() => create.mutate()}>Mở</Button></>}>
+      <Modal open={open} title="Mở ca cần người thay" onClose={() => setOpen(false)} footer={<><Button variant="secondary" onClick={() => setOpen(false)}>Hủy</Button><Button loading={create.isPending} disabled={!shiftId || !reason.trim()} disabledReason="Chọn ca và nhập lý do" onClick={() => create.mutate()}>Mở</Button></>}>
         <div className="space-y-4">
           {error && <Banner>{error}</Banner>}
+          <p className="text-sm text-text-secondary">Dùng khi nhân viên báo nghỉ trực tiếp với bạn. Sau khi mở, chọn người thay ở danh sách.</p>
           <label className="block text-sm font-medium text-text-primary">Ca cần thay
             <select value={shiftId} onChange={(e) => setShiftId(e.target.value)} className="mt-1.5 w-full rounded-[10px] border border-border bg-surface px-3 py-3 text-sm">
               <option value="">Chọn ca</option>

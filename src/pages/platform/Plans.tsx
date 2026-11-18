@@ -1,7 +1,7 @@
 ﻿import { useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import type { Page } from "../../App"
-import { Banner, Button, Card, Field, Modal, QueryBoundary, StatusPill } from "../../components/ui"
+import { ConfirmDialog, Banner, Button, Card, Field, Modal, QueryBoundary, StatusPill } from "../../components/ui"
 import { useToast } from "../../context/ToastContext"
 import { formatVND } from "../../lib/format"
 import { platformApi, type Plan } from "../../lib/api/platform"
@@ -32,6 +32,12 @@ export default function PlatformPlans({ navigate }: { navigate: (p: Page) => voi
     },
     onSuccess: () => { void qc.invalidateQueries({ queryKey: ["platform"] }); showToast("Đã lưu gói", "success"); close() },
     onError: (e) => setError(e.message),
+  })
+  const [deleting, setDeleting] = useState<Plan | null>(null)
+  const remove = useMutation({
+    mutationFn: (p: Plan) => platformApi.deletePlan(p.id),
+    onSuccess: (_d, p) => { void qc.invalidateQueries({ queryKey: ["platform"] }); void qc.invalidateQueries({ queryKey: ["public", "plans"] }); showToast(`Đã xóa gói ${p.name}`, "success"); setDeleting(null) },
+    onError: (e) => { showToast(e.message, "error"); setDeleting(null) },
   })
   const setActive = useMutation({
     mutationFn: (p: Plan) => platformApi.setPlanActive(p.id, p.isActive === false),
@@ -83,6 +89,7 @@ export default function PlatformPlans({ navigate }: { navigate: (p: Page) => voi
                 <div className="mt-5 flex gap-2">
                   <Button variant="secondary" className="flex-1" onClick={() => openEdit(p)}>Chỉnh sửa</Button>
                   <Button variant="ghost" loading={setActive.isPending && setActive.variables?.id === p.id} onClick={() => setActive.mutate(p)}>{p.isActive === false ? "Mở bán lại" : "Ngừng bán"}</Button>
+                  <Button variant="ghost" className="text-state-danger" onClick={() => setDeleting(p)}>Xóa</Button>
                 </div>
               </Card>
             ))}
@@ -110,6 +117,9 @@ export default function PlatformPlans({ navigate }: { navigate: (p: Page) => voi
           <Field label="Mô tả" value={draft.description} onChange={(e) => setDraft((d) => ({ ...d, description: e.target.value }))} />
         </div>
       </Modal>
+      <ConfirmDialog open={!!deleting} danger title={`Xóa gói ${deleting?.name ?? ""}?`}
+        message={deleting?.subscribers ? `${deleting.subscribers} thương hiệu đang dùng gói này vẫn giữ gói tới khi đổi gói. Gói không còn được bán, không hiện trên bảng giá và không gán được nữa.` : "Gói không còn được bán, không hiện trên bảng giá và không gán được nữa."}
+        confirmLabel="Xóa gói" onCancel={() => setDeleting(null)} onConfirm={() => deleting && !remove.isPending && remove.mutate(deleting)} />
     </PlatformPage>
   )
 }

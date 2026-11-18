@@ -61,9 +61,11 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm audit --audit-level=high
 
+  # Requires Dependency graph (Settings → Code security). Soft-fail until enabled.
   dependency-review:
     name: Dependency review (PR)
     if: github.event_name == 'pull_request' && !github.event.repository.private
+    continue-on-error: true
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:

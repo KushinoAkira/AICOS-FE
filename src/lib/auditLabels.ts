@@ -11,7 +11,7 @@ const ACTIONS: Record<string, string> = {
   "branch.status_changed": "Đổi trạng thái chi nhánh",
   "cancellation_policy.updated": "Sửa chính sách hủy",
   "cash_closing.confirmed": "Xác nhận chốt két",
-  "cash_closing.submitted": "Thu ngân chốt két",
+  "cash_closing.submitted": "Thu ngân nhận két đầu ca",
   "loyalty.points_redeemed": "Khách đổi điểm",
   "loyalty_rule.updated": "Sửa quy tắc tích điểm",
   "merchant_setting.created": "Tạo cấu hình nhận tiền",

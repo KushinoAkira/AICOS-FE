@@ -5,6 +5,7 @@ import { useActiveBranch } from "../hooks/useActiveBranch"
 import { PlatformLogo } from "./AuthShell"
 import UserMenu from "./CustomerUserMenu"
 import NotificationBell from "./NotificationBell"
+import { useNoticeBadges } from "../lib/useStaffNotices"
 import type { Page } from "../router/pages"
 import type { Role } from "../router/roles"
 
@@ -63,6 +64,7 @@ const navMap: Record<StaffRole, NavGroup[]> = {
       item("platform-providers", "Cổng thanh toán", "plug"),
       item("platform-health", "Sức khỏe hệ thống", "pulse"),
       item("platform-revenue", "Doanh thu nền tảng", "chart"),
+      item("platform-leads", "Tư vấn khách hàng", "users"),
       item("platform-audit", "Nhật ký", "shield"),
     ] },
   ],
@@ -100,6 +102,7 @@ const navMap: Record<StaffRole, NavGroup[]> = {
     { label: "Hằng ngày", items: [
       item("manager-dashboard", "Tổng quan", "grid"),
       item("branch-orders", "Đơn hàng", "list"),
+      item("branch-refunds", "Hoàn tiền", "card"),
       item("manager-menu", "Tình trạng món", "menu"),
       item("branch-tables", "Bàn & QR", "table"),
       item("branch-floor-plan", "Sơ đồ tầng", "map"),

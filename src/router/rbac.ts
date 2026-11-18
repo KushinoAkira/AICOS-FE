@@ -75,6 +75,7 @@ export const PAGE_ACCESS: Record<Page, Access> = {
   "branch-floor-plan": BM,
   "branch-pickup": BM,
   "branch-orders": BM,
+  "branch-refunds": BM,
   "branch-attendance": BM,
   "branch-cash-closings": BM,
 
@@ -104,6 +105,7 @@ export const PAGE_ACCESS: Record<Page, Access> = {
   "platform-health": SA,
   "platform-revenue": SA,
   "platform-audit": SA,
+  "platform-leads": SA,
 }
 
 /** Landing page after login, per role. */

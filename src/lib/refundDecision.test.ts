@@ -54,3 +54,13 @@ describe("sortRefunds", () => {
     expect(sortRefunds(rows).map((r) => r.id)).toEqual(["d", "b", "c", "a"])
   })
 })
+
+describe("refund to the customer's bank account", () => {
+  const toBank = { status: "PendingApproval", requestedBy: "customer-1", bankAccountNumber: "0123456789" }
+
+  it("is decided by the manager of the branch, like any other refund of the branch", () => {
+    expect(refundDecision(toBank, "BranchManager", { id: "m1", role: "branchManager" })).toEqual({ canApprove: true, canReject: true, reason: null })
+    expect(refundDecision(toBank, "BrandAdmin", { id: "m1", role: "branchManager" })).toMatchObject({ canApprove: false, canReject: false })
+    expect(refundDecision(toBank, "BranchManager", { id: "a1", role: "brandAdmin" })).toEqual({ canApprove: true, canReject: true, reason: null })
+  })
+})

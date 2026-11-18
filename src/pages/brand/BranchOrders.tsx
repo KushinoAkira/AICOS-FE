@@ -3,10 +3,10 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import type { Page } from "../../App"
 import { OrderStatusPill, PaymentPill } from "../../components/OrderStatusPill"
 import { PageFrame } from "../../components/PageFrame"
-import { RefundApprovals } from "../../components/RefundApprovals"
 import { Banner, ConfirmDialog, DataTable, Field, Modal, QueryBoundary, Button, type Column } from "../../components/ui"
 import { useToast } from "../../context/ToastContext"
 import { ordersApi, type Order } from "../../lib/api/orders"
+import { reconciliationApi } from "../../lib/api/manage"
 import { pollWhile, useBranchRealtime } from "../../lib/realtime"
 import { formatDateTime, formatVND } from "../../lib/format"
 import { canTransition, maxRefundable, ORDER_STATUS_LABEL, type OrderStatus } from "../../lib/orderStateMachine"
@@ -18,6 +18,8 @@ export default function BranchOrders({ navigate }: { navigate: (p: Page) => void
   const { showToast } = useToast()
   const live = useBranchRealtime()
   const orders = useQuery({ queryKey: ["orders"], queryFn: ordersApi.orders, refetchInterval: pollWhile(live, 10000) })
+  const pendingRefunds = useQuery({ queryKey: ["refunds", "pending"], queryFn: () => reconciliationApi.refunds({ status: "PendingApproval" }), refetchInterval: 15_000 })
+  const waiting = (pendingRefunds.data ?? []).filter((r) => r.status === "PendingApproval").length
   const [filter, setFilter] = useState<OrderStatus | "all">("all")
   const [target, setTarget] = useState<Order | null>(null)
   const [reason, setReason] = useState("")
@@ -48,7 +50,12 @@ export default function BranchOrders({ navigate }: { navigate: (p: Page) => void
   ]
   return (
     <PageFrame page="branch-orders" navigate={navigate} uc="UC-27" title="Đơn hàng chi nhánh" subtitle="Theo dõi mọi đơn của chi nhánh. Hoàn tiền chỉ áp dụng cho đơn đã thanh toán.">
-      <RefundApprovals orderCodes={Object.fromEntries((orders.data ?? []).map((o) => [o.id, o.code]))} />
+      {waiting > 0 && (
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-[12px] bg-pending-bg px-4 py-3 text-sm text-[#8A5A2B]">
+          <span><b>{waiting}</b> yêu cầu hoàn tiền đang chờ bạn duyệt.</span>
+          <Button variant="secondary" className="px-3 py-1.5 text-xs" onClick={() => navigate("branch-refunds")}>Mở mục Hoàn tiền</Button>
+        </div>
+      )}
       <h2 className="mb-3 font-serif text-lg text-text-primary">Tất cả đơn</h2>
       <div className="mb-4 flex flex-wrap gap-2">
         {FILTERS.map((f) => <button key={f} aria-pressed={f === filter} onClick={() => setFilter(f)} className={`rounded-full px-4 py-1.5 text-sm ${f === filter ? "bg-espresso text-white" : "bg-sand text-text-secondary"}`}>{f === "all" ? "Tất cả" : ORDER_STATUS_LABEL[f]}</button>)}

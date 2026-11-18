@@ -1,4 +1,5 @@
 import { useState } from "react"
+import { useSearchParams } from "react-router"
 import { useMutation } from "@tanstack/react-query"
 import type { Page } from "../../App"
 import { PublicPage } from "../../components/PublicChrome"
@@ -8,6 +9,7 @@ import { publicApi, type ContactInput } from "../../lib/api/platform"
 import { CONTACT } from "../../lib/siteInfo"
 
 const TOPICS: { id: ContactInput["topic"]; label: string }[] = [
+  { id: "consult", label: "Cần tư vấn chọn gói" },
   { id: "demo", label: "Đặt lịch xem demo" },
   { id: "pricing", label: "Hỏi về bảng giá" },
   { id: "support", label: "Cần hỗ trợ kỹ thuật" },
@@ -17,7 +19,12 @@ const TOPICS: { id: ContactInput["topic"]; label: string }[] = [
 const EMPTY: ContactInput = { name: "", email: "", phone: "", topic: "demo", message: "" }
 
 export default function Contact({ navigate }: { navigate: (p: Page) => void }) {
-  const [form, setForm] = useState<ContactInput>(EMPTY)
+  const [params] = useSearchParams()
+  const [form, setForm] = useState<ContactInput>(() => {
+    const topic = TOPICS.find((t) => t.id === params.get("topic"))?.id ?? EMPTY.topic
+    const plan = params.get("plan")
+    return { ...EMPTY, topic, message: plan ? `Tôi muốn được tư vấn về gói ${plan}. Quán của tôi có … chi nhánh.` : "" }
+  })
   const [errors, setErrors] = useState<Partial<Record<keyof ContactInput, string>>>({})
   const [sent, setSent] = useState(false)
   const set = <K extends keyof ContactInput>(k: K, v: ContactInput[K]) => setForm((f) => ({ ...f, [k]: v }))

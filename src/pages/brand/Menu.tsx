@@ -2,7 +2,7 @@ import { useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import type { Page } from "../../App"
 import { PageFrame } from "../../components/PageFrame"
-import { Banner, Button, ConfirmDialog, DataTable, EmptyState, QueryBoundary, StatusPill, type Column } from "../../components/ui"
+import { Modal, Banner, Button, ConfirmDialog, DataTable, EmptyState, QueryBoundary, StatusPill, type Column } from "../../components/ui"
 import { useAuth } from "../../context/AuthContext"
 import { useToast } from "../../context/ToastContext"
 import { brandApi, type Product, type ProductInput } from "../../lib/api/brand"
@@ -60,6 +60,7 @@ function BrandMenu({ rows, branches, onChanged }: { rows: Product[]; branches: B
   const [editing, setEditing] = useState<Product | null | "new">(null)
   const [serverError, setServerError] = useState<string | null>(null)
   const [confirmPublish, setConfirmPublish] = useState(false)
+  const [targets, setTargets] = useState<string[]>([])
   const [removing, setRemoving] = useState<Product | null>(null)
   const remove = useMutation({
     mutationFn: (id: string) => brandApi.removeProduct(id),
@@ -74,8 +75,8 @@ function BrandMenu({ rows, branches, onChanged }: { rows: Product[]; branches: B
     onError: (e) => setServerError(e.message),
   })
   const publish = useMutation({
-    mutationFn: () => brandApi.publish(branches.map((b) => b.id)),
-    onSuccess: (r) => { onChanged(); setConfirmPublish(false); showToast(r.published > 0 ? `Đã thêm ${r.published} món vào thực đơn các chi nhánh.` : `Cả ${branches.length} chi nhánh đã có đủ món.`, "success") },
+    mutationFn: () => brandApi.publish(targets),
+    onSuccess: (r) => { onChanged(); setConfirmPublish(false); showToast(r.published > 0 ? `Đã publish thực đơn tới ${targets.length} chi nhánh.` : `${targets.length} chi nhánh đã chọn đã có đủ món.`, "success") },
     onError: (e) => showToast(e.message, "error"),
   })
 
@@ -90,7 +91,7 @@ function BrandMenu({ rows, branches, onChanged }: { rows: Product[]; branches: B
   return (
     <>
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-        {pending > 0 ? <Banner tone="warn" action={<Button className="px-3 py-1.5 text-xs" onClick={() => setConfirmPublish(true)}>Publish</Button>}>Có {pending} thay đổi chưa publish. Khách chưa thấy các thay đổi này.</Banner> : <Banner tone="success" action={<Button variant="secondary" className="px-3 py-1.5 text-xs" onClick={() => setConfirmPublish(true)}>Publish tới mọi chi nhánh</Button>}>Thực đơn dùng chung cho {branches.length} chi nhánh. Chi nhánh mới tạo chỉ có món sau khi bấm Publish.</Banner>}
+        {pending > 0 ? <Banner tone="warn" action={<Button className="px-3 py-1.5 text-xs" onClick={() => { setTargets(branches.map((b) => b.id)); setConfirmPublish(true) }}>Publish</Button>}>Có {pending} thay đổi chưa publish. Khách chưa thấy các thay đổi này.</Banner> : <Banner tone="success" action={<Button variant="secondary" className="px-3 py-1.5 text-xs" onClick={() => { setTargets(branches.map((b) => b.id)); setConfirmPublish(true) }}>Publish thực đơn</Button>}>Thực đơn dùng chung cho {branches.length} chi nhánh. Chi nhánh mới tạo chỉ có món sau khi bấm Publish.</Banner>}
         <Button onClick={() => { setServerError(null); setEditing("new") }}>Thêm món</Button>
       </div>
       <DataTable rows={rows} rowKey={(p) => p.id} columns={columns} pageSize={12} emptyTitle="Chưa có món nào" />
@@ -98,7 +99,18 @@ function BrandMenu({ rows, branches, onChanged }: { rows: Product[]; branches: B
         <MenuEditor key={editing === "new" ? "new" : editing.id} product={editing === "new" ? null : editing} categories={rows.map((p) => p.category)} branches={branches} saving={save.isPending} serverError={serverError} onSave={(i) => save.mutate(i)} onClose={() => setEditing(null)} />
       )}
       <ConfirmDialog open={!!removing} danger title={`Xóa món ${removing?.name ?? ""}?`} message="Món sẽ không còn trên thực đơn. Các đơn đã có vẫn giữ nguyên." confirmLabel="Xóa" onCancel={() => setRemoving(null)} onConfirm={() => removing && remove.mutate(removing.id)} />
-      <ConfirmDialog open={confirmPublish} title="Publish thực đơn?" message={`${rows.length} món sẽ hiển thị cho khách tại ${branches.length} chi nhánh. Giá được backend tính lại khi khách đặt.`} confirmLabel="Publish" onCancel={() => setConfirmPublish(false)} onConfirm={() => publish.mutate()} />
+      <Modal open={confirmPublish} title="Publish thực đơn" onClose={() => setConfirmPublish(false)}
+        footer={<><Button variant="secondary" onClick={() => setConfirmPublish(false)}>Hủy</Button><Button loading={publish.isPending} disabled={targets.length === 0} disabledReason="Chọn ít nhất một chi nhánh" onClick={() => publish.mutate()}>Publish tới {targets.length === branches.length ? "mọi chi nhánh" : `${targets.length} chi nhánh`}</Button></>}>
+        <div className="space-y-3 text-sm">
+          <p className="text-text-secondary">{rows.length} món sẽ hiện cho khách tại các chi nhánh được chọn. Chi nhánh không chọn giữ nguyên thực đơn hiện tại.</p>
+          <label className="flex items-center gap-2 font-medium text-text-primary"><input type="checkbox" checked={targets.length === branches.length} onChange={(e) => setTargets(e.target.checked ? branches.map((b) => b.id) : [])} /> Tất cả chi nhánh ({branches.length})</label>
+          <ul className="space-y-2 border-t border-border pt-3">
+            {branches.map((b) => (
+              <li key={b.id}><label className="flex items-center gap-2 text-text-primary"><input type="checkbox" checked={targets.includes(b.id)} onChange={(e) => setTargets(e.target.checked ? [...targets, b.id] : targets.filter((x) => x !== b.id))} /> {b.name}</label></li>
+            ))}
+          </ul>
+        </div>
+      </Modal>
     </>
   )
 }

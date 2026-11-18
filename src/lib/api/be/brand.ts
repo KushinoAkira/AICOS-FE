@@ -72,7 +72,7 @@ function productBody(catId: string, b: ProductInput) {
     b.iceLevels.length ? group("Đá", OPTION_KINDS.ice, "Single", false, b.iceLevels.map((n) => ({ name: n, priceDelta: 0 }))) : null,
     b.toppings.length ? group("Topping", OPTION_KINDS.topping, "Multiple", false, b.toppings.map((t) => ({ name: t.label, priceDelta: t.priceDelta }))) : null,
   ].filter((g) => g !== null)
-  return { categoryId: catId, name: b.name, description: b.description, basePrice: b.basePrice, tags: [], optionGroups: groups }
+  return { categoryId: catId, name: b.name, description: b.description, imageUrl: b.imageUrl ?? null, basePrice: b.basePrice, tags: [], optionGroups: groups }
 }
 
 export const beMenuApi = {
@@ -194,14 +194,21 @@ export const bePolicyApi = {
 const toVoucher = (v: Raw): Voucher => ({
   id: str(v.id), code: str(v.code), kind: str(v.discountType) === "Percentage" ? "percent" : "amount", value: num(v.value), minOrder: num(v.minOrderAmount),
   expiresAt: str(v.expiresAtUtc) || str(v.expiresAt), maxUses: 1, used: str(v.status) === "Redeemed" ? 1 : 0, active: str(v.status, "Active") === "Active",
+  hunt: v.requiredOrders == null ? undefined : { orders: num(v.requiredOrders), perOrder: num(v.requiredOrderAmount), from: str(v.countOrdersFromUtc), claimed: num(v.claimedCount) },
+  issuedTo: str(v.issuedToName) || undefined,
 })
 export const beVoucherApi = {
   vouchers: async () => recs(itemsOf(await http.get<Raw[]>("/customers/vouchers"))).map(toVoucher),
   createVoucher: async (v: VoucherInput) =>
-    toVoucher(rec(await http.post<Raw>("/customers/vouchers", { branchId: null, code: v.code, type: "Voucher", discountType: v.kind === "percent" ? "Percentage" : "FixedAmount", value: v.value, minOrderAmount: v.minOrder, expiresAt: v.expiresAt }))),
+    toVoucher(rec(await http.post<Raw>("/customers/vouchers", {
+      branchId: null, code: v.code || null, type: "Voucher", discountType: v.kind === "percent" ? "Percentage" : "FixedAmount", value: v.value, minOrderAmount: v.minOrder, expiresAt: v.expiresAt,
+      requiredOrders: v.hunt?.orders ?? null, requiredOrderAmount: v.hunt ? v.hunt.perOrder : null, countOrdersFrom: v.hunt?.from || null,
+    }))),
+  /** For good. A code already used on an order is refused (409): it stays for the records. */
+  deleteVoucher: (id: string) => http.delete<void>(`/customers/vouchers/${id}`),
   async setVoucherActive(id: string, active: boolean): Promise<Voucher> {
     if (active) return unsupported("kích hoạt lại voucher đã thu hồi")
-    await http.post<Raw>(`/customers/vouchers/${id}/revoke`, {})
+    await http.post<Raw>(`/customers/vouchers/${id}/revoke`, { reason: "Tắt trên trang Khuyến mãi" })
     return toVoucher({ ...rec(await http.get<Raw>(`/customers/vouchers/${id}`)) })
   },
 }
@@ -210,11 +217,12 @@ export const beVoucherApi = {
 export const beSubscriptionApi = {
   async subscription(): Promise<BrandSubscription> {
     const r = rec(await http.get<Raw>("/identity/subscription"))
-    return toBrandSubscription(rec(r.subscription))
+    return { ...toBrandSubscription(rec(r.subscription)), canRenew: bool(r.canRenew), renewableFromUtc: str(r.renewableFromUtc) || null, amountToPay: num(r.amountToPay) }
   },
   async renew(): Promise<BrandSubscription> {
     const r = rec(await http.post<Raw>("/identity/subscription/renew", {}))
-    return toBrandSubscription(rec(r.subscription))
+    const after = rec(r.subscription)   // the renewal answers with the same shape as GET
+    return { ...toBrandSubscription(rec(after.subscription)), canRenew: bool(after.canRenew), renewableFromUtc: str(after.renewableFromUtc) || null, amountToPay: num(after.amountToPay) }
   },
 }
 function toBrandSubscription(s: Raw): BrandSubscription {
@@ -231,6 +239,6 @@ const toProfile = (p: Raw): BrandProfile => ({ name: str(p.name), slug: str(p.co
 
 export const beProfileApi = {
   profile: async (): Promise<BrandProfile> => toProfile(rec(await http.get<Raw>("/identity/brand/profile"))),
-  saveProfile: async (v: { logoUrl?: string; brandColor?: string; description?: string }): Promise<BrandProfile> =>
-    toProfile(rec(await http.put<Raw>("/identity/brand/profile", { description: v.description ?? null, logoUrl: v.logoUrl ?? null, primaryColor: v.brandColor ?? null, secondaryColor: null }))),
+  saveProfile: async (v: { logoUrl?: string; brandColor?: string; description?: string; name?: string }): Promise<BrandProfile> =>
+    toProfile(rec(await http.put<Raw>("/identity/brand/profile", { description: v.description ?? null, logoUrl: v.logoUrl ?? null, primaryColor: v.brandColor ?? null, secondaryColor: null, name: v.name ?? null }))),
 }

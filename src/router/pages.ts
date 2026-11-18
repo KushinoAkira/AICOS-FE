@@ -79,6 +79,7 @@ export const PAGE_PATHS = {
   "branch-floor-plan": "/:tenantSlug/branch/floor-plan",
   "branch-pickup": "/:tenantSlug/branch/pickup-settings",
   "branch-orders": "/:tenantSlug/branch/orders",
+  "branch-refunds": "/:tenantSlug/branch/refunds",
   "branch-attendance": "/:tenantSlug/branch/attendance",
   "branch-cash-closings": "/:tenantSlug/branch/cash-closings",
 
@@ -111,6 +112,7 @@ export const PAGE_PATHS = {
   "platform-health": "/platform/health",
   "platform-revenue": "/platform/revenue",
   "platform-audit": "/platform/audit",
+  "platform-leads": "/platform/leads",
 } as const
 
 export type Page = keyof typeof PAGE_PATHS

@@ -12,8 +12,9 @@ import { ordersApi } from "../../lib/api/orders"
 import { summarizeShift } from "../../lib/shiftSummary"
 
 /**
- * "My shifts": attendance (Vào ca / Kết thúc ca), asking for somebody to take a coming shift, signing up for a colleague's shift and,
- * for the cashier, the end-of-shift summary and cash closing. A shift appears here once the branch manager schedules it.
+ * "My shifts": attendance (Vào ca / Kết thúc ca), telling the manager you are busy for a coming shift (the manager arranges who replaces
+ * you) and, for the cashier, taking the drawer over at the start of the shift and the shift summary. A shift appears here once the
+ * branch manager schedules it.
  */
 export default function MyShifts({ navigate }: { navigate: (p: Page) => void }) {
   const { role } = useAuth()
@@ -22,13 +23,16 @@ export default function MyShifts({ navigate }: { navigate: (p: Page) => void }) 
   const mine = useQuery({ queryKey: ["my-shifts"], queryFn: staffApi.myShifts, refetchInterval: 15000 })
   const reps = useQuery({ queryKey: ["replacements"], queryFn: staffApi.replacements })
   const refresh = () => { void qc.invalidateQueries({ queryKey: ["my-shifts"] }); void qc.invalidateQueries({ queryKey: ["replacements"] }); void qc.invalidateQueries({ queryKey: ["cash"] }) }
-  const att = useMutation({ mutationFn: (v: { s: Shift; out: boolean }) => (v.out ? staffApi.checkOut(v.s.id) : staffApi.checkIn(v.s.id)), onSuccess: refresh, onError: (e) => { refresh(); showToast(e.message, "error") } })
-  const apply = useMutation({ mutationFn: staffApi.apply, onSuccess: () => { refresh(); showToast("Đã đăng ký ca thay, chờ quản lý duyệt", "success") }, onError: (e) => showToast(e.message, "error") })
+  const att = useMutation({
+    mutationFn: (v: { s: Shift; out: boolean }) => (v.out ? staffApi.checkOut(v.s.id) : staffApi.checkIn(v.s.id)),
+    onSuccess: (_, v) => { refresh(); if (!v.out && role === "cashier") showToast("Đã vào ca. Đếm tiền trong két và xác nhận ở mục Nhận két đầu ca.", "success") },
+    onError: (e) => { refresh(); showToast(e.message, "error") },
+  })
   const [asking, setAsking] = useState<Shift | null>(null)
   const [askReason, setAskReason] = useState("")
   const ask = useMutation({
     mutationFn: (v: { s: Shift; reason: string }) => staffApi.openReplacement({ shiftId: v.s.id, reason: v.reason }),
-    onSuccess: () => { refresh(); setAsking(null); setAskReason(""); showToast("Đã gửi yêu cầu. Đồng nghiệp cùng chi nhánh sẽ thấy ca này và đăng ký, quản lý duyệt người thay.", "success") },
+    onSuccess: () => { refresh(); setAsking(null); setAskReason(""); showToast("Đã gửi yêu cầu lên quản lý. Quản lý sẽ xếp người thay ca cho bạn.", "success") },
     onError: (e) => showToast(e.message, "error"),
   })
   const retract = useMutation({
@@ -40,18 +44,17 @@ export default function MyShifts({ navigate }: { navigate: (p: Page) => void }) 
   const requestOf = (s: Shift) => (reps.data ?? []).find((r) => r.shift.id === s.id && r.status === "open")
 
   return (
-    <PageFrame page="cashier-shift" navigate={navigate} uc="UC-46" title="Ca của tôi" subtitle="Lịch làm của bạn, ca của đồng nghiệp cần người thay, và chốt ca.">
+    <PageFrame page="cashier-shift" navigate={navigate} uc="UC-46" title="Ca của tôi" subtitle={role === "cashier" ? "Lịch làm của bạn, báo bận cho quản lý, và nhận két đầu ca." : "Lịch làm của bạn và báo bận cho quản lý."}>
       <div className="space-y-10">
         <section>
           <h2 className="font-serif text-lg text-text-primary">Lịch làm của tôi</h2>
-          <p className="mb-3 text-sm text-text-secondary">Các ca quản lý đã xếp cho bạn. Bận thì bấm "Nhờ người thay"; đến khi quản lý duyệt người thay, ca vẫn là của bạn.</p>
+          <p className="mb-3 text-sm text-text-secondary">Các ca quản lý đã xếp cho bạn. Bận thì bấm "Báo bận" để gửi yêu cầu lên quản lý; đến khi quản lý xếp người thay, ca vẫn là của bạn.</p>
           <QueryBoundary query={mine}>
             {(rows) => rows.length === 0 ? <EmptyState title="Bạn chưa được xếp ca nào" /> : (
               <ul className="space-y-3">
                 {rows.map((s) => {
                   const request = requestOf(s)
                   const over = request ? replacementOver(request) : false
-                  const signed = request?.applications ?? 0
                   return (
                     <li key={s.id} className="rounded-[16px] border border-border bg-surface p-4">
                       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -62,15 +65,15 @@ export default function MyShifts({ navigate }: { navigate: (p: Page) => void }) 
                           : s.checkInAtUtc ? <Button variant="secondary" loading={att.isPending} onClick={() => att.mutate({ s, out: true })}>Kết thúc ca</Button>
                           : <span className="flex flex-wrap gap-2">
                               {request && !over && <Button variant="secondary" loading={retract.isPending && retract.variables?.id === request.id} onClick={() => retract.mutate(request)}>Rút yêu cầu</Button>}
-                              {!request && s.date >= todayKey() && <Button variant="secondary" onClick={() => { setAsking(s); setAskReason("") }}>Nhờ người thay</Button>}
+                              {!request && s.date >= todayKey() && <Button variant="secondary" onClick={() => { setAsking(s); setAskReason("") }}>Báo bận</Button>}
                               <Button loading={att.isPending} disabled={s.date !== todayKey()} disabledReason="Chỉ vào ca đúng ngày" onClick={() => att.mutate({ s, out: false })}>Vào ca</Button>
                             </span>}
                       </div>
                       {request && !s.replaced && !s.checkInAtUtc && (
                         <div className={`mt-3 rounded-[12px] px-3 py-2 text-sm ${over ? "bg-danger-bg text-state-danger" : "bg-pending-bg text-[#8A5A2B]"}`}>
                           {over
-                            ? "Hết hạn, không có người thay. Ca này vẫn tính là của bạn."
-                            : <>Đang tìm người thay · {signed > 0 ? <b>{signed} người đã đăng ký, chờ quản lý duyệt</b> : <b>chưa ai nhận</b>}. Chưa được duyệt thì bạn vẫn làm ca này.</>}
+                            ? "Quản lý chưa xếp được người thay. Ca này vẫn tính là của bạn."
+                            : <>Đã báo bận · <b>chờ quản lý xếp người thay</b>. Chưa có người thay thì bạn vẫn làm ca này.</>}
                         </div>
                       )}
                     </li>
@@ -81,36 +84,14 @@ export default function MyShifts({ navigate }: { navigate: (p: Page) => void }) 
           </QueryBoundary>
         </section>
 
-        <section>
-          <h2 className="font-serif text-lg text-text-primary">Ca của đồng nghiệp cần người thay</h2>
-          <p className="mb-3 text-sm text-text-secondary">Đồng nghiệp cùng chi nhánh bận, hoặc quản lý cần thêm người. Bấm "Đăng ký thay" nếu bạn làm được; quản lý sẽ chọn một người.</p>
-          <QueryBoundary query={reps}>
-            {(rows) => {
-              // My own requests show on my row above; a shift that has already ended can no longer be taken.
-              const mineIds = new Set((mine.data ?? []).map((s) => s.id))
-              const open = rows.filter((r) => r.status === "open" && !mineIds.has(r.shift.id) && !replacementOver(r))
-              return open.length === 0 ? <EmptyState title="Hiện không có ca nào cần người thay" /> : (
-                <ul className="space-y-3">
-                  {open.map((r) => (
-                    <li key={r.id} className="flex flex-wrap items-center justify-between gap-3 rounded-[16px] border border-border bg-surface p-4">
-                      <p className="text-sm text-text-primary"><b>{dayLabel(r.shift.date)} · {shiftLabel(r.shift)}</b><br /><span className="text-text-secondary">{r.shift.userName ? `Ca của ${r.shift.userName}` : "Quản lý cần thêm người"} · Lý do: {r.reason}</span></p>
-                      {r.applied ? <StatusPill tone="pending">Đã đăng ký, chờ quản lý duyệt</StatusPill> : <Button variant="secondary" loading={apply.isPending && apply.variables === r.id} onClick={() => apply.mutate(r.id)}>Đăng ký thay</Button>}
-                    </li>
-                  ))}
-                </ul>
-              )
-            }}
-          </QueryBoundary>
-        </section>
-
+        {role === "cashier" && <CashHandover />}
         {role === "cashier" && <ShiftSummaryPanel shifts={mine.data ?? []} />}
-        {role === "cashier" && <CashClosing />}
       </div>
-      <Modal open={!!asking} title="Nhờ người thay ca" onClose={() => setAsking(null)}
-        footer={<><Button variant="secondary" onClick={() => setAsking(null)}>Huỷ</Button><Button loading={ask.isPending} disabled={!askReason.trim()} disabledReason="Nhập lý do" onClick={() => asking && ask.mutate({ s: asking, reason: askReason.trim() })}>Gửi yêu cầu</Button></>}>
+      <Modal open={!!asking} title="Báo bận cho quản lý" onClose={() => setAsking(null)}
+        footer={<><Button variant="secondary" onClick={() => setAsking(null)}>Huỷ</Button><Button loading={ask.isPending} disabled={!askReason.trim()} disabledReason="Nhập lý do" onClick={() => asking && ask.mutate({ s: asking, reason: askReason.trim() })}>Gửi lên quản lý</Button></>}>
         {asking && (
           <div className="space-y-4">
-            <p className="text-sm text-text-secondary">Ca <b className="text-text-primary">{dayLabel(asking.date)} · {shiftLabel(asking)}</b> sẽ hiện cho đồng nghiệp cùng chi nhánh đăng ký. Quản lý chọn người thay; đến khi được duyệt, ca vẫn là của bạn.</p>
+            <p className="text-sm text-text-secondary">Yêu cầu nghỉ ca <b className="text-text-primary">{dayLabel(asking.date)} · {shiftLabel(asking)}</b> được gửi tới quản lý chi nhánh. Quản lý sẽ xếp người thay; đến khi có người thay, ca vẫn là của bạn.</p>
             <Field label="Lý do" value={askReason} maxLength={500} onChange={(e) => setAskReason(e.target.value)} placeholder="Ví dụ: em có lịch thi" />
           </div>
         )}
@@ -157,31 +138,46 @@ function ShiftSummaryPanel({ shifts }: { shifts: Shift[] }) {
   )
 }
 
-function CashClosing() {
+/**
+ * Cash handover at the start of the shift: the drawer should hold what the previous handover counted plus the cash taken at the branch
+ * since. The cashier counts it and confirms; a difference needs a note and the branch manager is told.
+ */
+function CashHandover() {
   const qc = useQueryClient()
   const { showToast } = useToast()
-  const expected = useQuery({ queryKey: ["cash", "expected"], queryFn: staffApi.cashExpected, refetchOnMount: "always" })
+  const expected = useQuery({ queryKey: ["cash", "expected"], queryFn: staffApi.cashExpected, refetchOnMount: "always", refetchInterval: 30000 })
   const [counted, setCounted] = useState("")
   const [reason, setReason] = useState("")
   const [error, setError] = useState<string | null>(null)
   const close = useMutation({
     mutationFn: () => staffApi.closeCash({ counted: Number(counted), reason }),
-    onSuccess: () => { void qc.invalidateQueries({ queryKey: ["cash"] }); setCounted(""); setReason(""); showToast("Đã chốt tiền mặt", "success") },
+    onSuccess: (c) => {
+      void qc.invalidateQueries({ queryKey: ["cash"] }); setCounted(""); setReason("")
+      showToast(c.variance === 0 ? "Đã nhận két, khớp với số ca trước để lại." : "Đã nhận két. Quản lý đã được báo về khoản chênh lệch.", c.variance === 0 ? "success" : "info")
+    },
     onError: (e) => setError(e.message),
   })
   const variance = expected.data ? Number(counted) - expected.data.expected : 0
   return (
     <section data-uc="UC-48">
-      <h2 className="mb-3 font-serif text-lg text-text-primary">Chốt tiền mặt cuối ca</h2>
+      <h2 className="font-serif text-lg text-text-primary">Nhận két đầu ca</h2>
+      <p className="mb-3 text-sm text-text-secondary">Vào ca xong, đếm tiền mặt trong két và xác nhận số tiền ca trước để lại. Không khớp thì ghi lý do, quản lý sẽ được báo để xử lý.</p>
       <QueryBoundary query={expected}>
-        {(e) => e.closed ? <Banner tone="success">Các ca bạn đã vào đều đã chốt tiền mặt.</Banner> : e.noShift ? <Banner tone="warn">Bấm Vào ca trước, rồi mới chốt tiền mặt của ca đó.</Banner> : (
+        {(e) => e.closed ? <Banner tone="success">Bạn đã nhận két của ca đang làm. Ca sau sẽ nhận két từ bạn.</Banner> : e.noShift ? <Banner tone="warn">Bấm "Vào ca" ở lịch làm phía trên, rồi đếm két và xác nhận tại đây.</Banner> : (
           <div className="max-w-md space-y-4 rounded-[16px] border border-border bg-surface p-5">
-            {e.shiftLabel && <p className="text-sm text-text-primary">Đang chốt: <b>{e.shiftLabel}</b></p>}
-            <p className="text-sm text-text-secondary">Hệ thống ghi nhận tiền mặt <b className="text-text-primary">{formatVND(e.expected)}</b></p>
+            {e.shiftLabel && <p className="text-sm text-text-primary">Ca của bạn: <b>{e.shiftLabel}</b></p>}
+            <dl className="grid grid-cols-[1fr_auto] gap-x-4 gap-y-1.5 text-sm">
+              <dt className="text-text-secondary">{e.previousCashier ? <>Ca trước ({e.previousCashier}) bàn giao{e.previousAtUtc ? ` lúc ${formatTime(e.previousAtUtc)}` : ""}</> : "Chưa ca nào bàn giao hôm nay, két bắt đầu từ"}</dt>
+              <dd className="text-right text-text-primary">{formatVND(e.opening ?? 0)}</dd>
+              {(e.received ?? 0) > 0 && <><dt className="text-text-secondary">Tiền mặt thu thêm từ đó</dt><dd className="text-right text-text-primary">+{formatVND(e.received ?? 0)}</dd></>}
+              {(e.refunded ?? 0) > 0 && <><dt className="text-text-secondary">Tiền mặt hoàn cho khách</dt><dd className="text-right text-state-danger">-{formatVND(e.refunded ?? 0)}</dd></>}
+              <dt className="border-t border-border pt-1.5 font-medium text-text-primary">Két phải có</dt>
+              <dd className="border-t border-border pt-1.5 text-right font-serif text-lg text-text-primary">{formatVND(e.expected)}</dd>
+            </dl>
             {error && <Banner>{error}</Banner>}
-            <Field label="Tiền mặt đếm được (₫)" inputMode="numeric" value={counted} onChange={(ev) => setCounted(ev.target.value.replace(/\D/g, ""))} hint={counted ? (variance === 0 ? "Khớp" : `Lệch ${formatSignedVND(variance)}`) : undefined} />
-            {counted !== "" && variance !== 0 && <Field label="Lý do chênh lệch (bắt buộc)" value={reason} onChange={(ev) => setReason(ev.target.value)} />}
-            <Button loading={close.isPending} disabled={counted === "" || (variance !== 0 && !reason.trim())} disabledReason="Nhập số tiền và lý do nếu lệch" onClick={() => { setError(null); close.mutate() }}>Chốt tiền mặt</Button>
+            <Field label="Tiền mặt bạn đếm được trong két (₫)" inputMode="numeric" value={counted} onChange={(ev) => setCounted(ev.target.value.replace(/\D/g, ""))} hint={counted ? (variance === 0 ? "Khớp với số ca trước để lại" : `Lệch ${formatSignedVND(variance)} so với số phải có`) : undefined} />
+            {counted !== "" && variance !== 0 && <Field label="Lý do chênh lệch, gửi quản lý (bắt buộc)" value={reason} maxLength={500} onChange={(ev) => setReason(ev.target.value)} placeholder="Ví dụ: thiếu 20.000 ₫, đã gọi báo chị Lan ca sáng" />}
+            <Button loading={close.isPending} disabled={counted === "" || (variance !== 0 && !reason.trim())} disabledReason="Nhập số tiền đếm được, và lý do nếu lệch" onClick={() => { setError(null); close.mutate() }}>{counted !== "" && variance !== 0 ? "Xác nhận và báo quản lý" : "Xác nhận nhận két"}</Button>
           </div>
         )}
       </QueryBoundary>

@@ -49,10 +49,18 @@ export interface Voucher {
   maxUses: number
   used: number
   active: boolean
+  /** A voucher customers hunt for: they need `orders` paid orders of at least `perOrder` (paid from `from`), then claim a personal code. */
+  hunt?: { orders: number; perOrder: number; from: string; claimed?: number }
+  /** A personal code (claimed from a hunt, or bought with points): the member's name. */
+  issuedTo?: string
 }
-export type VoucherInput = Omit<Voucher, "id" | "used" | "active">
+export type VoucherInput = Omit<Voucher, "id" | "used" | "active" | "issuedTo">
 
 export interface BrandSubscription {
+  /** From the server: renewal is open (an unpaid period, or the last days before the end); when it opens; what a renewal costs now. */
+  canRenew?: boolean
+  renewableFromUtc?: string | null
+  amountToPay?: number
   planName: string
   status: "Active" | "PastDue" | "Suspended"
   monthlyFee: number
@@ -71,7 +79,7 @@ export interface BrandProfile { description?: string; name: string; slug: string
 
 const mockBrandApi = {
   profile: () => http.get<BrandProfile>(`${B}/profile`),
-  saveProfile: (v: { logoUrl?: string; brandColor?: string; description?: string }) => http.put<BrandProfile>(`${B}/profile`, v),
+  saveProfile: (v: { logoUrl?: string; brandColor?: string; description?: string; name?: string }) => http.put<BrandProfile>(`${B}/profile`, v),
   products: () => http.get<Product[]>(`${B}/menu/products`),
   removeProduct: (id: string) => http.delete<void>(`${B}/menu/products/${id}`),
   saveProduct: (id: string | null, body: ProductInput) => (id ? http.put<Product>(`${B}/menu/products/${id}`, body) : http.post<Product>(`${B}/menu/products`, body)),
@@ -95,6 +103,7 @@ const mockBrandApi = {
   vouchers: () => http.get<Voucher[]>(`${B}/vouchers`),
   createVoucher: (v: VoucherInput) => http.post<Voucher>(`${B}/vouchers`, v),
   setVoucherActive: (id: string, active: boolean) => http.patch<Voucher>(`${B}/vouchers/${id}`, { active }),
+  deleteVoucher: (id: string) => http.delete<void>(`${B}/vouchers/${id}`),
 
   subscription: () => http.get<BrandSubscription>(`${B}/subscription`),
   renew: () => http.post<BrandSubscription>(`${B}/subscription/renew`),

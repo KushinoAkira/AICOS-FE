@@ -53,6 +53,7 @@ export function OrderComposer({ products, submitLabel, submitting, error, onSubm
   const [size, setSize] = useState("")
   const [sugar, setSugar] = useState("")
   const [ice, setIce] = useState("")
+  const [tops, setTops] = useState<string[]>([])
   const [qty, setQty] = useState(1)
   const [note, setNote] = useState("")
   const [category, setCategory] = useState("Tất cả")
@@ -93,13 +94,17 @@ export function OrderComposer({ products, submitLabel, submitting, error, onSubm
     setSize(p.sizes[0]?.label ?? "")
     setSugar(p.sugarLevels[Math.floor(p.sugarLevels.length / 2)] ?? "")
     setIce(p.iceLevels[Math.min(2, p.iceLevels.length - 1)] ?? "")
+    setTops([])
     setQty(1)
     setNote("")
   }
+  /** One drink's price on screen: the menu price, the chosen size's add-on and every topping picked. The server recomputes it. */
+  const unitOf = (p: MenuItem, sizeLabel: string, toppings: string[]) =>
+    p.price + (p.sizes.find((s) => s.label === sizeLabel)?.priceDelta ?? 0) + p.toppings.filter((t) => toppings.includes(t.label)).reduce((s, t) => s + t.priceDelta, 0)
   function add() {
     if (!picking) return
-    const delta = picking.sizes.find((s) => s.label === size)?.priceDelta ?? 0
-    setCart([...cart, { productId: picking.id, name: picking.name, size, sugar, ice, qty, note, unit: picking.price + delta }])
+    const chosen = picking.toppings.filter((t) => tops.includes(t.label)).map((t) => t.label)
+    setCart([...cart, { productId: picking.id, name: picking.name, size, sugar, ice, qty, note, toppings: chosen, unit: unitOf(picking, size, chosen) }])
     setPicking(null)
     setTab("cart")
   }
@@ -110,8 +115,8 @@ export function OrderComposer({ products, submitLabel, submitting, error, onSubm
     for (const l of lines) {
       const p = products.find((x) => x.id === l.productId)
       if (!p || p.soldOut) { skipped++; continue }
-      const delta = p.sizes.find((s) => s.label === l.size)?.priceDelta ?? 0
-      next.push({ productId: p.id, name: p.name, size: l.size, sugar: l.sugar, ice: l.ice, qty: l.qty, note: l.note, unit: p.price + delta })
+      const toppings = (l.toppings ?? []).filter((t) => p.toppings.some((x) => x.label === t))
+      next.push({ productId: p.id, name: p.name, size: l.size, sugar: l.sugar, ice: l.ice, qty: l.qty, note: l.note, toppings, unit: unitOf(p, l.size, toppings) })
     }
     setCart(next)
     return skipped
@@ -120,12 +125,13 @@ export function OrderComposer({ products, submitLabel, submitting, error, onSubm
   const voucherProps = voucher ? { options: voucher, state: voucherState, setState: setVoucherState } : undefined
   const toPay = voucher ? liveQuote(voucherState, total)?.amountToPay ?? total : total
   const panel = <CartPanel cart={cart} setCart={setCart} total={total} submitLabel={submitLabel} submitting={submitting} error={error} onSubmit={submit} tabs={tabs} tab={tab} setTab={setTab} reorder={reorder} voucher={voucherProps} cartExtra={cartExtra} />
-  const chips = (values: string[], current: string, set: (v: string) => void, label: string) => (
+  /** `extra`: text after a choice's name, e.g. its price. */
+  const chips = (values: string[], current: string, set: (v: string) => void, label: string, extra?: (v: string) => string) => (
     <fieldset className="mt-4">
       <legend className="mb-2 text-sm font-medium text-text-primary">{label}</legend>
       <div className="flex flex-wrap gap-2">
         {values.map((v) => (
-          <button key={v} type="button" aria-pressed={v === current} onClick={() => set(v)} className={`min-h-11 rounded-full border px-4 py-2 text-sm ${v === current ? "border-espresso bg-espresso text-white" : "border-border text-text-secondary"}`}>{v}</button>
+          <button key={v} type="button" aria-pressed={v === current} onClick={() => set(v)} className={`min-h-11 rounded-full border px-4 py-2 text-sm ${v === current ? "border-espresso bg-espresso text-white" : "border-border text-text-secondary"}`}>{v}{extra && <span className="ml-1.5 opacity-80">{extra(v)}</span>}</button>
         ))}
       </div>
     </fieldset>
@@ -182,7 +188,22 @@ export function OrderComposer({ products, submitLabel, submitting, error, onSubm
               <button aria-label="Đóng" onClick={() => setPicking(null)} className="flex h-10 w-10 items-center justify-center text-2xl text-text-secondary">×</button>
             </div>
             <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-4">
-              {chips(picking.sizes.map((s) => s.label), size, setSize, "Kích cỡ")}
+              {chips(picking.sizes.map((s) => s.label), size, setSize, "Kích cỡ", picking.sizes.length > 1 ? (v) => formatVND(picking.price + (picking.sizes.find((s) => s.label === v)?.priceDelta ?? 0)) : undefined)}
+              {picking.toppings.length > 0 && (
+                <fieldset className="mt-4">
+                  <legend className="mb-2 text-sm font-medium text-text-primary">Topping <span className="font-normal text-text-secondary">(chọn thêm, không bắt buộc)</span></legend>
+                  <div className="flex flex-wrap gap-2">
+                    {picking.toppings.map((t) => {
+                      const on = tops.includes(t.label)
+                      return (
+                        <button key={t.id} type="button" aria-pressed={on} onClick={() => setTops(on ? tops.filter((x) => x !== t.label) : [...tops, t.label])} className={`min-h-11 rounded-full border px-4 py-2 text-sm ${on ? "border-espresso bg-espresso text-white" : "border-border text-text-secondary"}`}>
+                          {on ? "✓ " : ""}{t.label}<span className="ml-1.5 opacity-80">{t.priceDelta > 0 ? `+${formatVND(t.priceDelta)}` : "miễn phí"}</span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                </fieldset>
+              )}
               {chips(picking.sugarLevels, sugar, setSugar, "Đường")}
               {chips(picking.iceLevels, ice, setIce, "Đá")}
               <label className="mt-4 block text-sm font-medium text-text-primary">Ghi chú
@@ -195,7 +216,7 @@ export function OrderComposer({ products, submitLabel, submitting, error, onSubm
                 <span aria-live="polite" className="w-6 text-center font-medium">{qty}</span>
                 <button aria-label="Tăng" onClick={() => setQty(Math.min(20, qty + 1))} className="h-11 w-11 text-xl text-text-primary">+</button>
               </div>
-              <Button className="min-h-12 flex-1" onClick={add}>Thêm · {formatVND((picking.price + (picking.sizes.find((s) => s.label === size)?.priceDelta ?? 0)) * qty)}</Button>
+              <Button className="min-h-12 flex-1" onClick={add}>Thêm · {formatVND(unitOf(picking, size, tops) * qty)}</Button>
             </div>
           </div>
         </div>

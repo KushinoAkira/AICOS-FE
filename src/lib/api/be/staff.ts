@@ -1,6 +1,6 @@
 import { http } from "../http"
 import { pickClosingShift } from "../../closingShift"
-import { shiftLabel, type CashClosing, type CashExpected, type LoyaltyMe, type Notice, type Period, type Replacement, type Shift } from "../staff"
+import { shiftLabel, type CashClosing, type CashExpected, type HuntVoucher, type LoyaltyMe, type Notice, type Period, type Replacement, type Shift } from "../staff"
 import { tokenStore } from "../tokenStore"
 import { bool, itemsOf, num, rec, recs, str, unsupported, ymd, type Raw } from "./util"
 
@@ -46,7 +46,8 @@ const addDays = (from: string, n: number) => { const d = new Date(`${from}T00:00
 async function closingAssignment() {
   const [mine, closings] = await Promise.all([http.get<Raw[]>(`${W}/shift-assignments/mine`), http.get<Raw[]>(`${W}/cash-closings/mine`, { query: { pageSize: 100 } })])
   const shifts = recs(itemsOf(mine)).map((a) => ({ ...a, id: str(a.id), employeeName: str(a.employeeName), workDate: str(a.workDate), startTime: str(a.startTime), ...workedTimes(a) }))
-  return pickClosingShift(shifts, recs(itemsOf(closings)).map((c) => str(c.assignmentId)))
+  // The drawer is taken over at the start of a shift: only the shift running now (checked in, not ended) can still take it.
+  return pickClosingShift(shifts.filter((s) => !s.checkOutAtUtc), recs(itemsOf(closings)).map((c) => str(c.assignmentId)))
 }
 
 export const beStaffApi = {
@@ -98,9 +99,12 @@ export const beStaffApi = {
   async approve(id: string, userId: string): Promise<Replacement> {
     const users = await userIdByEmployee()
     const apps = recs(itemsOf(await http.get<Raw[]>(`${W}/replacement-shifts/${id}/applications`)))
-    const hit = apps.find((a) => users.get(str(a.employeeId)) === userId)
-    if (!hit) return unsupported("duyệt ca thay: không tìm thấy đơn đăng ký của nhân viên này")
-    return toReplacement(rec(await http.post<Raw>(`${W}/replacement-shifts/${id}/approve`, { applicationId: str(hit.id), note: null })), users)
+    const hit = apps.find((a) => users.get(str(a.employeeId)) === userId && str(a.status) === "Pending")
+    if (hit) return toReplacement(rec(await http.post<Raw>(`${W}/replacement-shifts/${id}/approve`, { applicationId: str(hit.id), note: null })), users)
+    // Nobody registered: the manager puts an employee of the branch on the shift directly.
+    const employeeId = [...users.entries()].find(([, u]) => u === userId)?.[0]
+    if (!employeeId) return unsupported("xếp người thay: nhân viên này chưa có hồ sơ nhân sự")
+    return toReplacement(rec(await http.post<Raw>(`${W}/replacement-shifts/${id}/approve`, { employeeId, note: null })), users)
   },
 
   /** The cash the system expects in the drawer for the shift to close next: the running one first, so a second shift of the day is not blocked by the first. */
@@ -108,7 +112,11 @@ export const beStaffApi = {
     const { shift, allClosed } = await closingAssignment()
     if (!shift) return { expected: 0, closed: allClosed, noShift: !allClosed }
     const e = rec(await http.get<Raw>(`${W}/cash-closings/expected`, { query: { assignmentId: shift.id } }))
-    return { expected: num(e.expectedAmount), closed: false, shiftLabel: shiftLabel({ period: periodOf(shift.startTime), ...templateOf(shift) }) }
+    return {
+      expected: num(e.expectedAmount), closed: false, shiftLabel: shiftLabel({ period: periodOf(shift.startTime), ...templateOf(shift) }),
+      opening: num(e.openingAmount), previousCashier: str(e.previousCashierName) || undefined, previousAtUtc: str(e.previousHandoverAtUtc) || undefined,
+      received: num(e.cashReceived), refunded: num(e.cashRefunded),
+    }
   },
   async cashClosings(): Promise<CashClosing[]> {
     const manager = tokenStore.get()?.user.role !== "Cashier"
@@ -120,7 +128,7 @@ export const beStaffApi = {
   },
   async closeCash(b: { counted: number; reason: string }): Promise<CashClosing> {
     const { shift: open } = await closingAssignment()
-    if (!open) return unsupported("chốt két: bạn chưa vào ca nào, hoặc các ca đã chốt hết")
+    if (!open) return unsupported("nhận két: bạn chưa vào ca, hoặc đã nhận két của ca này rồi")
     const c = rec(await http.post<Raw>(`${W}/cash-closings`, { assignmentId: open.id, countedAmount: b.counted, note: b.reason }))
     return { id: str(c.id), date: open.workDate.slice(0, 10), userName: str(open.employeeName), expected: num(c.expectedAmount), counted: num(c.countedAmount), variance: num(c.difference), reason: b.reason }
   },
@@ -139,7 +147,7 @@ async function loyaltyMe(): Promise<LoyaltyMe> {
     vouchers: recs(itemsOf(vouchers))
       .filter((v) => str(v.status, "Active") === "Active" && !v.isExpired && !(str(v.expiresAtUtc) && Date.parse(str(v.expiresAtUtc)) < Date.now()))
       .map((v) => ({
-        id: str(v.id), code: str(v.code), title: `Voucher ${str(v.code)}`, value: num(v.value), expiresAtUtc: str(v.expiresAtUtc),
+        id: str(v.id), code: str(v.code), title: discountLabel(v), value: num(v.value), expiresAtUtc: str(v.expiresAtUtc),
         label: ["Percent", "Percentage"].includes(str(v.discountType)) ? `Giảm ${num(v.value)}%` : `Giảm ${new Intl.NumberFormat("vi-VN").format(num(v.value))} đ`,
         minOrder: num(v.minOrderAmount),
       })),
@@ -147,8 +155,21 @@ async function loyaltyMe(): Promise<LoyaltyMe> {
   }
 }
 
+/** "Giảm 20.000 ₫" or "Giảm 10%". */
+const discountLabel = (v: Raw) => (str(v.discountType) === "Percentage" ? `Giảm ${num(v.value)}%` : `Giảm ${num(v.value).toLocaleString("vi-VN")} ₫`)
+
 export const beLoyaltyApi = {
   me: loyaltyMe,
+  async hunts(): Promise<HuntVoucher[]> {
+    return recs(itemsOf(await http.get<Raw[]>("/customers/vouchers/hunt"))).map((h) => ({
+      id: str(h.id), code: str(h.code), discountLabel: discountLabel(h), minOrder: num(h.minOrderAmount), expiresAtUtc: str(h.expiresAtUtc),
+      requiredOrders: num(h.requiredOrders), perOrder: num(h.requiredOrderAmount), countFromUtc: str(h.countOrdersFromUtc), counted: num(h.countedOrders),
+      claimed: bool(h.claimed), claimedCode: str(h.claimedCode) || null, canClaim: bool(h.canClaim),
+    }))
+  },
+  async claim(id: string): Promise<{ code: string }> {
+    return { code: str(rec(await http.post<Raw>(`/customers/vouchers/hunt/${id}/claim`, {})).code) }
+  },
   async redeem(): Promise<LoyaltyMe> {
     const me = rec(await http.get<Raw>("/customers/me/loyalty"))
     await http.post<Raw>("/customers/me/redemptions", { points: num(me.minPointsToRedeem, 10) })

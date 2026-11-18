@@ -31,6 +31,12 @@ jobs:
       - name: Install
         run: pnpm install --frozen-lockfile
 
+      - name: Assert TypeScript stays on 5.x (baseUrl-compatible)
+        run: |
+          major="$(pnpm exec tsc -v | sed -E 's/.* ([0-9]+)\..*/\1/')"
+          echo "TypeScript major=$major"
+          test "$major" = "5"
+
       - name: Typecheck
         run: pnpm typecheck
 
@@ -40,9 +46,12 @@ jobs:
       - name: Unit tests
         run: pnpm test
 
+      # Firebase Hosting currently serves the mock/demo build. Keep these flags
+      # until a separate production Firebase target is introduced.
       - name: Production build (mock demo, same as Firebase)
         env:
           VITE_USE_MOCK: "true"
+          VITE_DEMO: "true"
           VITE_API_BASE_URL: https://aicos-3028a.web.app/api/v1
         run: pnpm exec vite build
 
@@ -52,3 +61,4 @@ jobs:
           name: web-dist
           path: dist
           retention-days: 7
+          if-no-files-found: error

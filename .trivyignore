@@ -1,8 +1,5 @@
 # Temporary CVE acceptances for Trivy (filesystem + image gates).
-# Format: one CVE / GHSA per line. Always include reason + expiry in a comment above.
+# Always include reason + expiry. Prefer upgrading the dependency or base image.
 #
-# Example:
-# # CVE-2024-XXXX — transitive dep waiting for upstream patch. Expires: 2026-12-31
-# CVE-2024-XXXX
-#
-# Do not add permanent silent ignores. Prefer upgrading the dependency.
+# Currently empty: docker/Dockerfile runs `apk upgrade` on the nginx-unprivileged
+# base so OS packages pick up Alpine fixes. Re-add CVEs here only with an expiry.

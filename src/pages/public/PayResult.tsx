@@ -21,7 +21,7 @@ const TEXT: Record<State, { title: string; body: string; tone: string; mark: str
  */
 export default function PayResult({ navigate }: { navigate: (p: Page) => void }) {
   const [params] = useSearchParams()
-  const { isAuthenticated } = useAuth()
+  const { isAuthenticated, user, role } = useAuth()
   const paymentId = params.get("paymentId") ?? ""
   const hinted: State = (["paid", "pending", "failed"] as const).find((s) => s === params.get("status")) ?? "invalid"
   const check = useQuery({
@@ -42,6 +42,7 @@ export default function PayResult({ navigate }: { navigate: (p: Page) => void })
         <h1 className="mt-6 font-serif text-3xl text-text-primary">{t.title}</h1>
         <p className="mt-3 text-text-secondary">{t.body}</p>
         {reason && <p className="mt-2 text-sm text-text-secondary">Lý do từ cổng thanh toán: {reason}</p>}
+        {state === "paid" && role === "customer" && user?.email && <p className="mt-2 text-sm text-text-secondary">Hóa đơn sẽ được gửi tới email <b className="text-text-primary">{user.email}</b>.</p>}
         {check.isFetching && <p className="mt-2 text-sm text-text-secondary">Đang kiểm tra lại với cổng thanh toán…</p>}
         <div className="mt-8 flex flex-wrap justify-center gap-3">
           {isAuthenticated

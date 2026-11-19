@@ -8,7 +8,7 @@ import { AiChat } from "../../components/AiChat"
 import { HistoryTab, OrderedTab } from "../../components/GuestOrderTabs"
 import { GuestPay } from "../../components/GuestPay"
 import { OrderComposer } from "../../components/OrderComposer"
-import { PayGateway } from "../../components/PayGateway"
+import { PayGateway, PaymentRedirecting, useStartPayment } from "../../components/PayGateway"
 import { usePickupSlot } from "../../components/PickupSlot"
 import { ErrorState, LoadingState } from "../../components/ui"
 import { useAuth } from "../../context/AuthContext"
@@ -54,11 +54,13 @@ export default function GuestMenu({ navigate }: { navigate: (p: Page, params?: R
   const isTakeaway = role === "customer" && takeaway
   const pickup = usePickupSlot(branchId, isTakeaway)
   const [payingTakeaway, setPayingTakeaway] = useState<Order | null>(null)
+  // payOS opens its own page; without it the in-app gateway dialog takes the payment.
+  const startPay = useStartPayment(setPayingTakeaway)
   const placeTakeaway = useMutation({
     mutationFn: ({ lines, code }: { lines: LineInput[]; code: string }) => ordersApi.placeTakeaway({ branchId, slot: pickup.slot, lines, promotionCode: code }),
     onSuccess: (o) => {
       setSent((n) => n + 1)
-      setPayingTakeaway(o)
+      startPay.mutate(o)
       void qc.invalidateQueries({ queryKey: ["takeaway", "check"] })
       void qc.invalidateQueries({ queryKey: ["mine"] })
       showToast(`Đã giữ chỗ đơn mang đi ${orderTitle(o.lines)} (${shortOrderCode(o.code)}).${discountNote(o, formatVND)}`, "success")
@@ -110,10 +112,17 @@ export default function GuestMenu({ navigate }: { navigate: (p: Page, params?: R
           </div>
         </div>
         {menu.data && (
-          <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1">
-            <h1 className="inline-flex items-center gap-2 rounded-full bg-espresso px-4 py-1.5 font-serif text-lg font-medium leading-none text-white">Bàn {menu.data.tableCode}</h1>
-            <span className="text-sm text-text-secondary">{menu.data.branchName}</span>
-            {role !== "customer" && <span className="text-xs text-clay">Đăng nhập để tích điểm cho đơn này</span>}
+          // Where the guest is sitting, first and large: the order goes to this table.
+          <div data-testid="table-card" className="mt-4 flex items-center gap-4 rounded-[20px] bg-espresso px-4 py-4 text-white sm:px-5">
+            <div className="flex h-16 w-16 shrink-0 flex-col items-center justify-center rounded-[16px] bg-white/12 ring-1 ring-white/20">
+              <span className="text-[11px] leading-none text-white/70">Bàn</span>
+              <span className="mt-1 font-serif text-2xl leading-none">{menu.data.tableCode}</span>
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="font-serif text-xl leading-tight">Bạn đang ngồi bàn {menu.data.tableCode}</p>
+              <p className="mt-1 text-sm text-white/75">{menu.data.branchName}. Gọi món ở đây; thanh toán xong quầy pha chế bắt đầu làm.</p>
+              {role !== "customer" && <button type="button" onClick={() => goAuth("auth-customer-login")} className="mt-1.5 text-sm text-white underline underline-offset-2">Đăng nhập để tích điểm cho đơn này</button>}
+            </div>
           </div>
         )}
       </header>
@@ -148,6 +157,7 @@ export default function GuestMenu({ navigate }: { navigate: (p: Page, params?: R
         <p className="mt-6 text-center text-sm text-text-secondary">{isTakeaway ? "Đơn mang đi được thanh toán online ngay khi đặt, quầy pha theo giờ nhận bạn chọn." : "Món được pha sau khi bạn thanh toán: quét QR ngay trên điện thoại, hoặc gọi nhân viên."}</p>
         {paying > 0 && due > 0 && <GuestPay key={paying} token={token} due={due} startOpen bare />}
         <PayGateway open={!!payingTakeaway} amount={payingTakeaway?.total ?? 0} code={payingTakeaway ? shortOrderCode(payingTakeaway.code) : ""} busy={payTakeaway.isPending} onOutcome={(o) => payTakeaway.mutate(o)} onClose={() => { setPayingTakeaway(null); navigate("customer-tracking") }} />
+        <PaymentRedirecting pay={startPay} />
       </main>
       <AiChat
         tenantCode={menu.data?.tenantSlug ?? undefined}

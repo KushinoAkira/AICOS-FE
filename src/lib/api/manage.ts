@@ -109,12 +109,93 @@ export interface PayrollSummary {
 }
 export interface PayrollAdjustment { id: string; employeeId: string; employeeName: string; workDate: string; amount: number; reason: string; createdAtUtc: string }
 export const payrollApi = {
-  summary: (q: { from: string; to: string }) => http.get<PayrollSummary>("/workforce/payroll/summary", { query: q }),
-  exportSummary: (q: { from: string; to: string }) => downloadFile("/workforce/payroll/export", { ...q, format: "xlsx" }, `bang-luong-${q.from}.xlsx`),
-  exportRecords: (q: { from: string; to: string }) => downloadFile("/workforce/payroll/records/export", { ...q, format: "xlsx" }, `cham-cong-${q.from}.xlsx`),
+  /** `branchId`: only read for the brand admin (a manager always gets their own branch). */
+  summary: (q: { from: string; to: string; branchId?: string }) => http.get<PayrollSummary>("/workforce/payroll/summary", { query: q }),
+  exportSummary: (q: { from: string; to: string; branchId?: string }) => downloadFile("/workforce/payroll/export", { ...q, format: "xlsx" }, `bang-luong-${q.from}.xlsx`),
+  exportRecords: (q: { from: string; to: string; branchId?: string }) => downloadFile("/workforce/payroll/records/export", { ...q, format: "xlsx" }, `cham-cong-${q.from}.xlsx`),
   adjustments: async (q: { from: string; to: string; employeeId?: string }) => itemsOf(await http.get<PayrollAdjustment[]>("/workforce/payroll/adjustments", { query: q })),
   addAdjustment: (b: { employeeId: string; workDate: string; amount: number; reason: string }) => http.post<PayrollAdjustment>("/workforce/payroll/adjustments", b),
   removeAdjustment: (id: string) => http.delete<void>(`/workforce/payroll/adjustments/${id}`),
+}
+
+// ---------- payroll periods: finalize (the pay freezes and the days lock), pay, reopen
+export type PayrollPeriodStatus = "Finalized" | "Paid" | "Reopened"
+export type PayoutMethod = "BankTransfer" | "Cash"
+export interface PayrollPeriodLine {
+  employeeId: string; employeeName: string; contractType: ContractType; workedDays: number; regularHours: number; overtimeHours: number; replacementHours: number
+  basePay: number; overtimePay: number; replacementPay: number; adjustments: number; grossPay: number; netPay: number
+  bankName: string | null; bankAccountNumber: string | null; bankAccountName: string | null
+  isPaid: boolean; paidAtUtc: string | null; payoutMethod: PayoutMethod | null; payoutReference: string | null
+}
+/** `NoBankAccount`: cannot be transferred. `DeductionsExceedPay`: nothing to pay. */
+export interface PayrollWarning { employeeId: string; employeeName: string; code: "NoBankAccount" | "DeductionsExceedPay" | string; message: string }
+/** Staff: baristas and cashiers of a branch, paid by its manager. Managers: the branch managers of the brand, paid by the brand admin. */
+export type PayrollKind = "Staff" | "Managers"
+export interface PayrollPeriod {
+  id: string; branchId: string; kind?: PayrollKind; from: string; to: string; status: PayrollPeriodStatus; finalizedAtUtc: string; finalizedBy: string | null
+  reopenedAtUtc: string | null; reopenReason: string | null; totalNet: number; totalPaid: number; employees: number; paid: number
+  /** Only on a single period (GET /periods/{id}, finalize, pay, reopen); the list leaves them out. */
+  lines: PayrollPeriodLine[] | null
+  warnings: PayrollWarning[]
+}
+export interface BankAccount { bankName: string | null; accountNumber: string | null; accountName: string | null }
+export const payrollPeriodApi = {
+  /** Staff periods; `branchId` is only read for the brand admin. */
+  list: async (branchId?: string) => itemsOf(await http.get<PayrollPeriod[]>("/workforce/payroll/periods", { query: { branchId } })),
+  get: (id: string) => http.get<PayrollPeriod>(`/workforce/payroll/periods/${id}`),
+  finalize: (b: { from: string; to: string }) => http.post<PayrollPeriod>("/workforce/payroll/periods", b),
+  recordPayout: (id: string, b: { employeeIds: string[]; method: PayoutMethod; reference: string | null }) => http.post<PayrollPeriod>(`/workforce/payroll/periods/${id}/payments`, b),
+  reopen: (id: string, reason: string) => http.post<PayrollPeriod>(`/workforce/payroll/periods/${id}/reopen`, { reason }),
+  bankTransfer: (p: PayrollPeriod) => downloadFile(`/workforce/payroll/periods/${p.id}/bank-transfer`, {}, `chuyen-khoan-luong-${p.from}-${p.to}.csv`),
+  /** All three parts, or all null to clear the account. */
+  setBankAccount: (employeeId: string, b: BankAccount) => http.put<unknown>(`/workforce/employees/${employeeId}/bank-account`, b),
+}
+
+// ---------- the brand admin pays the branch managers a monthly salary
+export interface ManagerSalary {
+  employeeId: string; userId: string; fullName: string; branchId: string; monthlySalary: number; status: "Active" | "Inactive"
+  bankName: string | null; bankAccountNumber: string | null; bankAccountName: string | null
+}
+export const managerPayrollApi = {
+  managers: async () => itemsOf(await http.get<ManagerSalary[]>("/workforce/payroll/managers")),
+  setSalary: (userId: string, monthlySalary: number) => http.put<ManagerSalary>(`/workforce/payroll/managers/${userId}/salary`, { monthlySalary }),
+  periods: async () => itemsOf(await http.get<PayrollPeriod[]>("/workforce/payroll/manager-periods")),
+  /** `month` is yyyy-MM; a bonus is positive, a deduction negative. */
+  finalize: (b: { month: string; adjustments: { employeeId: string; amount: number }[] }) => http.post<PayrollPeriod>("/workforce/payroll/manager-periods", b),
+}
+
+// ---------- the signed-in employee's own pay
+export interface Payslip {
+  periodId: string; branchId: string; kind?: PayrollKind; from: string; to: string; periodStatus: PayrollPeriodStatus; workedDays: number; regularHours: number; overtimeHours: number
+  replacementHours: number; basePay: number; overtimePay: number; replacementPay: number; adjustments: number; grossPay: number; netPay: number
+  bankName: string | null; bankAccountHint: string | null; isPaid: boolean; paidAtUtc: string | null; payoutMethod: PayoutMethod | null; payoutReference: string | null
+}
+export const myPayApi = {
+  payslips: async () => itemsOf(await http.get<Payslip[]>("/workforce/payroll/payslips/mine")),
+  async bankAccount(): Promise<BankAccount> {
+    const me = await http.get<{ bankName?: string | null; bankAccountNumber?: string | null; bankAccountName?: string | null }>("/workforce/employees/me")
+    return { bankName: me.bankName ?? null, accountNumber: me.bankAccountNumber ?? null, accountName: me.bankAccountName ?? null }
+  },
+  setBankAccount: (b: BankAccount) => http.put<unknown>("/workforce/employees/me/bank-account", b),
+}
+
+const PAYROLL_ERRORS: Record<string, string> = {
+  "payroll.period_locked": "Ngày này thuộc kỳ lương đã chốt. Mở lại kỳ lương trước khi sửa chấm công hoặc điều chỉnh.",
+  "payroll.period_not_over": "Chỉ chốt được những ngày đã qua: kỳ lương phải kết thúc trước hôm nay.",
+  "payroll.period_overlap": "Một phần các ngày này đã nằm trong kỳ lương đã chốt của chi nhánh.",
+  "payroll.unreviewed_records": "Còn ca chưa duyệt trong kỳ. Duyệt, sửa hoặc đánh vắng các ca đó trước khi chốt.",
+  "payroll.already_paid": "Có người trong danh sách đã được trả lương kỳ này. Danh sách đã được tải lại.",
+  "payroll.nothing_to_pay": "Không có khoản lương nào để trả cho người đã chọn.",
+  "payroll.period_paid": "Kỳ lương đã trả xong nên không mở lại được.",
+  "payroll.period_reopened": "Kỳ lương đang mở lại để sửa. Chốt lại trước khi trả lương.",
+  "payroll.rules_missing": "Thương hiệu chưa cấu hình quy tắc lương.",
+  "payroll.manager_pays_staff": "Lương nhân viên do quản lý chi nhánh chốt và trả. Chủ thương hiệu chỉ xem.",
+  "payroll.manager_adjustment": "Thưởng hoặc trừ lương của quản lý được nhập khi chủ thương hiệu chốt lương quản lý.",
+  "payroll.no_managers": "Chưa quản lý nào có mức lương tháng. Nhập mức lương trước khi chốt.",
+}
+/** Vietnamese for the Workforce service's payroll refusals; anything else keeps the server's message. */
+export function payrollErrorMessage(e: { message: string; code?: string }): string {
+  return (e.code && PAYROLL_ERRORS[e.code]) || e.message
 }
 
 // ---------- tables and areas
@@ -192,6 +273,8 @@ export const reconciliationApi = {
   /** `reference`: the bank transaction reference, required for a refund to the customer's bank account. */
   approveRefund: (id: string, note: string, reference?: string) => http.post<Refund>(`/payments/refunds/${id}/approve`, { note, reference: reference || null }),
   rejectRefund: (id: string, note: string) => http.post<Refund>(`/payments/refunds/${id}/reject`, { note }),
+  /** A refund waiting for a manual transfer (payOS has no refund API): the money was sent back; `reference` is the bank transaction reference. */
+  transferRefund: (id: string, reference: string, note: string) => http.post<Refund>(`/payments/refunds/${id}/transferred`, { reference, note: note || null }),
 }
 
 // ---------- audit

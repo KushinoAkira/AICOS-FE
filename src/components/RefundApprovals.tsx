@@ -6,9 +6,10 @@ import { useToast } from "../context/ToastContext"
 import { reconciliationApi, type Refund } from "../lib/api/manage"
 import { formatDate, formatDateTime, formatVND } from "../lib/format"
 import { shortOrderCode } from "../lib/orderLabel"
-import { refundDecision, refundErrorMessage, sortRefunds } from "../lib/refundDecision"
+import { REFUND_NEEDS_ACTION, refundDecision, refundErrorMessage, sortRefunds } from "../lib/refundDecision"
 
-const STATUS_TEXT: Record<string, string> = { PendingApproval: "Chờ duyệt", Succeeded: "Đã hoàn", Failed: "Lỗi", Rejected: "Từ chối" }
+const STATUS_TEXT: Record<string, string> = { PendingApproval: "Chờ duyệt", AwaitingTransfer: "Chờ chuyển trả", Succeeded: "Đã hoàn", Failed: "Lỗi", Rejected: "Từ chối" }
+const REFERENCE_MAX = 80
 const KIND_TEXT: Record<string, string> = { Cancellation: "Khách hủy", NoShow: "Không đến nhận", Unfulfillable: "Không làm được", Exception: "Ngoại lệ" }
 const NOTE_MAX = 300
 
@@ -22,13 +23,13 @@ export function RefundApprovals({ orderCodes: given = {}, title = "Hoàn tiền 
   const qc = useQueryClient()
   const { showToast } = useToast()
   const { user, role } = useAuth()
-  const refunds = useQuery({ queryKey: ["refunds", "pending"], queryFn: () => reconciliationApi.refunds({ status: "PendingApproval" }), refetchInterval: 15_000 })
+  const refunds = useQuery({ queryKey: ["refunds", "pending"], queryFn: async () => [...await reconciliationApi.refunds({ status: "PendingApproval" }), ...await reconciliationApi.refunds({ status: "AwaitingTransfer" })], refetchInterval: 15_000 })
   const [showHistory, setShowHistory] = useState(false)
   const history = useQuery({
     queryKey: ["refunds", "history", range?.from ?? "", range?.to ?? ""],
     queryFn: () => reconciliationApi.refunds(range ?? {}),
     enabled: showHistory,
-    select: (rows) => rows.filter((r) => r.status !== "PendingApproval").sort((a, b) => (b.decidedAtUtc ?? b.createdAtUtc).localeCompare(a.decidedAtUtc ?? a.createdAtUtc)),
+    select: (rows) => rows.filter((r) => !REFUND_NEEDS_ACTION.includes(r.status)).sort((a, b) => (b.decidedAtUtc ?? b.createdAtUtc).localeCompare(a.decidedAtUtc ?? a.createdAtUtc)),
   })
   const approver = useQuery({ queryKey: ["refunds", "approver"], queryFn: reconciliationApi.approver, retry: false })
   // Pages without an order list (Đối soát) look the codes up, pending refunds first, so the row names the order like the customer sees it.
@@ -39,17 +40,23 @@ export function RefundApprovals({ orderCodes: given = {}, title = "Hoàn tiền 
   const [note, setNote] = useState("")
   const [reference, setReference] = useState("")
   const [error, setError] = useState<string | null>(null)
+  const [transferring, setTransferring] = useState<Refund | null>(null)
   const me = { id: user?.id ?? null, role }
+  const manages = role === "branchManager" || role === "brandAdmin"
+  const refresh = () => {
+    void qc.invalidateQueries({ queryKey: ["refunds"] })
+    void qc.invalidateQueries({ queryKey: ["orders"] })
+    void qc.invalidateQueries({ queryKey: ["reconciliation"] })
+  }
 
   const decide = useMutation({
     mutationFn: ({ refund, approve, note, reference }: { refund: Refund; approve: boolean; note: string; reference: string }) =>
       approve ? reconciliationApi.approveRefund(refund.id, note, reference) : reconciliationApi.rejectRefund(refund.id, note),
     onSuccess: (r, v) => {
-      void qc.invalidateQueries({ queryKey: ["refunds"] })
-      void qc.invalidateQueries({ queryKey: ["orders"] })
-      void qc.invalidateQueries({ queryKey: ["reconciliation"] })
+      refresh()
       setDeciding(null)
       if (!v.approve) showToast("Đã từ chối yêu cầu hoàn tiền.", "success")
+      else if (r.status === "AwaitingTransfer") showToast(`Đã duyệt. Cổng thanh toán không tự hoàn được: chuyển trả ${formatVND(r.amount)} cho khách rồi bấm "Đã chuyển trả".`, "info")
       else if (r.status === "Failed") showToast(`Cổng thanh toán không hoàn được tiền: ${r.decisionNote ?? "lỗi không rõ"}.`, "error")
       else showToast(r.bankAccountNumber ? `Đã ghi nhận chuyển khoản ${formatVND(r.amount)} cho khách.` : `Đã duyệt hoàn ${formatVND(r.amount)}.`, "success")
     },
@@ -58,6 +65,25 @@ export function RefundApprovals({ orderCodes: given = {}, title = "Hoàn tiền 
       if (e.code === "refund.not_pending" || e.code === "refund.exceeds_payment") void qc.invalidateQueries({ queryKey: ["refunds"] })
     },
   })
+
+  const transfer = useMutation({
+    mutationFn: ({ refund, reference, note }: { refund: Refund; reference: string; note: string }) => reconciliationApi.transferRefund(refund.id, reference, note),
+    onSuccess: (r) => { refresh(); setTransferring(null); showToast(`Đã ghi nhận chuyển trả ${formatVND(r.amount)}.`, "success") },
+    onError: (e: Error & { code?: string }) => {
+      setError(refundErrorMessage(e))
+      if (e.code === "refund.not_awaiting_transfer" || e.code === "refund.exceeds_payment") void qc.invalidateQueries({ queryKey: ["refunds"] })
+    },
+  })
+  function openTransfer(refund: Refund) { setReference(""); setNote(""); setError(null); setTransferring(refund) }
+  function submitTransfer() {
+    if (!transferring) return
+    const ref = reference.trim(), text = note.trim()
+    if (!ref) return setError("Nhập mã giao dịch chuyển khoản trả khách.")
+    if (ref.length > REFERENCE_MAX) return setError(`Mã giao dịch tối đa ${REFERENCE_MAX} ký tự.`)
+    if (text.length > NOTE_MAX) return setError(`Ghi chú tối đa ${NOTE_MAX} ký tự.`)
+    setError(null)
+    transfer.mutate({ refund: transferring, reference: ref, note: text })
+  }
 
   function open(refund: Refund, approve: boolean) { setNote(""); setReference(""); setError(null); setDeciding({ refund, approve }) }
   function submit() {
@@ -86,9 +112,15 @@ export function RefundApprovals({ orderCodes: given = {}, title = "Hoàn tiền 
         </span>
       ),
     },
-    { key: "s", header: "Trạng thái", render: (r) => <StatusPill tone={r.status === "Succeeded" ? "success" : r.status === "PendingApproval" ? "pending" : "danger"}>{STATUS_TEXT[r.status] ?? r.status}</StatusPill> },
+    { key: "s", header: "Trạng thái", render: (r) => <StatusPill tone={r.status === "Succeeded" ? "success" : REFUND_NEEDS_ACTION.includes(r.status) ? "pending" : "danger"}>{STATUS_TEXT[r.status] ?? r.status}</StatusPill> },
     {
       key: "x", header: "", className: "text-right", render: (r) => {
+        if (r.status === "AwaitingTransfer") return manages ? (
+          <div className="flex flex-col items-end gap-1">
+            <Button className="px-3 py-1.5 text-xs" onClick={() => openTransfer(r)}>Đã chuyển trả</Button>
+            <span className="max-w-[220px] text-right text-xs text-text-secondary">Chuyển khoản trả khách rồi ghi nhận tại đây.</span>
+          </div>
+        ) : null
         if (r.status !== "PendingApproval") return r.decidedAtUtc ? <span className="text-xs text-text-secondary">Xử lý lúc<br />{formatDateTime(r.decidedAtUtc)}</span> : null
         const d = refundDecision(r, policy, me)
         return (
@@ -109,7 +141,7 @@ export function RefundApprovals({ orderCodes: given = {}, title = "Hoàn tiền 
       <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
         <h2 className="font-serif text-lg text-text-primary">
           {title}
-          {!!refunds.data && <span className="ml-2 rounded-full bg-pending-bg px-2 py-0.5 text-sm text-[#8A5A2B]" data-testid="pending-refunds">{refunds.data.filter((r) => r.status === "PendingApproval").length}</span>}
+          {!!refunds.data && <span className="ml-2 rounded-full bg-pending-bg px-2 py-0.5 text-sm text-[#8A5A2B]" data-testid="pending-refunds">{refunds.data.filter((r) => REFUND_NEEDS_ACTION.includes(r.status)).length}</span>}
         </h2>
         <Button variant="secondary" className="px-3 py-1.5 text-xs" aria-expanded={showHistory} onClick={() => setShowHistory(!showHistory)}>
           {showHistory ? "Ẩn lịch sử" : "Lịch sử hoàn tiền"}
@@ -120,7 +152,7 @@ export function RefundApprovals({ orderCodes: given = {}, title = "Hoàn tiền 
       )}
       <h3 className="mb-2 text-sm font-medium text-text-primary">Chờ duyệt</h3>
       <QueryBoundary query={refunds}>
-        {(rows) => <DataTable rows={sortRefunds(rows)} rowKey={(r) => r.id} columns={columns} pageSize={8} emptyTitle="Không có yêu cầu hoàn tiền nào chờ duyệt" />}
+        {(rows) => <DataTable rows={sortRefunds(rows)} rowKey={(r) => r.id} columns={columns} pageSize={8} emptyTitle="Không có yêu cầu hoàn tiền nào cần xử lý" />}
       </QueryBoundary>
       {showHistory && (
         <div className="mt-6" data-testid="refund-history">
@@ -166,8 +198,28 @@ export function RefundApprovals({ orderCodes: given = {}, title = "Hoàn tiền 
               <p className="text-xs text-text-secondary">Chuyển khoản trong app ngân hàng của quán trước, rồi nhập mã giao dịch và bấm duyệt. Khách sẽ thấy đơn chuyển sang "Đã hoàn".</p>
             </div>
           ) : deciding?.approve
-            ? <p className="text-xs text-text-secondary">Tiền được hoàn qua cổng thanh toán ngay khi duyệt. Đơn trả tiền mặt thì thu ngân đã thu đơn đó trả lại tại quầy và khoản này được trừ vào tiền mặt của thu ngân.</p>
+            ? <p className="text-xs text-text-secondary">Tiền được hoàn qua cổng thanh toán ngay khi duyệt. Cổng không có hoàn tiền tự động (payOS) thì khoản hoàn chuyển sang chờ chuyển trả. Đơn trả tiền mặt thì thu ngân đã thu đơn đó trả lại tại quầy và khoản này được trừ vào tiền mặt của thu ngân.</p>
             : <Field label="Lý do từ chối (bắt buộc)" value={note} maxLength={NOTE_MAX} onChange={(e) => setNote(e.target.value)} />}
+        </div>
+      </Modal>
+
+      <Modal
+        open={!!transferring}
+        title="Ghi nhận đã chuyển trả"
+        onClose={() => setTransferring(null)}
+        footer={<>
+          <Button variant="secondary" onClick={() => setTransferring(null)}>Hủy</Button>
+          <Button loading={transfer.isPending} onClick={submitTransfer}>Ghi nhận</Button>
+        </>}
+      >
+        <div className="space-y-4">
+          {error && <Banner>{error}</Banner>}
+          <p className="text-sm text-text-secondary">
+            Đơn <b className="text-text-primary">{transferring ? orderCodes[transferring.orderId] ?? `#${transferring.orderId.slice(0, 8)}` : ""}</b> · Số tiền <b className="text-text-primary">{formatVND(transferring?.amount ?? 0)}</b>
+          </p>
+          <p className="text-xs text-text-secondary">Chỉ ghi nhận sau khi tiền đã chuyển vào tài khoản của khách. Khoản hoàn sẽ chuyển sang Đã hoàn.</p>
+          <Field label="Mã giao dịch chuyển khoản (bắt buộc)" value={reference} maxLength={REFERENCE_MAX} onChange={(e) => setReference(e.target.value)} />
+          <Field label="Ghi chú" value={note} maxLength={NOTE_MAX} onChange={(e) => setNote(e.target.value)} />
         </div>
       </Modal>
     </section>

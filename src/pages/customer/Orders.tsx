@@ -3,8 +3,10 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import type { Page } from "../../App"
 import { CustomerFrame } from "../../components/CustomerFrame"
 import { OrderStatusPill, PaymentPill } from "../../components/OrderStatusPill"
-import { PayGateway } from "../../components/PayGateway"
-import { Banner, Button, EmptyState, Field, Modal, QueryBoundary, chipClass } from "../../components/ui"
+import { OrderProgress } from "../../components/OrderProgress"
+import { PayGateway, PaymentRedirecting, useStartPayment } from "../../components/PayGateway"
+import { isOrderOver, TAKEAWAY_STEPS } from "../../lib/orderProgress"
+import { Banner, Button, EmptyState, Field, Modal, QueryBoundary } from "../../components/ui"
 import { useToast } from "../../context/ToastContext"
 import { ordersApi, type CancelInput, type Order, type PayOutcome } from "../../lib/api/orders"
 
@@ -21,6 +23,7 @@ export default function CustomerOrders({ navigate }: { navigate: (p: Page) => vo
   const live = useMemberRealtime()
   const orders = useQuery({ queryKey: ["mine"], queryFn: ordersApi.mine, refetchInterval: pollWhile(live, 5000) })
   const [paying, setPaying] = useState<Order | null>(null)
+  const startPay = useStartPayment(setPaying)
   const [canceling, setCanceling] = useState<Order | null>(null)
   const [form, setForm] = useState({ reason: "", bankName: "", bankAccountNumber: "", bankAccountHolder: "" })
   const [formError, setFormError] = useState<string | null>(null)
@@ -49,33 +52,70 @@ export default function CustomerOrders({ navigate }: { navigate: (p: Page) => vo
     onError: (e) => { setFormError(e.message); refresh() },
   })
 
+  const card = (o: Order, active: boolean) => (
+    <li key={o.id} className={`rounded-[16px] border bg-surface p-5 ${active && o.status === "Ready" ? "border-state-success" : "border-border"}`}>
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div>
+          <p className="font-medium text-text-primary">{orderTitle(o.lines)} <span className="text-sm font-normal text-text-secondary">· {shortOrderCode(o.code)}</span></p>
+          <p className="text-sm text-text-secondary">Đặt lúc {formatDateTime(o.createdAtUtc)}</p>
+        </div>
+        <span className="flex flex-wrap gap-2">{!active && <OrderStatusPill status={o.status} />}<PaymentPill status={o.paymentStatus} /></span>
+      </div>
+      {active && (
+        <div className="mt-4 space-y-3">
+          {o.status === "Ready" && <p className="rounded-[12px] bg-success-bg px-4 py-3 text-sm font-medium text-state-success">Đồ uống đã sẵn sàng, mời bạn tới quầy nhận.</p>}
+          {o.pickupSlot && <p className="text-sm text-text-secondary">Nhận lúc <b className="font-serif text-xl font-medium text-text-primary">{formatTime(o.pickupSlot)}</b></p>}
+          <OrderProgress status={o.status} steps={TAKEAWAY_STEPS} />
+        </div>
+      )}
+      <ul className="mt-4 space-y-1 text-sm">
+        {o.lines.map((l, i) => (
+          <li key={i} className="flex justify-between gap-3">
+            <span className="text-text-primary">{l.qty} × {l.name}{l.size ? <span className="text-text-secondary"> ({l.size})</span> : null}</span>
+          </li>
+        ))}
+      </ul>
+      <p className="mt-3 flex items-baseline justify-between border-t border-border pt-3 text-sm text-text-secondary">Tổng <b className="text-base text-text-primary">{formatVND(o.total)}</b></p>
+      {o.paymentStatus === "RefundPending" && <div className="mt-3"><Banner tone="warn">Đơn đã hủy. Yêu cầu hoàn tiền đang chờ quán duyệt; quán sẽ chuyển khoản về tài khoản bạn đã cung cấp.</Banner></div>}
+      {o.paymentStatus === "Refunded" && <p className="mt-3 text-sm text-state-success">Đã hoàn {formatVND(o.refundedAmount)}.</p>}
+      {o.status === "PendingPayment" && o.paymentStatus === "Unpaid" && o.channel === "takeaway" && <p className="mt-3 text-sm text-text-secondary">Đang chờ xác nhận thanh toán. Nếu bạn đã trả tiền, đơn sẽ tự cập nhật sau khi quán tra cứu giao dịch.</p>}
+      {(o.status === "PickedUp" || o.paymentStatus === "Failed" || (o.status === "PendingPayment" && o.paymentStatus === "Unpaid") || ((o.status === "PendingPayment" || o.status === "Pending") && o.paymentStatus !== "RefundPending")) && (
+        <div className="mt-4 flex flex-wrap gap-2">
+          {(o.paymentStatus === "Failed" || (o.status === "PendingPayment" && o.paymentStatus === "Unpaid")) && <Button loading={startPay.isPending && startPay.variables?.id === o.id} onClick={() => startPay.mutate(o)}>Thanh toán lại</Button>}
+          {o.status === "PickedUp" && <Button variant="secondary" onClick={() => navigate("customer-feedback")}>Đánh giá</Button>}
+          {(o.status === "PendingPayment" || o.status === "Pending") && o.paymentStatus !== "RefundPending" && <Button variant="ghost" onClick={() => startCancel(o)}>Hủy đơn</Button>}
+        </div>
+      )}
+    </li>
+  )
+
   return (
     <CustomerFrame page="customer-tracking" navigate={navigate} uc="UC-36" title="Đơn của tôi">
       <QueryBoundary query={orders}>
-        {(rows) => rows.length === 0 ? <EmptyState title="Bạn chưa có đơn nào" action={<Button onClick={() => navigate("customer-menu")}>Đặt mang đi</Button>} /> : (
-          <ul className="space-y-4">
-            {rows.map((o) => (
-              <li key={o.id} className="rounded-[16px] border border-border bg-surface p-5">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p className="font-medium text-text-primary">{orderTitle(o.lines)} <span className="text-sm font-normal text-text-secondary">· {shortOrderCode(o.code)} · {formatDateTime(o.createdAtUtc)}</span></p>
-                  <span className="flex gap-2"><OrderStatusPill status={o.status} /><PaymentPill status={o.paymentStatus} /></span>
-                </div>
-                <ul className="mt-3 text-sm text-text-secondary">{o.lines.map((l, i) => <li key={i}>{l.qty}× {l.name}{l.size ? ` (${l.size})` : ""}</li>)}</ul>
-                <p className="mt-3 text-sm text-text-secondary">{o.pickupSlot && <>Nhận lúc <b className="text-text-primary">{formatTime(o.pickupSlot)}</b> · </>}Tổng <b className="text-text-primary">{formatVND(o.total)}</b></p>
-                {o.paymentStatus === "RefundPending" && <div className="mt-3"><Banner tone="warn">Đơn đã hủy. Yêu cầu hoàn tiền đang chờ quán duyệt; quán sẽ chuyển khoản về tài khoản bạn đã cung cấp.</Banner></div>}
-                {o.paymentStatus === "Refunded" && <p className="mt-3 text-sm text-state-success">Đã hoàn {formatVND(o.refundedAmount)}.</p>}
-                {o.status === "PendingPayment" && o.paymentStatus === "Unpaid" && o.channel === "takeaway" && <p className="mt-3 text-sm text-text-secondary">Đang chờ xác nhận thanh toán. Nếu bạn đã trả tiền, đơn sẽ tự cập nhật sau khi quán tra cứu giao dịch.</p>}
-                <div className="mt-4 flex gap-2">
-                  {o.status === "PickedUp" && <Button variant="secondary" onClick={() => navigate("customer-feedback")}>Đánh giá</Button>}
-                  {(o.paymentStatus === "Failed" || (o.status === "PendingPayment" && o.paymentStatus === "Unpaid")) && <Button onClick={() => setPaying(o)}>Thanh toán lại</Button>}
-                  {(o.status === "PendingPayment" || o.status === "Pending") && o.paymentStatus !== "RefundPending" && <Button variant="secondary" onClick={() => startCancel(o)}>Hủy đơn</Button>}
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
+        {(rows) => {
+          if (rows.length === 0) return <EmptyState title="Bạn chưa có đơn nào" description="Đặt trước rồi tới lấy, không phải xếp hàng." action={<Button onClick={() => navigate("customer-menu")}>Đặt mang đi</Button>} />
+          const now = rows.filter((o) => !isOrderOver(o.status))
+          const past = rows.filter((o) => isOrderOver(o.status))
+          return (
+            <div className="space-y-10">
+              <section aria-labelledby="orders-now">
+                <h2 id="orders-now" className="mb-3 font-serif text-xl text-text-primary">Đang thực hiện</h2>
+                {now.length === 0
+                  ? <p className="rounded-[16px] border border-dashed border-border p-6 text-center text-sm text-text-secondary">Không có đơn nào đang làm.</p>
+                  : <ul className="grid gap-4 md:grid-cols-2">{now.map((o) => card(o, true))}</ul>}
+              </section>
+              {past.length > 0 && (
+                <section aria-labelledby="orders-past">
+                  <h2 id="orders-past" className="mb-3 font-serif text-xl text-text-primary">Đơn trước đây</h2>
+                  <ul className="grid gap-4 md:grid-cols-2">{past.map((o) => card(o, false))}</ul>
+                </section>
+              )}
+            </div>
+          )
+        }}
       </QueryBoundary>
       <PayGateway open={!!paying} amount={paying?.total ?? 0} code={paying?.code ?? ""} busy={pay.isPending} onOutcome={(o) => pay.mutate(o)} onClose={() => setPaying(null)} />
+      <PaymentRedirecting pay={startPay} />
       <Modal open={!!canceling} title={`Hủy đơn ${canceling ? shortOrderCode(canceling.code) : ""}`} onClose={() => setCanceling(null)}
         footer={<><Button variant="secondary" onClick={() => setCanceling(null)}>Không hủy</Button><Button loading={cancel.isPending} onClick={confirmCancel}>Hủy đơn</Button></>}>
         <div className="space-y-4">
@@ -83,7 +123,7 @@ export default function CustomerOrders({ navigate }: { navigate: (p: Page) => vo
           <div>
             <p className="mb-2 text-sm font-medium text-text-primary">Lý do hủy</p>
             <div className="mb-2 flex flex-wrap gap-2">
-              {REASONS.map((r) => <button key={r} type="button" aria-pressed={form.reason === r} onClick={() => setForm({ ...form, reason: r })} className={`${chipClass(form.reason === r, "outline")} !min-h-9 !px-3 !py-1.5 !text-xs`}>{r}</button>)}
+              {REASONS.map((r) => <button key={r} type="button" aria-pressed={form.reason === r} onClick={() => setForm({ ...form, reason: r })} className={`rounded-full border px-3 py-1.5 text-xs ${form.reason === r ? "border-espresso bg-espresso text-white" : "border-border text-text-secondary"}`}>{r}</button>)}
             </div>
             <textarea aria-label="Lý do hủy" value={form.reason} maxLength={300} rows={2} placeholder="Hoặc tự nhập lý do" onChange={(e) => setForm({ ...form, reason: e.target.value })} className="w-full rounded-[10px] border border-border p-3 text-sm" />
           </div>

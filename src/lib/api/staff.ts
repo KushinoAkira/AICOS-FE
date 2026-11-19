@@ -28,6 +28,11 @@ export interface LoyaltyVoucher {
   /** Smallest order it works on; 0 when there is none. */
   minOrder?: number
 }
+/** A voucher the member earns with orders: `counted` of `requiredOrders` so far; `claimedCode` once taken. */
+export interface HuntVoucher {
+  id: string; code: string; discountLabel: string; minOrder: number; expiresAtUtc: string
+  requiredOrders: number; perOrder: number; countFromUtc: string; counted: number; claimed: boolean; claimedCode: string | null; canClaim: boolean
+}
 export interface LoyaltyMe { points: number; tier: string; nextTier: string | null; pointsToNext: number; /** Points the next tier starts at, for the progress bar. */ nextTierAt?: number; redeemPoints: number; vouchers: LoyaltyVoucher[]; history: { id: string; delta: number; reason: string; atUtc: string }[] }
 /** A voucher the member earns with orders: `counted` of `requiredOrders` so far; `claimedCode` once taken. */
 export interface HuntVoucher {

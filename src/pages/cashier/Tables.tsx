@@ -8,6 +8,7 @@ import { CashTendered } from "../../components/CashTendered"
 import { PageFrame } from "../../components/PageFrame"
 import { Banner, Button, Modal, QueryBoundary, StatusPill } from "../../components/ui"
 import { useToast } from "../../context/ToastContext"
+import { useActiveBranch } from "../../hooks/useActiveBranch"
 import { ordersApi, type TableRow } from "../../lib/api/orders"
 import { pollWhile, useBranchRealtime } from "../../lib/realtime"
 import { formatVND } from "../../lib/format"
@@ -21,10 +22,16 @@ const stillMaking = (t: TableRow) => t.orders.some((o) => o.status === "Pending"
 
 /** Table map and cash bill. Table state is derived from the open session (never stored). */
 export default function CashierTables({ navigate }: { navigate: (p: Page) => void }) {
+  const { branchId } = useActiveBranch()
   const qc = useQueryClient()
   const { showToast } = useToast()
   const live = useBranchRealtime()
-  const tables = useQuery({ queryKey: ["tables"], queryFn: ordersApi.tables, refetchInterval: pollWhile(live, 5000) })
+  const tables = useQuery({
+    queryKey: ["tables", branchId],
+    queryFn: () => ordersApi.tables(),
+    refetchInterval: pollWhile(live, 5000),
+    enabled: !!branchId,
+  })
   const [selected, setSelected] = useState<string | null>(null)
   const [received, setReceived] = useState("")
   const [error, setError] = useState<string | null>(null)
@@ -60,7 +67,7 @@ export default function CashierTables({ navigate }: { navigate: (p: Page) => voi
             const settled = isSettled(t)
             const tone: TileTone = settled ? "success" : st === "AwaitingPayment" ? "danger" : st === "InService" ? "pending" : "neutral"
             return {
-              id: t.id, code: t.code, areaId: t.areaId ?? "", areaName: t.areaName ?? "", positionX: t.positionX, positionY: t.positionY, tone, disabled: st === "Empty",
+              id: t.id, code: t.code, areaId: t.areaId ?? t.floorId ?? "unknown", areaName: t.areaName ?? "Khu vực", positionX: t.positionX, positionY: t.positionY, tone, disabled: st === "Empty",
               sub: settled ? "Đã trả" : st === "Empty" ? `${t.seats} chỗ` : st === "AwaitingPayment" ? "Gọi tính tiền" : formatVND(billOf(t)),
             }
           })

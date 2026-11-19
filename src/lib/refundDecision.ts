@@ -31,16 +31,20 @@ const REFUND_ERRORS: Record<string, string> = {
   "refund.self_approval": "Bạn không thể tự duyệt yêu cầu hoàn tiền do chính mình tạo.",
   "refund.not_pending": "Yêu cầu này đã được xử lý. Danh sách đã được tải lại.",
   "refund.exceeds_payment": "Giao dịch không còn đủ tiền để hoàn theo yêu cầu này. Yêu cầu đã được đánh dấu lỗi.",
+  "refund.not_awaiting_transfer": "Khoản hoàn này không còn chờ chuyển trả. Danh sách đã được tải lại.",
 }
+
+/** Statuses a manager still has to act on: decide it, or transfer the money back by hand (payOS has no refund API). */
+export const REFUND_NEEDS_ACTION = ["PendingApproval", "AwaitingTransfer"]
 
 /** Vietnamese for the Payment service's refusals; anything else keeps the server's message. */
 export function refundErrorMessage(e: { message: string; code?: string }): string {
   return (e.code && REFUND_ERRORS[e.code]) || e.message
 }
 
-/** Pending first (oldest first, so nothing waits forever), then the decided ones, newest first. */
+/** Those still to act on first (oldest first, so nothing waits forever), then the settled ones, newest first. */
 export function sortRefunds<T extends { status: string; createdAtUtc: string }>(rows: T[]): T[] {
-  const pending = rows.filter((r) => r.status === "PendingApproval").sort((a, b) => a.createdAtUtc.localeCompare(b.createdAtUtc))
-  const rest = rows.filter((r) => r.status !== "PendingApproval").sort((a, b) => b.createdAtUtc.localeCompare(a.createdAtUtc))
+  const pending = rows.filter((r) => REFUND_NEEDS_ACTION.includes(r.status)).sort((a, b) => a.createdAtUtc.localeCompare(b.createdAtUtc))
+  const rest = rows.filter((r) => !REFUND_NEEDS_ACTION.includes(r.status)).sort((a, b) => b.createdAtUtc.localeCompare(a.createdAtUtc))
   return [...pending, ...rest]
 }

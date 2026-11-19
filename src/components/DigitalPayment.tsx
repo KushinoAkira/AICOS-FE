@@ -1,10 +1,12 @@
 import { useState } from "react"
 import { useMutation } from "@tanstack/react-query"
+import { QRCodeSVG } from "qrcode.react"
 import { Banner, Button, StatusPill } from "./ui"
 import { env } from "../config/env"
 import type { DigitalCharge } from "../lib/api/orders"
 import { formatVND } from "../lib/format"
 
+const isLink = (url: string) => /^https?:\/\//.test(url)
 const isImage = (url: string) => /^https?:\/\//.test(url) && /\.(png|jpe?g|svg|webp)(\?|$)/i.test(url)
 
 /**
@@ -43,7 +45,13 @@ export function DigitalPayment({ charges, check, simulate, onSettled }: {
             {c.state === "Pending" && c.checkoutUrl && (
               isImage(c.checkoutUrl)
                 ? <img src={c.checkoutUrl} alt={`Mã QR thanh toán đơn ${c.orderCode}`} className="mx-auto mt-3 w-full max-w-[240px] rounded-[8px]" />
-                : <p className="mt-2 break-all text-xs text-text-secondary">Mã giao dịch: {c.reference}</p>
+                : isLink(c.checkoutUrl)
+                  // A payment page (payOS): the customer scans this code with their phone and pays there.
+                  ? <div className="mt-3 flex flex-col items-center gap-2" data-testid="checkout-link">
+                      <QRCodeSVG value={c.checkoutUrl} size={180} marginSize={2} aria-label={`Mã QR mở trang thanh toán đơn ${c.orderCode}`} />
+                      <a href={c.checkoutUrl} target="_blank" rel="noreferrer" className="text-sm font-medium text-clay underline underline-offset-2">Mở trang thanh toán</a>
+                    </div>
+                  : <p className="mt-2 break-all text-xs text-text-secondary">Mã giao dịch: {c.reference}</p>
             )}
             {c.state === "Pending" && (
               <div className="mt-3 flex flex-wrap gap-2">

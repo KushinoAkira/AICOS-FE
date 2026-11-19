@@ -36,6 +36,8 @@ export const PAGE_ACCESS: Record<Page, Access> = {
   "guest-order-status": "public",
   "brand-menu": "public",
   "order-start": "public",
+  "pay-result": "public",
+  "zalopay-test": "authenticated",
 
   "account-settings": "authenticated",
   "staff-notifications": ["superAdmin", "brandAdmin", "branchManager", "barista", "cashier"],
@@ -63,12 +65,15 @@ export const PAGE_ACCESS: Record<Page, Access> = {
   "staff-orders": [...CASHIER, ...BARISTA],
   /** Published layout + live status; Brand Admin read-only with branch picker. */
   "floor-plan-view": [...CASHIER, ...BARISTA, ...BA],
+  /** Every employee of a branch reads their own payslips and sets the account their salary goes to. */
+  "my-payslips": [...CASHIER, ...BARISTA, ...BM],
 
   "manager-dashboard": BM,
   "manager-staff": BM,
   "branch-schedule": BM,
   "branch-shift-requests": BM,
-  "manager-payroll": BM,
+  /** The manager pays the staff; the brand admin reads it per branch. */
+  "manager-payroll": [...BM, ...BA],
   "manager-payroll-detail": BM,
   "branch-tables": BRAND_AND_BRANCH,
   "branch-tables-print": BRAND_AND_BRANCH,
@@ -94,6 +99,7 @@ export const PAGE_ACCESS: Record<Page, Access> = {
   "brand-subscription": BA,
   "brand-cancel-policy": BA,
   "brand-pay-rules": BA,
+  "brand-manager-payroll": BA,
   "brand-merchant": BA,
   "admin-logs": BA,
   "brand-reconciliation": BA,

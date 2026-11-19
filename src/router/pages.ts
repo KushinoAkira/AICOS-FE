@@ -39,6 +39,10 @@ export const PAGE_PATHS = {
   // Public menu of one brand: anyone browses, ordering needs a customer account
   "brand-menu": "/b/:brandSlug",
   "order-start": "/dat-mon",
+  /** Where an online gateway with its own page (payOS) sends the customer back: ?status=paid|pending|failed|invalid&paymentId&orderId. */
+  "pay-result": "/thanh-toan/ket-qua",
+  /** Test payment page for ZaloPay, only while the server runs with ZALOPAY_TEST_PAGE=true: ?ref=<transaction ref>. */
+  "zalopay-test": "/thanh-toan/zalopay-thu",
 
   // Customer (after shop pick → under slug)
   "customer-shops": "/shops",
@@ -63,9 +67,10 @@ export const PAGE_PATHS = {
   "cashier-shift": "/:tenantSlug/cashier/shift",
   /** Staff order lookup (Lam follow-up). */
   "staff-orders": "/:tenantSlug/cashier/orders",
-
   /** Published floor plan viewer (Cashier / Barista / Brand Admin read-only). */
   "floor-plan-view": "/:tenantSlug/floor-plan",
+  /** Every employee of a branch reads their own payslips. */
+  "my-payslips": "/:tenantSlug/staff/payslips",
 
   // Branch Manager
   "manager-dashboard": "/:tenantSlug/branch/dashboard",
@@ -100,6 +105,8 @@ export const PAGE_PATHS = {
   "brand-subscription": "/:tenantSlug/brand/subscription",
   "brand-cancel-policy": "/:tenantSlug/brand/cancel-policy",
   "brand-pay-rules": "/:tenantSlug/brand/pay-rules",
+  /** The brand admin pays the branch managers a monthly salary. */
+  "brand-manager-payroll": "/:tenantSlug/brand/manager-payroll",
   "brand-merchant": "/:tenantSlug/brand/merchant",
   "admin-logs": "/:tenantSlug/brand/audit",
   "brand-reconciliation": "/:tenantSlug/brand/reconciliation",

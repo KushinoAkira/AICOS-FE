@@ -92,7 +92,9 @@ const navMap: Record<StaffRole, NavGroup[]> = {
     ] },
     { label: "Thanh toán và gói", items: [
       item("brand-cancel-policy", "Chính sách hủy", "clock"),
-      item("brand-pay-rules", "Quy tắc thanh toán", "card"),
+      item("brand-manager-payroll", "Lương quản lý", "cash"),
+      item("manager-payroll", "Lương nhân viên", "cash"),
+      item("brand-pay-rules", "Cấu hình lương", "card"),
       item("brand-merchant", "Cổng thanh toán", "card"),
       item("brand-reconciliation", "Đối soát", "list"),
       item("brand-subscription", "Gói đăng ký", "card"),
@@ -116,6 +118,7 @@ const navMap: Record<StaffRole, NavGroup[]> = {
       item("branch-attendance", "Chấm công", "calendar"),
       item("manager-payroll", "Bảng lương", "cash"),
       item("branch-cash-closings", "Chốt két", "cash"),
+      item("my-payslips", "Phiếu lương của tôi", "list"),
     ] },
     { label: "Theo dõi", items: [
       item("manager-reports", "Báo cáo", "chart"),
@@ -127,6 +130,7 @@ const navMap: Record<StaffRole, NavGroup[]> = {
     item("floor-plan-view", "Sơ đồ tầng", "map"),
     item("cashier-shift", "Ca làm việc", "clock2"),
     item("staff-orders", "Đơn hàng", "list"),
+    item("my-payslips", "Phiếu lương", "cash"),
   ] }],
   cashier: [
     { items: [
@@ -138,6 +142,7 @@ const navMap: Record<StaffRole, NavGroup[]> = {
       item("cashier-serve", "Phục vụ và giao món", "cup"),
       item("cashier-shift", "Ca làm việc", "clock2"),
       item("staff-orders", "Đơn hàng", "list"),
+      item("my-payslips", "Phiếu lương", "cash"),
     ] },
   ],
 }
@@ -230,9 +235,11 @@ export default function InternalLayout({ activePage, navigate, children, headerR
 }
 
 function Sidebar({ role, activePage, navigate, onClose }: { role: StaffRole; activePage: string; navigate: (p: Page) => void; onClose?: () => void }) {
-  const { user, logout } = useAuth()
+  const { user, role: userRole, logout } = useAuth()
   const brand = useBrand()
   const { branches, branchId, canSwitch, select, branch, branchesLoading } = useActiveBranch()
+  // New notifications counted on the menu item that handles them, so staff see where to go without reading the whole bell list.
+  const badges = useNoticeBadges(userRole, activePage, !!userRole && userRole !== "customer")
   const closeRef = useRef<HTMLButtonElement>(null)
   const shop = role !== "superAdmin" && brand.kind === "ready" ? brand.brand : null
   const markColor = shop?.brandColor || "#C97B4A"
@@ -318,7 +325,12 @@ function Sidebar({ role, activePage, navigate, onClose }: { role: StaffRole; act
                       className={`flex w-full items-center gap-3 rounded-[10px] px-3 py-2 text-left text-sm font-medium transition-colors ${active ? "bg-white/15 text-bg-base" : "text-bg-base/70 hover:bg-white/5 hover:text-bg-base"}`}
                     >
                       <span className={active ? "" : "opacity-75"}>{it.icon}</span>
-                      {it.label}
+                      <span className="min-w-0 flex-1 truncate">{it.label}</span>
+                      {(badges.get(it.id) ?? 0) > 0 && (
+                        <span aria-label={`${badges.get(it.id)} thông báo mới`} className="flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-state-danger px-1.5 text-[11px] font-semibold leading-none text-white">
+                          {(badges.get(it.id) ?? 0) > 99 ? "99+" : badges.get(it.id)}
+                        </span>
+                      )}
                     </button>
                   </li>
                 )

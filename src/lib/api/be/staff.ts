@@ -148,7 +148,7 @@ async function loyaltyMe(): Promise<LoyaltyMe> {
       .filter((v) => str(v.status, "Active") === "Active" && !v.isExpired && !(str(v.expiresAtUtc) && Date.parse(str(v.expiresAtUtc)) < Date.now()))
       .map((v) => ({
         id: str(v.id), code: str(v.code), title: discountLabel(v), value: num(v.value), expiresAtUtc: str(v.expiresAtUtc),
-        label: ["Percent", "Percentage"].includes(str(v.discountType)) ? `Giảm ${num(v.value)}%` : `Giảm ${new Intl.NumberFormat("vi-VN").format(num(v.value))} đ`,
+        label: discountLabel(v),
         minOrder: num(v.minOrderAmount),
       })),
     history: recs(rec(m.history).items).map((h) => ({ id: str(h.id), delta: num(h.points), reason: str(h.note) || str(h.type), atUtc: str(h.createdAtUtc) })),

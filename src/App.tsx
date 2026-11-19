@@ -31,6 +31,9 @@ const RegisterBrand = lazy(() => import("./pages/public/RegisterBrand"))
 const CustomerBrands = lazy(() => import("./pages/customer/Brands"))
 const BrandMenu = lazy(() => import("./pages/public/BrandMenu"))
 const OrderStart = lazy(() => import("./pages/public/OrderStart"))
+const PayResult = lazy(() => import("./pages/public/PayResult"))
+const ZaloPayTest = lazy(() => import("./pages/public/ZaloPayTest"))
+const MyPayslips = lazy(() => import("./pages/staff/Payslips"))
 const Kiosk = lazy(() => import("./pages/kiosk/Kiosk"))
 const ForgotPassword = lazy(() => import("./pages/auth/ForgotPassword"))
 const ResetPassword = lazy(() => import("./pages/auth/ResetPassword"))
@@ -79,6 +82,7 @@ const ManagerReports = lazy(() => import("./pages/manager/Reports"))
 const ManagerFeedback = lazy(() => import("./pages/manager/Feedback"))
 const ManagerEmployees = lazy(() => import("./pages/manager/Employees"))
 const ManagerPayroll = lazy(() => import("./pages/manager/Payroll"))
+const ManagerSalaries = lazy(() => import("./pages/brand/ManagerSalaries"))
 const ManagerPayrollDetail = lazy(() => import("./pages/manager/PayrollDetail"))
 const FloorPlanEditor = lazy(() => import("./pages/manager/FloorPlanEditor"))
 const FloorPlanViewer = lazy(() => import("./pages/staff/FloorPlanViewer"))
@@ -191,8 +195,11 @@ export default function App() {
 
     "brand-menu": <BrandMenu navigate={navigate} />,
     "order-start": <OrderStart navigate={navigate} />,
+    "pay-result": <PayResult navigate={navigate} />,
+    "zalopay-test": <ZaloPayTest navigate={navigate} />,
     "customer-shops": <CustomerShops navigate={navigate} />,
     "customer-brands": <CustomerBrands navigate={navigate} />,
+    "my-payslips": <MyPayslips navigate={navigate} />,
     "customer-menu": <CustomerMenu navigate={navigate} />,
     "customer-tracking": <CustomerOrderTracking navigate={navigate} />,
     "customer-loyalty": <CustomerLoyalty navigate={navigate} />,
@@ -217,6 +224,7 @@ export default function App() {
     "branch-schedule": <BranchSchedule navigate={navigate} />,
     "branch-shift-requests": <ShiftRequests navigate={navigate} />,
     "manager-payroll": <ManagerPayroll navigate={navigate} />,
+    "brand-manager-payroll": <ManagerSalaries navigate={navigate} />,
     "manager-payroll-detail": <ManagerPayrollDetail navigate={navigate} />,
     "branch-tables": <BranchTables navigate={navigate} />,
     "branch-tables-print": <TablesPrint />,
